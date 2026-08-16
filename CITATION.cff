@@ -8,7 +8,10 @@ authors:
   - family-names: Pingale
     given-names: Shivam Mangesh
     email: shivampingaledev@proton.me
-    # also: shivampingaledev@gmail.com
+    repository-code: https://github.com/ShivamPingaleDev/Veracrypt_port
+  - family-names: Pingale
+    given-names: Shivam Mangesh
+    email: shivampingaledev@gmail.com
     repository-code: https://github.com/ShivamPingaleDev/Veracrypt_port
 license: Apache-2.0
 license-url: https://github.com/ShivamPingaleDev/Veracrypt_port/blob/master/LICENSE

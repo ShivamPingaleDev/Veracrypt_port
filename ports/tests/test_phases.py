@@ -32,6 +32,13 @@ class Phase1HonestyFreezeTests(unittest.TestCase):
         self.assertIn("no key escrow", sec.lower())
         self.assertIn("Do not make the tree private again", sec)
         self.assertIn("debug-signed previews", sec)
+        cite = read("CITATION.cff")
+        self.assertIn("email: shivampingaledev@proton.me", cite)
+        self.assertIn("email: shivampingaledev@gmail.com", cite)
+        fdroid = read("ports/fdroiddata/metadata/dev.shivampingale.vcport.yml")
+        self.assertIn("AuthorName: Shivam Mangesh Pingale", fdroid)
+        self.assertIn("shivampingaledev@proton.me", fdroid)
+        self.assertIn("shivampingaledev@gmail.com", fdroid)
 
     def test_no_github_release_apk_job(self) -> None:
         wf = read(".github/workflows/vcport.yml")
