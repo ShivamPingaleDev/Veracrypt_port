@@ -52,11 +52,9 @@ android {
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'true'
             buildConfigField 'boolean', 'ENABLE_SKINS', 'false'
         }
-        // Separate package from production. Same crypto; four Looks + Desktop switcher.
+        // Same applicationId as production. Looks APK on GitHub Releases, not a new package.
         styled {
             dimension 'distribution'
-            applicationIdSuffix '.looks'
-            versionNameSuffix '-looks'
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
             buildConfigField 'boolean', 'ENABLE_SKINS', 'true'
         }

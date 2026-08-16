@@ -23,7 +23,7 @@ Optional GitHub flavor (user-tapped update check only):
 ./gradlew :app:assembleGithubRelease
 ```
 
-Looks package — **not** the store app. Different `applicationId` (`dev.shivampingale.vcport.looks`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installs beside the production APK:
+Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installing it replaces the Desktop-only APK. GitHub Release asset, not F-Droid:
 
 ```bash
 ./gradlew :app:assembleStyledRelease

@@ -1,7 +1,7 @@
 package dev.shivampingale.vcport
 
 /**
- * Looks package: same crypto as F-Droid, no network. Not the store build.
+ * Looks APK: same applicationId as production, no network. Not a separate package.
  * Updates are a new APK, not a download inside the app.
  */
 object UpdateChecker {

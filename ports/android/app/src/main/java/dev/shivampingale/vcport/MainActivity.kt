@@ -924,7 +924,7 @@ class MainActivity : AppCompatActivity() {
                                             VcCard {
                                                 Text("Looks (this phone)", style = MaterialTheme.typography.titleMedium)
                                                 Text(
-                                                    "This APK is the Looks package, not the store build. Saved on this phone only. Desktop plus Cyberpunk, Matrix, MAGI, original Signal. Inspired drawing, not affiliated.",
+                                                    "This APK includes Looks (Desktop plus Cyberpunk, Matrix, MAGI, original Signal). Same app id as the Desktop-only APK \u2014 installing this one replaces it. Inspired drawing, not affiliated.",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = colors.onSurfaceVariant
                                                 )

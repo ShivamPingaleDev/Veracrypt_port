@@ -246,7 +246,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("AndroidJUnitRunner", gradle)
         self.assertIn("ENABLE_UPDATE_CHECK", gradle)
         self.assertIn("ENABLE_SKINS", gradle)
-        self.assertIn("applicationIdSuffix '.looks'", gradle)
+        self.assertNotIn("applicationIdSuffix", gradle)
         self.assertIn("vcport-api35", script)
         self.assertIn("connectedFdroidDebugAndroidTest", script)
         self.assertIn("connectedStyledDebugAndroidTest", script)

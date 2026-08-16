@@ -33,7 +33,7 @@ Recipe to copy into [fdroiddata](https://gitlab.com/fdroid/fdroiddata): `fdroidd
 
 Do not add a second signing key later if you want reproducible builds; decide that on the first published APK. GitHub Actions APKs are **debug-signed previews**. F-Droid (or `VC_PORT_RELEASE_STORE_FILE`) must sign production builds.
 
-GitHub also builds a separate **VC Port Looks** APK (`assembleStyledRelease`, application id `dev.shivampingale.vcport.looks`). That is not the F-Droid app. F-Droid must keep assembling the `fdroid` flavor only.
+GitHub also builds a **Looks** APK (`assembleStyledRelease`) with Desktop plus Cyberpunk / Matrix / MAGI / Signal. Same `applicationId` as the store app (`dev.shivampingale.vcport`) — not a separate package. F-Droid must keep assembling the `fdroid` flavor only.
 
 Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com. See [SECURITY.md](../SECURITY.md).
 

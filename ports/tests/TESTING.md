@@ -80,7 +80,8 @@ rejected, hidden-volume write protection, benchmark. Compose UI coverage is
 visible, Stay offline, Encrypt file / Decrypt wrap, Generate strong password;
 does not tap Panic wipe or Check for updates; writes GitHub shots under
 app files for `run_device_sim.sh` to pull into `ports/docs/screenshots/`).
-Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`);
+Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`)
+with the same `applicationId` as production;
 the F-Droid/GitHub packages stay Desktop-only.
 
 ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-march=armv8-a+crypto`.

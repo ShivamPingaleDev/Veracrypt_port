@@ -110,7 +110,7 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("x86_64", gradle)
         self.assertIn("ENABLE_UPDATE_CHECK", gradle)
         self.assertIn("ENABLE_SKINS", gradle)
-        self.assertIn("applicationIdSuffix '.looks'", gradle)
+        self.assertNotIn("applicationIdSuffix", gradle)
         self.assertIn("UPSTREAM_GIT", gradle)
         self.assertIn("UPSTREAM_RELEASES", gradle)
         self.assertIn("minifyEnabled false", gradle)
@@ -373,7 +373,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("android.permission.INTERNET", styled)
         self.assertIn('tools:node="remove"', styled)
         gradle = read("ports/android/app/build.gradle")
-        self.assertIn("applicationIdSuffix '.looks'", gradle)
+        self.assertNotIn("applicationIdSuffix", gradle)
         self.assertIn("buildConfigField 'boolean', 'ENABLE_SKINS', 'true'", gradle)
 
     def test_github_flavor_has_opt_in_internet_only(self) -> None:
