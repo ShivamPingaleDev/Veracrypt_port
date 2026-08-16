@@ -47,7 +47,7 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 {
 	if (error)
 		*error = VC_OK;
-	if (!options || !options->path || !options->password)
+	if (!options || !options->path)
 	{
 		if (error)
 			*error = VC_ERR_ARGUMENT;
@@ -56,9 +56,12 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 
 	try
 	{
+		const char *pw = options->password ? options->password : "";
+		size_t pwLen = options->password_len;
+		if (!pwLen && options->password)
+			pwLen = strlen (options->password);
 		shared_ptr <VolumePassword> password (new VolumePassword (
-			reinterpret_cast <const uint8 *> (options->password),
-			options->password_len ? options->password_len : strlen (options->password)));
+			reinterpret_cast <const uint8 *> (pw), pwLen));
 
 		shared_ptr <Volume> volume (new Volume);
 		if (!EncryptionThreadPool::IsRunning ())

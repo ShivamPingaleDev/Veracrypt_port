@@ -1,0 +1,1 @@
+Unlock with a mix of biometrics, password, keyfiles, and PIM. F-Droid build has no network. Wrap/unwrap single files. Not named VeraCrypt.

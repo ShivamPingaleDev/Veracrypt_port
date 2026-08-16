@@ -8,19 +8,35 @@ struct VaultEntry: Identifiable {
 }
 
 enum VcMobileBridge {
-    static func open(path: String, password: String, pim: Int32, error: UnsafeMutablePointer<Int32>) -> OpaquePointer? {
+    static func open(path: String, password: String, pim: Int32, keyfiles: [String], error: UnsafeMutablePointer<Int32>) -> OpaquePointer? {
         path.withCString { cPath in
             password.withCString { cPassword in
-                var options = VcOpenOptions()
-                options.path = cPath
-                options.password = cPassword
-                options.password_len = password.utf8.count
-                options.pim = pim
-                options.use_backup_header = 0
-                options.keyfiles = nil
-                options.keyfile_count = 0
-                return vc_open(&options, error)
+                withCStringArray(keyfiles) { pointer, count in
+                    var options = VcOpenOptions()
+                    options.path = cPath
+                    options.password = cPassword
+                    options.password_len = password.utf8.count
+                    options.pim = pim
+                    options.use_backup_header = 0
+                    options.keyfiles = pointer
+                    options.keyfile_count = count
+                    return vc_open(&options, error)
+                }
             }
+        }
+    }
+
+    private static func withCStringArray<R>(_ strings: [String], _ body: (UnsafePointer<UnsafePointer<CChar>?>?, Int) -> R) -> R {
+        if strings.isEmpty {
+            return body(nil, 0)
+        }
+        var heap = strings.map { strdup($0) }
+        defer { heap.forEach { free($0) } }
+        var ptrs: [UnsafePointer<CChar>?] = heap.map { ptr in
+            ptr.map { UnsafePointer($0) }
+        }
+        return ptrs.withUnsafeBufferPointer { buf in
+            body(buf.baseAddress, strings.count)
         }
     }
 

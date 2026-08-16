@@ -5,7 +5,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object UpdateChecker {
-    const val LOCAL_VERSION = "0.1.0"
+    const val LOCAL_VERSION = "0.2.0"
     private const val MANIFEST =
         "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json"
 
@@ -22,7 +22,7 @@ object UpdateChecker {
             connectTimeout = 15000
             readTimeout = 15000
             instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "VCPort-OfflineUpdate/0.1")
+            setRequestProperty("User-Agent", "VCPort-OfflineUpdate/0.2")
             setRequestProperty("Connection", "close")
         }
         try {

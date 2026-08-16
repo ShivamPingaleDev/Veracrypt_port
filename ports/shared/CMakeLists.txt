@@ -21,13 +21,18 @@ endif()
 
 add_definitions(
 	-DTC_UNIX
-	-DTC_LINUX
-	-DTC_ANDROID
 	-D_FILE_OFFSET_BITS=64
 	-D_LARGEFILE_SOURCE
 	-DARGON2_NO_THREADS
 	-DCRYPTOPP_DISABLE_X86ASM
 )
+if(ANDROID)
+	add_definitions(-DTC_LINUX -DTC_ANDROID)
+elseif(APPLE)
+	add_definitions(-DTC_MACOSX)
+else()
+	add_definitions(-DTC_LINUX)
+endif()
 
 include_directories(
 	${VC_SRC}
@@ -132,7 +137,9 @@ add_library(vc_mobile STATIC
 )
 
 target_compile_options(vc_mobile PRIVATE -fPIC -fno-strict-aliasing)
-target_link_libraries(vc_mobile PRIVATE dl)
+if(NOT APPLE)
+	target_link_libraries(vc_mobile PRIVATE dl)
+endif()
 
 if(ANDROID)
 	add_library(vcport SHARED android_jni.cpp)

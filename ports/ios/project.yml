@@ -1,0 +1,49 @@
+name: VCPort
+options:
+  bundleIdPrefix: dev.shivampingale
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: dev.shivampingale.vcport
+    PRODUCT_NAME: VCPort
+    MARKETING_VERSION: 0.2.0
+    CURRENT_PROJECT_VERSION: 2
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    INFOPLIST_FILE: VCPort/Info.plist
+    GENERATE_INFOPLIST_FILE: false
+    SWIFT_OBJC_BRIDGING_HEADER: VCPort/VCPort-Bridging-Header.h
+    CODE_SIGN_ENTITLEMENTS: VCPort/VCPort.entitlements
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: false
+    CLANG_ENABLE_MODULES: YES
+targets:
+  VCPort:
+    type: application
+    platform: iOS
+    sources:
+      - path: VCPort
+        excludes:
+          - "**/*.md"
+    settings:
+      base:
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/../shared
+        LIBRARY_SEARCH_PATHS:
+          - $(SRCROOT)/build/native
+        OTHER_LDFLAGS:
+          - -lvc_mobile
+          - -lc++
+    preBuildScripts:
+      - name: Build libvc_mobile
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          exec "${SRCROOT}/build-native.sh"

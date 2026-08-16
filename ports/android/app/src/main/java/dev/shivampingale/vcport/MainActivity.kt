@@ -16,8 +16,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -58,7 +58,11 @@ class MainActivity : AppCompatActivity() {
                     var containerUri by containerUriState
                     var password by remember { mutableStateOf("") }
                     var pim by remember { mutableStateOf("0") }
+                    var useTextPassword by remember { mutableStateOf(true) }
+                    var useBiometric by remember { mutableStateOf(false) }
                     var rememberBio by remember { mutableStateOf(false) }
+                    var bioSecret by remember { mutableStateOf<ByteArray?>(null) }
+                    var keyfileUris by remember { mutableStateOf(listOf<Uri>()) }
                     var status by statusState
                     var entries by remember { mutableStateOf(listOf<VaultEntry>()) }
                     var handle by remember { mutableStateOf(0L) }
@@ -82,15 +86,41 @@ class MainActivity : AppCompatActivity() {
                             ShareHelper.shareUris(this@MainActivity, uris, "Share encrypted file")
                         }
                     }
+                    val keyfilePicker = rememberLauncherForActivityResult(
+                        ActivityResultContracts.OpenMultipleDocuments()
+                    ) { uris: List<Uri> ->
+                        uris.forEach { ShareHelper.persistRead(this@MainActivity, it) }
+                        keyfileUris = (keyfileUris + uris).distinct()
+                    }
+                    val importBioPicker = rememberLauncherForActivityResult(
+                        ActivityResultContracts.OpenDocument()
+                    ) { uri: Uri? ->
+                        if (uri != null) {
+                            ShareHelper.persistRead(this@MainActivity, uri)
+                            val bytes = KeyfileIo.readLimited(this@MainActivity, uri)
+                            if (bytes == null || bytes.isEmpty()) {
+                                status = "Could not import keyfile (empty or larger than 1 MiB)."
+                            } else {
+                                bioSecret = bytes
+                                useBiometric = true
+                                status = "Imported ${bytes.size} bytes as the biometric password (VeraCrypt keyfile)."
+                            }
+                        }
+                    }
                     val wrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                         if (uri != null) wrapSelectedFile(uri, wrapPassword) { status = it }
                     }
                     val unwrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                         if (uri != null) unwrapSelectedFile(uri, wrapPassword) { status = it }
                     }
-                    Column(Modifier.padding(16.dp)) {
+                    Column(Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
                         Text("VC Port", style = MaterialTheme.typography.headlineMedium)
-                        Text("VeraCrypt-compatible Android client. Offline until you check for updates.")
+                        Text(
+                            if (BuildConfig.ENABLE_UPDATE_CHECK)
+                                "VeraCrypt-compatible Android client. Offline until you check for updates."
+                            else
+                                "VeraCrypt-compatible Android client. F-Droid build: no network."
+                        )
                         Spacer(Modifier.height(12.dp))
                         incoming?.let { file ->
                             Text("Received ${file.name} from another app.")
@@ -169,60 +199,171 @@ class MainActivity : AppCompatActivity() {
                             OutlinedButton(onClick = { unwrapPicker.launch(arrayOf("*/*")) }) { Text("Decrypt wrap") }
                         }
                         Spacer(Modifier.height(8.dp))
-                        Button(onClick = {
-                            status = "Checking for updates (one HTTPS request)..."
-                            Thread {
-                                try {
-                                    val result = UpdateChecker.check()
-                                    runOnUiThread {
-                                        status = if (result.newer)
-                                            "Update ${result.remoteVersion} available. ${result.notes} Offline again."
-                                        else
-                                            "Already up to date (${UpdateChecker.LOCAL_VERSION}). Offline again."
+                        if (BuildConfig.ENABLE_UPDATE_CHECK) {
+                            Button(onClick = {
+                                status = "Checking for updates (one HTTPS request)..."
+                                Thread {
+                                    try {
+                                        val result = UpdateChecker.check()
+                                        runOnUiThread {
+                                            status = if (result.newer)
+                                                "Update ${result.remoteVersion} available. ${result.notes} Offline again."
+                                            else
+                                                "Already up to date (${UpdateChecker.LOCAL_VERSION}). Offline again."
+                                        }
+                                    } catch (e: Exception) {
+                                        runOnUiThread { status = "Update check failed: ${e.message}. Offline again." }
                                     }
-                                } catch (e: Exception) {
-                                    runOnUiThread { status = "Update check failed: ${e.message}. Offline again." }
-                                }
-                            }.start()
-                        }) { Text("Check for updates") }
+                                }.start()
+                            }) { Text("Check for updates") }
+                        }
                         Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Choose container") }
                         OutlinedTextField(path, { path = it }, label = { Text("Container path") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(password, { password = it }, label = { Text("Password") }, modifier = Modifier.fillMaxWidth())
-                        OutlinedTextField(pim, { pim = it }, label = { Text("PIM") }, modifier = Modifier.fillMaxWidth())
+                        Text("Unlock factors", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Combine any of: biometric password, text password, keyfiles, and PIM. Same mix VeraCrypt uses on a computer.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(useTextPassword, { useTextPassword = it })
+                            Text("Text password")
+                        }
+                        if (useTextPassword) {
+                            OutlinedTextField(
+                                password,
+                                { password = it },
+                                label = { Text("Password") },
+                                modifier = Modifier.fillMaxWidth(),
+                                visualTransformation = PasswordVisualTransformation()
+                            )
+                        }
+                        OutlinedTextField(
+                            pim,
+                            { pim = it },
+                            label = { Text("PIM (0 = default)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
+                        keyfileUris.forEach { uri ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    ShareHelper.displayName(this@MainActivity, uri) ?: uri.toString(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedButton(onClick = { keyfileUris = keyfileUris.filterNot { it == uri } }) {
+                                    Text("Remove")
+                                }
+                            }
+                        }
+                        OutlinedButton(onClick = { keyfilePicker.launch(arrayOf("*/*")) }) { Text("Add keyfiles") }
                         if (vault.isAvailable()) {
-                            Button(onClick = {
-                                if (path.isNotEmpty()) {
-                                    vault.load(this@MainActivity, path) { stored ->
-                                        if (stored != null) {
-                                            password = stored.first
-                                            pim = stored.second.toString()
-                                            status = "Password loaded with biometrics."
-                                        } else {
-                                            status = "Biometric unlock cancelled."
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(useBiometric, {
+                                    useBiometric = it
+                                    if (!it) bioSecret = null
+                                })
+                                Text("Biometric as password")
+                            }
+                            Text(
+                                "Stored in the Android Keystore. Mixed as a VeraCrypt keyfile, so you can still add a text password, more keyfiles, and PIM.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                bioSecret?.let { "Biometric password ready (${it.size} bytes)." }
+                                    ?: if (path.isNotEmpty() && vault.hasFactors(path))
+                                        "A saved factor set exists. Unlock with biometrics to load it."
+                                    else
+                                        "Create a random biometric password, or import a keyfile you already use.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Row {
+                                OutlinedButton(onClick = {
+                                    if (path.isEmpty()) {
+                                        status = "Choose a container first."
+                                    } else {
+                                        val secret = FactorCodec.randomBiometricKey()
+                                        bioSecret = secret
+                                        useBiometric = true
+                                        vault.store(
+                                            this@MainActivity,
+                                            path,
+                                            FactorBundle(
+                                                pim = pim.toIntOrNull() ?: 0,
+                                                password = if (useTextPassword) password else "",
+                                                biometricKey = secret,
+                                                keyfileUris = keyfileUris.map { it.toString() }
+                                            )
+                                        ) { ok ->
+                                            status = if (ok)
+                                                "Created a 64-byte biometric password. Export it and add that file as a keyfile when you create the volume."
+                                            else
+                                                "Could not save the biometric password."
                                         }
                                     }
-                                }
-                            }) { Text("Unlock with biometrics") }
+                                }) { Text("Create") }
+                                Spacer(Modifier.padding(8.dp))
+                                OutlinedButton(onClick = { importBioPicker.launch(arrayOf("*/*")) }) { Text("Import keyfile") }
+                            }
+                            Row {
+                                OutlinedButton(onClick = {
+                                    val secret = bioSecret
+                                    if (secret == null) {
+                                        status = "Create or import a biometric password first."
+                                    } else {
+                                        val file = KeyfileIo.writeSecret(this@MainActivity, secret)
+                                        ShareHelper.shareFiles(this@MainActivity, listOf(file), "Export biometric keyfile")
+                                        status = "Share this keyfile into VeraCrypt on a computer (Add keyfile). Delete it after."
+                                    }
+                                }) { Text("Export keyfile") }
+                                Spacer(Modifier.padding(8.dp))
+                                OutlinedButton(onClick = {
+                                    if (path.isEmpty()) {
+                                        status = "Choose a container first."
+                                    } else {
+                                        vault.load(this@MainActivity, path) { stored ->
+                                            if (stored == null) {
+                                                status = "Biometric unlock cancelled."
+                                            } else {
+                                                password = stored.password
+                                                pim = stored.pim.toString()
+                                                useTextPassword = stored.password.isNotEmpty()
+                                                useBiometric = stored.hasBiometric()
+                                                bioSecret = stored.biometricKey
+                                                keyfileUris = stored.keyfileUris.mapNotNull { Uri.parse(it) }
+                                                status = "Loaded factors with biometrics. Add or remove anything, then Open volume."
+                                            }
+                                        }
+                                    }
+                                }) { Text("Unlock with biometrics") }
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(rememberBio, { rememberBio = it })
-                                Text("Remember password with biometrics")
+                                Text("Remember this combination")
+                            }
+                            if (path.isNotEmpty() && vault.hasFactors(path)) {
+                                OutlinedButton(onClick = {
+                                    vault.clear(path)
+                                    status = "Forgot saved factors for this container."
+                                }) { Text("Forget saved factors") }
                             }
                         }
                         Button(onClick = {
-                            if (handle > 0) NativeBridge.closeVolume(handle)
-                            val result = NativeBridge.openVolume(path, password, pim.toIntOrNull() ?: 0, false)
-                            if (result <= 0) {
-                                handle = 0
-                                status = "Open failed (code $result). Wrong password or unsupported format."
-                                entries = emptyList()
-                            } else {
-                                handle = result
-                                status = "Opened. Size ${NativeBridge.volumeSize(handle)} bytes. Tap a file to share the decrypted copy."
-                                entries = NativeBridge.listRoot(handle).mapNotNull { parseEntry(it) }
-                                if (rememberBio) {
-                                    vault.store(this@MainActivity, path, password, pim.toIntOrNull() ?: 0) {}
-                                }
-                            }
+                            openVolumeWithFactors(
+                                vault = vault,
+                                path = path,
+                                password = password,
+                                pimText = pim,
+                                useTextPassword = useTextPassword,
+                                useBiometric = useBiometric,
+                                bioSecret = bioSecret,
+                                keyfileUris = keyfileUris,
+                                rememberBio = rememberBio,
+                                currentHandle = handle,
+                                onHandle = { handle = it },
+                                onEntries = { entries = it },
+                                onStatus = { status = it }
+                            )
                         }) { Text("Open volume") }
                         if (containerUri != null || path.isNotEmpty()) {
                             OutlinedButton(onClick = {
@@ -231,29 +372,47 @@ class MainActivity : AppCompatActivity() {
                         }
                         Spacer(Modifier.height(8.dp))
                         Text(status)
-                        LazyColumn {
-                            items(entries, key = { it.name }) { entry ->
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable(enabled = !entry.isDir) {
-                                            shareVaultFile(handle, entry) { status = it }
-                                        }
-                                        .padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(entry.name, style = MaterialTheme.typography.bodyLarge)
-                                        Text(
-                                            if (entry.isDir) "Folder" else formatSize(entry.size),
-                                            style = MaterialTheme.typography.bodySmall
-                                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text("About / licenses", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.clickable {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://www.truecrypt.org/")))
+                            }
+                        )
+                        Text(
+                            "VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            if (BuildConfig.ENABLE_UPDATE_CHECK)
+                                "No ads, analytics, or crash reporters. Passwords stay on this device. GitHub flavor may make one HTTPS request if you tap Check for updates."
+                            else
+                                "No ads, analytics, crash reporters, or INTERNET permission. Passwords stay on this device. Updates come from F-Droid.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        entries.forEach { entry ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = !entry.isDir) {
+                                        shareVaultFile(handle, entry) { status = it }
                                     }
-                                    if (!entry.isDir) {
-                                        OutlinedButton(onClick = {
-                                            shareVaultFile(handle, entry) { status = it }
-                                        }) { Text("Share decrypted") }
-                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(entry.name, style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        if (entry.isDir) "Folder" else formatSize(entry.size),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                if (!entry.isDir) {
+                                    OutlinedButton(onClick = {
+                                        shareVaultFile(handle, entry) { status = it }
+                                    }) { Text("Share decrypted") }
                                 }
                             }
                         }
@@ -267,6 +426,88 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleIncoming(intent)
+    }
+
+    private fun openVolumeWithFactors(
+        vault: BiometricVault,
+        path: String,
+        password: String,
+        pimText: String,
+        useTextPassword: Boolean,
+        useBiometric: Boolean,
+        bioSecret: ByteArray?,
+        keyfileUris: List<Uri>,
+        rememberBio: Boolean,
+        currentHandle: Long,
+        onHandle: (Long) -> Unit,
+        onEntries: (List<VaultEntry>) -> Unit,
+        onStatus: (String) -> Unit
+    ) {
+        if (path.isEmpty()) {
+            onStatus("Choose a container first.")
+            return
+        }
+        val text = if (useTextPassword) password else ""
+        if (text.isEmpty() && !useBiometric && keyfileUris.isEmpty()) {
+            onStatus("Choose at least one factor: text password, biometric password, or a keyfile.")
+            return
+        }
+        if (useBiometric && (bioSecret == null || bioSecret.isEmpty())) {
+            onStatus("Create or import a biometric password, or tap Unlock with biometrics to load a saved one.")
+            return
+        }
+        onStatus("Opening…")
+        Thread {
+            val temps = mutableListOf<File>()
+            try {
+                if (useBiometric && bioSecret != null) {
+                    temps.add(KeyfileIo.writeSecret(this, bioSecret))
+                }
+                for (uri in keyfileUris) {
+                    val copied = KeyfileIo.copyUri(this, uri)
+                    if (copied == null) {
+                        runOnUiThread { onStatus("Could not read a keyfile.") }
+                        return@Thread
+                    }
+                    temps.add(copied)
+                }
+                if (currentHandle > 0) NativeBridge.closeVolume(currentHandle)
+                val result = NativeBridge.openVolume(
+                    path,
+                    text,
+                    pimText.toIntOrNull() ?: 0,
+                    false,
+                    temps.map { it.absolutePath }.toTypedArray()
+                )
+                runOnUiThread {
+                    if (result <= 0) {
+                        onHandle(0)
+                        onEntries(emptyList())
+                        onStatus("Open failed (code $result). Wrong password, PIM, or keyfile mix.")
+                    } else {
+                        onHandle(result)
+                        onEntries(NativeBridge.listRoot(result).mapNotNull { parseEntry(it) })
+                        onStatus("Opened. Size ${NativeBridge.volumeSize(result)} bytes. Tap a file to share the decrypted copy.")
+                        if (rememberBio && vault.isAvailable()) {
+                            vault.store(
+                                this,
+                                path,
+                                FactorBundle(
+                                    pim = pimText.toIntOrNull() ?: 0,
+                                    password = text,
+                                    biometricKey = if (useBiometric) bioSecret else null,
+                                    keyfileUris = keyfileUris.map { it.toString() }
+                                )
+                            ) {}
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { onStatus("Open failed.") }
+            } finally {
+                temps.forEach { KeyfileIo.wipe(it) }
+            }
+        }.start()
     }
 
     private fun handleIncoming(intent: Intent?) {
@@ -346,7 +587,7 @@ class MainActivity : AppCompatActivity() {
                     return@Thread
                 }
                 val rc = NativeBridge.wrapFile(plain.absolutePath, wrapped.absolutePath, password, name)
-                plain.delete()
+                KeyfileIo.wipe(plain)
                 runOnUiThread {
                     if (rc != 0 || !wrapped.exists()) {
                         onStatus("Wrap failed (code $rc).")
@@ -356,7 +597,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) {
-                plain.delete()
+                KeyfileIo.wipe(plain)
                 runOnUiThread { onStatus("Wrap failed.") }
             }
         }.start()

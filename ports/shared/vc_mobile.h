@@ -32,7 +32,7 @@ enum VcError
 typedef struct VcOpenOptions
 {
 	const char *path;
-	const char *password;
+	const char *password; /* empty allowed when keyfiles are used */
 	size_t password_len;
 	int pim;
 	int use_backup_header;

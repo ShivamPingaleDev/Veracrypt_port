@@ -7,6 +7,10 @@ local.properties
 xcuserdata/
 DerivedData/
 *.xcuserstate
-veracrypt/
+*.xcodeproj/
+*.xcworkspace/
+veracrypt-local/
 *.apk
 *.aab
+*.ipa
+*.dSYM/

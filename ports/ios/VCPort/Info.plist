@@ -6,8 +6,16 @@
 	<string>VC Port</string>
 	<key>CFBundleIdentifier</key>
 	<string>dev.shivampingale.vcport</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.2.0</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID unlocks stored volume passwords on this device.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
+	<key>VCPortEnableUpdateCheck</key>
+	<false/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>UIFileSharingEnabled</key>

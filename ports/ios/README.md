@@ -1,22 +1,47 @@
 # VC Port for iOS
 
-The iOS client is a SwiftUI app (`VCPort`) that talks to the shared VeraCrypt volume core in `ports/shared`.
+SwiftUI client (`VCPort`) that talks to the shared VeraCrypt volume core in `shared/`.
 
-## Create the Xcode project
+There is **no F-Droid for iPhone**. The FOSS path is: build from source, then sideload with AltStore / SideStore, or submit to the App Store if you want. Details: [FOSS.md](../FOSS.md).
 
-1. Open Xcode and create an iOS App named `VCPort` with SwiftUI, bundle id `dev.shivampingale.vcport`.
-2. Add every file under `ports/ios/VCPort/` to the target.
-3. Set the Objective-C bridging header to `VCPort/VCPort-Bridging-Header.h`.
-4. Add a CMake (External Build) target, or add `ports/shared` as an Xcode CMake package:
-   ```
-   cmake -G Xcode -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 ../../shared
-   ```
-   Link `libvc_mobile.a` into the app.
-5. Merge keys from `VCPort/Info.plist` (Face ID, document types so other apps can Open In / share a container into VC Port).
-6. Enable Face ID / Keychain Sharing for the app target.
+## Build from source
+
+1. Point `VC_SRC` at a Veracrypt_port `src` tree, or clone it next to this repo as `veracrypt/`.
+2. Install [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+3. From this directory:
+
+```bash
+./build-native.sh
+xcodegen generate
+open VCPort.xcodeproj
+```
+
+4. Sign with your Apple ID (free 7-day cert) or a Developer account.
+5. The target already includes `PrivacyInfo.xcprivacy`, Face ID usage text, Keychain entitlements, and `ITSAppUsesNonExemptEncryption=true`.
+
+`VCPortEnableUpdateCheck` in `Info.plist` is **false**. The app does not use the network. Set it to true only for a GitHub/App Store build that should offer a manual update check.
+
+## AltStore / SideStore
+
+`altstore/source.json` is a source stub. After you have a signed IPA, add a `versions` entry with `downloadURL`, `size`, `version`, `buildVersion`, and `sha256`, then host the JSON (GitHub raw works). Users add that URL as a source in AltStore.
+
+## App Store (optional)
+
+Not required for FOSS. If you submit:
+
+- Privacy Nutrition Label: data not collected
+- Complete Apple’s encryption export questions (volume AES is not the HTTPS exemption; you likely need an ERN)
+- Review notes must include the public source URL (TrueCrypt license)
+- Do not use the VeraCrypt name
+
+## Features
+
+Unlock with any combination of **biometric password** (Face ID / Touch ID), **text password**, **keyfiles**, and **PIM**. Create or import the biometric secret and export it as a keyfile when you create the volume in VeraCrypt.
 
 Tap **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no password). **Wrap a single file** encrypts one file to `.vcpw`; the password generator never writes history. Tap **Share decrypted** on a listed file to extract it from an opened FAT volume and present the system share sheet.
 
 The File Provider extension should use the same `vc_mobile` library so Files.app can browse an unlocked container. The first release lists the FAT root from the in-app browser.
 
 License: this derived work is not named VeraCrypt. See `License.txt` in the repository root.
+
+Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/

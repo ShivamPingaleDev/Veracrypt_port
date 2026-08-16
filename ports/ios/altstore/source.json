@@ -1,0 +1,34 @@
+{
+  "name": "VC Port",
+  "subtitle": "VeraCrypt-compatible volumes on iPhone, built from source",
+  "description": "Sideload VC Port. The app stays offline, uses no trackers, and is not named VeraCrypt. Portions are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
+  "website": "https://github.com/ShivamPingaleDev/VCPort",
+  "tintColor": "#1A2332",
+  "nsfw": false,
+  "featuredApps": [
+    "dev.shivampingale.vcport"
+  ],
+  "apps": [
+    {
+      "name": "VC Port",
+      "bundleIdentifier": "dev.shivampingale.vcport",
+      "developerName": "Shivam Pingale",
+      "subtitle": "Open VeraCrypt-compatible containers offline",
+      "localizedDescription": "VC Port opens VeraCrypt-compatible volumes on iPhone, shares encrypted containers as-is, and wraps individual files. No ads, analytics, or crash reporters. Volume passwords stay on device behind Face ID / Touch ID.\n\nPortions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/\n\nThis derived work is not named VeraCrypt.",
+      "iconURL": "https://raw.githubusercontent.com/ShivamPingaleDev/VCPort/master/android/fastlane/metadata/android/en-US/images/icon.png",
+      "tintColor": "#1A2332",
+      "category": "utilities",
+      "screenshotURLs": [],
+      "versions": [],
+      "appPermissions": {
+        "entitlements": [
+          "keychain-access-groups"
+        ],
+        "privacy": {
+          "NSFaceIDUsageDescription": "Face ID unlocks stored volume passwords on this device."
+        }
+      }
+    }
+  ],
+  "news": []
+}

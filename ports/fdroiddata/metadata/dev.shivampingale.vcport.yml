@@ -1,0 +1,50 @@
+Categories:
+  - Security
+  - System
+License: Apache-2.0
+AuthorName: Shivam Pingale
+WebSite: https://github.com/ShivamPingaleDev/VCPort
+SourceCode: https://github.com/ShivamPingaleDev/VCPort
+IssueTracker: https://github.com/ShivamPingaleDev/VCPort/issues
+Changelog: https://github.com/ShivamPingaleDev/VCPort/releases
+
+Name: VC Port
+AutoName: VC Port
+Summary: Open VeraCrypt volumes offline with biometrics, share, and file wrap
+Description: |-
+    VC Port opens VeraCrypt-compatible encrypted containers on Android. It is a
+    derived work and is not named VeraCrypt.
+
+    The F-Droid flavor has no INTERNET permission, no ads, no analytics, and no
+    crash reporters. Volume passwords stay on the device.
+
+    Portions of this product are based in part on TrueCrypt, freely available at
+    http://www.truecrypt.org/
+
+    Original VC Port code is Apache-2.0. The native volume core is VeraCrypt,
+    which is dual-licensed Apache-2.0 / TrueCrypt License 3.0. Reviewers should
+    treat the inherited TrueCrypt files under that dual-license statement.
+
+RepoType: git
+Repo: https://github.com/ShivamPingaleDev/VCPort.git
+
+Builds:
+  - versionName: 0.2.0
+    versionCode: 2
+    commit: v0.2.0
+    subdir: android
+    srclibs:
+      - VeraCryptPort@v0.2.0
+    prebuild:
+      - ln -sfn $$VeraCryptPort$$ ../veracrypt
+    gradle:
+      - fdroid
+    ndk: r26d
+    scandelete:
+      - ios
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+UpdateCheckName: dev.shivampingale.vcport
+CurrentVersion: 0.2.0
+CurrentVersionCode: 2

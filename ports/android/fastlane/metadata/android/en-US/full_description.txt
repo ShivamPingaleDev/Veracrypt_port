@@ -1,0 +1,19 @@
+VC Port opens VeraCrypt-compatible encrypted containers on Android. It is a derived work and is <b>not</b> named VeraCrypt.
+
+<b>What you can do</b>
+
+* Open a container and list the FAT root
+* Unlock a stored volume password with strong biometrics (Android Keystore)
+* Share encrypted .hc / .tc / .vera files as-is (no password)
+* Wrap or unwrap a single file (.vcpw)
+* Generate a strong password that is never written to history
+
+<b>Privacy</b>
+
+The F-Droid build has no INTERNET permission, no ads, no analytics, and no crash reporters. Volume passwords stay on the device. Backups of app data are disabled.
+
+<b>License</b>
+
+Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/
+
+VC Port original code is Apache License 2.0. The volume core follows VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not use the VeraCrypt name or confusingly similar names.

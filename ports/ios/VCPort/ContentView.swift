@@ -5,7 +5,13 @@ struct ContentView: View {
     @State private var containerURL: URL?
     @State private var password = ""
     @State private var pim = "0"
+    @State private var useTextPassword = true
+    @State private var useBiometric = false
     @State private var rememberBiometrics = false
+    @State private var biometricKey: Data?
+    @State private var keyfileURLs: [URL] = []
+    @State private var keyfileImporterPresented = false
+    @State private var importBioPresented = false
     @State private var status = "Offline. Choose a VeraCrypt container, or share an encrypted file as-is."
     @State private var entries: [VaultEntry] = []
     @State private var importerPresented = false
@@ -77,43 +83,84 @@ struct ContentView: View {
                 Section("Container") {
                     Button("Choose container") { importerPresented = true }
                     Text(containerURL?.lastPathComponent ?? "No file selected")
-                    SecureField("Password", text: $password)
-                    TextField("PIM", text: $pim)
+                }
+                Section("Unlock factors") {
+                    Text("Combine any of: biometric password, text password, keyfiles, and PIM. Same mix VeraCrypt uses on a computer.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Toggle("Text password", isOn: $useTextPassword)
+                    if useTextPassword {
+                        SecureField("Password", text: $password)
+                    }
+                    TextField("PIM (0 = default)", text: $pim)
                         .keyboardType(.numberPad)
-                    if BiometricStore.isAvailable {
-                        Toggle("Remember with Face ID / Touch ID", isOn: $rememberBiometrics)
-                        Button("Unlock with biometrics") {
-                            guard let path = containerURL?.path else { return }
-                            if let stored = BiometricStore.load(path: path) {
-                                password = stored.0
-                                pim = String(stored.1)
-                                status = "Password loaded with biometrics."
-                            } else {
-                                status = "Biometric unlock failed."
+                    ForEach(keyfileURLs, id: \.self) { url in
+                        HStack {
+                            Text(url.lastPathComponent)
+                            Spacer()
+                            Button("Remove") {
+                                keyfileURLs.removeAll { $0 == url }
                             }
                         }
+                    }
+                    Button("Add keyfiles…") { keyfileImporterPresented = true }
+                    if BiometricStore.isAvailable {
+                        Toggle("Biometric as password", isOn: $useBiometric)
+                        Text("Stored in the Keychain behind Face ID / Touch ID. Mixed as a VeraCrypt keyfile, so you can still add a text password, more keyfiles, and PIM.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let biometricKey {
+                            Text("Biometric password ready (\(biometricKey.count) bytes).")
+                                .font(.caption)
+                        } else if let path = containerURL?.path, BiometricStore.hasFactors(for: path) {
+                            Text("A saved factor set exists. Unlock with biometrics to load it.")
+                                .font(.caption)
+                        } else {
+                            Text("Create a random biometric password, or import a keyfile you already use.")
+                                .font(.caption)
+                        }
+                        Button("Create biometric password") { createBiometricPassword() }
+                        Button("Import keyfile as biometric password…") { importBioPresented = true }
+                        Button("Export biometric keyfile") { exportBiometricKeyfile() }
+                        Button("Unlock with biometrics") { loadBiometricFactors() }
+                        Toggle("Remember this combination", isOn: $rememberBiometrics)
                     }
                     Button("Open volume") { openVolume() }
                 }
                 Section("Updates") {
-                    Button("Check for updates") {
-                        status = "Checking for updates (one HTTPS request)..."
-                        DispatchQueue.global(qos: .userInitiated).async {
-                            do {
-                                let result = try UpdateChecker.check()
-                                DispatchQueue.main.async {
-                                    status = result.newer
-                                        ? "Update \(result.remoteVersion) available. \(result.notes) Offline again."
-                                        : "Already up to date (\(UpdateChecker.localVersion)). Offline again."
-                                }
-                            } catch {
-                                DispatchQueue.main.async {
-                                    status = "Update check failed. Offline again."
+                    if FossConfig.enableUpdateCheck {
+                        Button("Check for updates") {
+                            status = "Checking for updates (one HTTPS request)..."
+                            DispatchQueue.global(qos: .userInitiated).async {
+                                do {
+                                    let result = try UpdateChecker.check()
+                                    DispatchQueue.main.async {
+                                        status = result.newer
+                                            ? "Update \(result.remoteVersion) available. \(result.notes) Offline again."
+                                            : "Already up to date (\(UpdateChecker.localVersion)). Offline again."
+                                    }
+                                } catch {
+                                    DispatchQueue.main.async {
+                                        status = "Update check failed. Offline again."
+                                    }
                                 }
                             }
                         }
+                        Text("The app stays offline until you tap this.")
+                    } else {
+                        Text("This build does not contact the network. Install updates from AltStore, SideStore, or a new source build.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    Text("The app stays offline until you tap this.")
+                }
+                Section("About / licenses") {
+                    Text("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
+                    Link("http://www.truecrypt.org/", destination: URL(string: "http://www.truecrypt.org/")!)
+                    Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt.")
+                        .font(.caption)
+                    Text("No ads, analytics, or crash reporters. Volume passwords stay on this device. Face ID / Touch ID never leave the Secure Enclave-backed Keychain.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Section("Status") {
                     Text(status)
@@ -170,6 +217,24 @@ struct ContentView: View {
                     unwrapURL(url)
                 }
             }
+            .fileImporter(
+                isPresented: $keyfileImporterPresented,
+                allowedContentTypes: [.data],
+                allowsMultipleSelection: true
+            ) { result in
+                if case .success(let urls) = result {
+                    urls.forEach { _ = $0.startAccessingSecurityScopedResource() }
+                    for url in urls where !keyfileURLs.contains(url) {
+                        keyfileURLs.append(url)
+                    }
+                }
+            }
+            .fileImporter(isPresented: $importBioPresented, allowedContentTypes: [.data]) { result in
+                if case .success(let url) = result {
+                    _ = url.startAccessingSecurityScopedResource()
+                    importBiometricKeyfile(url)
+                }
+            }
             .onOpenURL { url in
                 _ = url.startAccessingSecurityScopedResource()
                 incomingFile = url
@@ -190,23 +255,116 @@ struct ContentView: View {
             status = "Select a container first."
             return
         }
+        let text = useTextPassword ? password : ""
+        if text.isEmpty && !useBiometric && keyfileURLs.isEmpty {
+            status = "Choose at least one factor: text password, biometric password, or a keyfile."
+            return
+        }
+        if useBiometric && (biometricKey == nil || biometricKey?.isEmpty == true) {
+            status = "Create or import a biometric password, or unlock with biometrics to load a saved one."
+            return
+        }
         closeVolume()
+        var temps: [URL] = []
+        var keyfilePaths = keyfileURLs.map(\.path)
+        if useBiometric, let biometricKey {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("vcbio-\(UUID().uuidString).key")
+            try? biometricKey.write(to: url, options: .completeFileProtection)
+            temps.append(url)
+            keyfilePaths.insert(url.path, at: 0)
+        }
         var error: Int32 = 0
-        guard let handle = VcMobileBridge.open(
+        let handle = VcMobileBridge.open(
             path: path,
-            password: password,
+            password: text,
             pim: Int32(pim) ?? 0,
+            keyfiles: keyfilePaths,
             error: &error
-        ) else {
-            status = "Open failed (code \(error))."
+        )
+        temps.forEach { try? FileManager.default.removeItem(at: $0) }
+        guard let handle else {
+            status = "Open failed (code \(error)). Wrong password, PIM, or keyfile mix."
             return
         }
         volumeHandle = handle
         status = "Opened. Size \(VcMobileBridge.size(handle)) bytes. Tap Share on a file."
         entries = VcMobileBridge.listRoot(handle)
         if rememberBiometrics {
-            _ = BiometricStore.store(path: path, password: password, pim: Int(pim) ?? 0)
+            _ = BiometricStore.store(
+                path: path,
+                bundle: FactorBundle(
+                    pim: Int(pim) ?? 0,
+                    password: text,
+                    biometricKey: useBiometric ? biometricKey : nil,
+                    keyfilePaths: keyfileURLs.map(\.path)
+                )
+            )
         }
+    }
+
+    private func createBiometricPassword() {
+        guard let path = containerURL?.path else {
+            status = "Choose a container first."
+            return
+        }
+        let secret = FactorCodec.randomBiometricKey()
+        biometricKey = secret
+        useBiometric = true
+        let ok = BiometricStore.store(
+            path: path,
+            bundle: FactorBundle(
+                pim: Int(pim) ?? 0,
+                password: useTextPassword ? password : "",
+                biometricKey: secret,
+                keyfilePaths: keyfileURLs.map(\.path)
+            )
+        )
+        status = ok
+            ? "Created a 64-byte biometric password. Export it and add that file as a keyfile when you create the volume."
+            : "Could not save the biometric password."
+    }
+
+    private func importBiometricKeyfile(_ url: URL) {
+        guard let data = try? Data(contentsOf: url), !data.isEmpty, data.count <= 1_048_576 else {
+            status = "Could not import keyfile (empty or larger than 1 MiB)."
+            return
+        }
+        biometricKey = data
+        useBiometric = true
+        status = "Imported \(data.count) bytes as the biometric password (VeraCrypt keyfile)."
+    }
+
+    private func exportBiometricKeyfile() {
+        guard let biometricKey else {
+            status = "Create or import a biometric password first."
+            return
+        }
+        let dest = FileManager.default.temporaryDirectory.appendingPathComponent("vcport-biometric.key")
+        do {
+            try biometricKey.write(to: dest, options: .completeFileProtection)
+            status = "Share this keyfile into VeraCrypt on a computer (Add keyfile)."
+            SystemShare.present(items: [dest])
+        } catch {
+            status = "Could not export the biometric keyfile."
+        }
+    }
+
+    private func loadBiometricFactors() {
+        guard let path = containerURL?.path else {
+            status = "Choose a container first."
+            return
+        }
+        guard let stored = BiometricStore.load(path: path) else {
+            status = "Biometric unlock failed."
+            return
+        }
+        password = stored.password
+        pim = String(stored.pim)
+        useTextPassword = !stored.password.isEmpty
+        useBiometric = stored.hasBiometric
+        biometricKey = stored.biometricKey
+        keyfileURLs = stored.keyfilePaths.map { URL(fileURLWithPath: $0) }
+        status = "Loaded factors with biometrics. Add or remove anything, then Open volume."
     }
 
     private func closeVolume() {

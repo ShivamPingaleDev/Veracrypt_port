@@ -1,0 +1,1 @@
+First F-Droid-ready release: offline FOSS flavor, no proprietary libraries, biometric unlock, share encrypted containers as-is, and single-file wrap.

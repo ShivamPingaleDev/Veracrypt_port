@@ -1,8 +1,10 @@
 package dev.shivampingale.vcport
 
 import android.content.Context
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Base64
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -12,7 +14,6 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import android.util.Base64
 
 class BiometricVault(private val context: Context) {
     private val prefs = context.getSharedPreferences("vc_port_bio", Context.MODE_PRIVATE)
@@ -25,20 +26,26 @@ class BiometricVault(private val context: Context) {
         ) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
-    fun hasPassword(volumePath: String): Boolean =
+    fun hasFactors(volumePath: String): Boolean =
         prefs.contains(keyFor(volumePath))
 
-    fun store(activity: FragmentActivity, volumePath: String, password: String, pim: Int, onDone: (Boolean) -> Unit) {
+    fun clear(volumePath: String) {
+        prefs.edit()
+            .remove(keyFor(volumePath))
+            .remove(ivFor(volumePath))
+            .apply()
+    }
+
+    fun store(activity: FragmentActivity, volumePath: String, bundle: FactorBundle, onDone: (Boolean) -> Unit) {
         ensureKey()
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey())
-        prompt(activity, cipher, "Save volume password") { unlocked ->
+        prompt(activity, cipher, "Save unlock factors") { unlocked ->
             if (unlocked == null) {
                 onDone(false)
                 return@prompt
             }
-            val payload = "$pim\n$password".toByteArray()
-            val encrypted = unlocked.doFinal(payload)
+            val encrypted = unlocked.doFinal(FactorCodec.encode(bundle))
             prefs.edit()
                 .putString(keyFor(volumePath), Base64.encodeToString(encrypted, Base64.NO_WRAP))
                 .putString(ivFor(volumePath), Base64.encodeToString(unlocked.iv, Base64.NO_WRAP))
@@ -47,7 +54,7 @@ class BiometricVault(private val context: Context) {
         }
     }
 
-    fun load(activity: FragmentActivity, volumePath: String, onDone: (Pair<String, Int>?) -> Unit) {
+    fun load(activity: FragmentActivity, volumePath: String, onDone: (FactorBundle?) -> Unit) {
         val blob = prefs.getString(keyFor(volumePath), null) ?: return onDone(null)
         val iv = prefs.getString(ivFor(volumePath), null) ?: return onDone(null)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -56,14 +63,13 @@ class BiometricVault(private val context: Context) {
             secretKey(),
             GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP))
         )
-        prompt(activity, cipher, "Unlock volume") { unlocked ->
+        prompt(activity, cipher, "Unlock with biometrics") { unlocked ->
             if (unlocked == null) {
                 onDone(null)
                 return@prompt
             }
-            val plain = String(unlocked.doFinal(Base64.decode(blob, Base64.NO_WRAP)))
-            val parts = plain.split("\n", limit = 2)
-            onDone(parts[1] to parts[0].toInt())
+            val plain = unlocked.doFinal(Base64.decode(blob, Base64.NO_WRAP))
+            onDone(FactorCodec.decode(plain))
         }
     }
 
@@ -86,6 +92,7 @@ class BiometricVault(private val context: Context) {
                 .setTitle(title)
                 .setSubtitle("VC Port")
                 .setNegativeButtonText("Cancel")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
                 .build(),
             BiometricPrompt.CryptoObject(cipher)
         )
@@ -95,17 +102,18 @@ class BiometricVault(private val context: Context) {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         if (store.containsAlias(keyAlias)) return
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
-        generator.init(
-            KeyGenParameterSpec.Builder(
-                keyAlias,
-                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-            )
-                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                .setUserAuthenticationRequired(true)
-                .setInvalidatedByBiometricEnrollment(true)
-                .build()
+        val spec = KeyGenParameterSpec.Builder(
+            keyAlias,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
         )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setUserAuthenticationRequired(true)
+            .setInvalidatedByBiometricEnrollment(true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            spec.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+        }
+        generator.init(spec.build())
         generator.generateKey()
     }
 

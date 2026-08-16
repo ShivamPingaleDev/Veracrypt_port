@@ -71,19 +71,24 @@ Install [FUSE-T](https://www.fuse-t.org/) first. The FUSE-T VeraCrypt build is t
 Project: `ports/android`  
 Native core: `ports/shared` (VeraCrypt `Volume` + Crypto via NDK)
 
+F-Droid / FOSS (no `INTERNET` permission, no Play libraries):
+
 ```bash
 cd ports/android
-./gradlew :app:assembleDebug
+./gradlew :app:assembleFdroidRelease
 ```
 
 Biometric unlock uses Android Keystore + `BiometricPrompt` (strong biometrics). Opened containers are listed through a DocumentsProvider stub and the in-app FAT root browser.
 
 The in-app file list has a **Share decrypted** action that extracts the file from a FAT volume and opens the system share sheet. **Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no unlock). **Wrap a single file** password-encrypts one file into a `.vcpw` blob (Argon2id + AES-256-CTR + HMAC-SHA256). The password generator stays in memory, is never logged, and clipboard copies expire. Other apps can also send files into VC Port (`ACTION_SEND` / `VIEW`).
 
+Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](ports/FOSS.md).
+
 ## iOS
 
-Project notes: `ports/ios/README.md`  
-The SwiftUI app uses the same `vc_mobile` C API and Keychain + Face ID / Touch ID.
+There is no F-Droid for iPhone. Build from source (`ports/ios/build-native.sh` + XcodeGen) and sideload with AltStore / SideStore, or optionally submit to the App Store. See [ports/FOSS.md](ports/FOSS.md) and `ports/ios/README.md`.
+
+The SwiftUI app uses the same `vc_mobile` C API and Keychain + Face ID / Touch ID. Unlock factors can be combined: biometric password (a Keychain-held keyfile), optional text password, more keyfiles, and PIM.
 
 **Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no password). **Wrap a single file** creates a `.vcpw` wrap. The password generator never writes history. **Share decrypted** on a listed file presents `UIActivityViewController` after extract. Incoming “Open in VC Port” files are handled with `onOpenURL` and the document types in `ports/ios/VCPort/Info.plist`.
 
