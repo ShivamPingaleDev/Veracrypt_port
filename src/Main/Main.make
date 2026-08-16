@@ -23,13 +23,16 @@ OBJS += Xml.o
 OBJS += Unix/Main.o
 OBJS += Resources.o
 OBJS += OfflineUpdate.o
+OBJS += VcWrap.o
 
 ifndef TC_NO_GUI
 OBJS += FatalErrorHandler.o
 OBJS += GraphicUserInterface.o
+OBJS += PortFileWrap.o
 ifeq "$(PLATFORM)" "MacOSX"
 OBJS += MacOSXSecureTextFieldHotkeys.o
 OBJS += MacOSXBiometric.o
+OBJS += MacOSXShare.o
 endif
 OBJS += VolumeHistory.o
 OBJS += Forms/AboutDialog.o
@@ -82,6 +85,11 @@ RESOURCES += ../Mount/Logo_96dpi.bmp.h
 endif
 
 CXXFLAGS += -I$(BASE_DIR)/Main
+CXXFLAGS += -I$(BASE_DIR)/../ports/shared
+
+VcWrap.o: $(BASE_DIR)/../ports/shared/vc_wrap.cpp
+	@echo Compiling vc_wrap.cpp
+	$(CXX) $(CXXFLAGS) -c $(BASE_DIR)/../ports/shared/vc_wrap.cpp -o $@
 
 
 #------ wxWidgets configuration ------

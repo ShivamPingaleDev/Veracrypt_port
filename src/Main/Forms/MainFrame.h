@@ -174,6 +174,10 @@ namespace VeraCrypt
 		void OnUserGuideMenuItemSelected (wxCommandEvent& event) { Gui->OpenUserGuide (this); }
 		void OnWebsiteMenuItemSelected (wxCommandEvent& event) { Gui->OpenHomepageLink (this, L"website"); }
 		void OnWipeCacheButtonClick (wxCommandEvent& event);
+		void OnWrapFileMenuItemSelected (wxCommandEvent& event);
+		void OnUnwrapFileMenuItemSelected (wxCommandEvent& event);
+		void OnShareEncryptedMenuItemSelected (wxCommandEvent& event);
+		void OnPanicWipeMenuItemSelected (wxCommandEvent& event);
 		void OrganizeFavorites (const FavoriteVolumeList &favorites, size_t newItemCount = 0);
 		void OpenSelectedVolume () const;
 		void SavePreferences () const;
@@ -240,6 +244,10 @@ namespace VeraCrypt
 		VolumeSlotNumber SelectedSlotNumber;
 		int ShowRequestFifo;
 		int CheckForUpdatesMenuItemId;
+		int WrapFileMenuItemId;
+		int UnwrapFileMenuItemId;
+		int ShareEncryptedMenuItemId;
+		int PanicWipeMenuItemId;
 		map <wstring, VolumeActivityMapEntry> VolumeActivityMap;
 	};
 }

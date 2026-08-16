@@ -11,7 +11,7 @@ Licenses:
   - VC Port original code (Android UI, iOS UI, wrap helper, JNI, macOS extras):
     Apache License 2.0. Copyright 2026 Shivam Pingale.
   - VeraCrypt volume/crypto core: Apache License 2.0 AND TrueCrypt License 3.0
-  - Full texts: License.txt (repo root) / this tree's License.txt
+  - Full texts: License.txt
 
 Trademarks: IDRIX, AM Crypto, VeraCrypt, and TrueCrypt names and logos are not
 granted by this notice. Do not name this app VeraCrypt or anything confusingly

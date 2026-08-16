@@ -81,6 +81,10 @@ namespace VeraCrypt
 
 			L"This software uses wxWidgets library, which is copyright \xA9 1998-2011 Julian Smart, Robert Roebling et al.\n\n"
 
+			L"Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/\n\n"
+
+			L"Stay Offline is on by default. Tools menu: wrap/unwrap a single file, share ciphertext as-is, panic wipe. Touch ID can be compelled — prefer a long password and a keyfile not stored on this Mac. This is not unbreakable.\n\n"
+
 			L"An AM Crypto Release");
 	}
 }

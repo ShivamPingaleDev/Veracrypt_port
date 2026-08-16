@@ -50,11 +50,16 @@ case "$UNAME_M" in
 		$CC -c $CFLAGS $INCLUDES -march=armv8-a+crypto -o "$OBJ/sha256_armv8.o" "$SRC/Crypto/sha256_armv8.c"
 		AES_HW="$OBJ/Aes_hw.o $OBJ/sha256_armv8.o"
 		;;
-	x86_64|amd64|i686|i386)
+	x86_64|amd64)
 		compile_c "$OBJ/cpu.o" "$SRC/Crypto/cpu.c"
 		compile_c "$OBJ/opt_sse2.o" "$SRC/Crypto/Argon2/src/opt_sse2.c"
 		compile_c "$OBJ/opt_avx2.o" "$SRC/Crypto/Argon2/src/opt_avx2.c"
 		EXTRA_OBJS="$OBJ/cpu.o $OBJ/opt_sse2.o $OBJ/opt_avx2.o"
+		;;
+	i686|i386)
+		compile_c "$OBJ/cpu.o" "$SRC/Crypto/cpu.c"
+		compile_c "$OBJ/opt_sse2.o" "$SRC/Crypto/Argon2/src/opt_sse2.c"
+		EXTRA_OBJS="$OBJ/cpu.o $OBJ/opt_sse2.o"
 		;;
 esac
 

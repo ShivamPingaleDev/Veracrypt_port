@@ -9,6 +9,10 @@ on:
       - 'src/Volume/**'
       - 'src/Platform/**'
       - 'src/Common/**'
+      - 'src/Main/PortVersion.h'
+      - 'src/Main/UserPreferences.h'
+      - 'src/Driver/Fuse/FuseService.cpp'
+      - 'scripts/**'
       - '.github/workflows/vcport.yml'
     tags:
       - 'v*'
@@ -20,6 +24,10 @@ on:
       - 'src/Volume/**'
       - 'src/Platform/**'
       - 'src/Common/**'
+      - 'src/Main/PortVersion.h'
+      - 'src/Main/UserPreferences.h'
+      - 'src/Driver/Fuse/FuseService.cpp'
+      - 'scripts/**'
       - '.github/workflows/vcport.yml'
 
 concurrency:
@@ -29,13 +37,15 @@ concurrency:
 jobs:
   wrap-test:
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Install compiler
-        run: sudo apt-get update && sudo apt-get install -y g++
-      - name: Wrap host test
-        run: ports/shared/run_wrap_test.sh
+        run: sudo apt-get update && sudo apt-get install -y g++ python3
+      - name: Host tests (wrap, versions, FOSS, overlay)
+        run: ports/tests/run-all.sh
 
   android:
     runs-on: ubuntu-22.04

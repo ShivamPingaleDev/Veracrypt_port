@@ -1,0 +1,61 @@
+name: Upstream overlay
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'ports/overlay/**'
+      - 'ports/shared/upstream-sources.cmake'
+      - 'ports/UPSTREAM_COMMIT'
+      - 'scripts/refresh-overlay.sh'
+      - 'scripts/check-upstream-layout.sh'
+      - 'src/**'
+      - '.github/workflows/upstream-overlay.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'ports/overlay/**'
+      - 'ports/shared/upstream-sources.cmake'
+      - 'scripts/**'
+      - 'src/**'
+      - '.github/workflows/upstream-overlay.yml'
+  schedule:
+    - cron: '17 4 * * 1'
+
+jobs:
+  overlay:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Overlay inventories match the pin
+        run: scripts/refresh-overlay.sh --check
+      - name: Mobile cmake vs VeraCrypt Crypto/Volume
+        run: scripts/check-upstream-layout.sh
+
+  check-veracrypt:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch VeraCrypt (temporary)
+        run: |
+          git remote add vc https://github.com/veracrypt/VeraCrypt.git 2>/dev/null || git remote set-url vc https://github.com/veracrypt/VeraCrypt.git
+          git fetch --quiet vc master
+      - name: Compare pin
+        run: |
+          PIN=$(tr -d '[:space:]' < ports/UPSTREAM_COMMIT)
+          NEW=$(git rev-parse vc/master)
+          echo "pin $PIN"
+          echo "veracrypt/master $NEW"
+          if [ "$PIN" != "$NEW" ]; then
+            echo "VeraCrypt moved. Run scripts/sync-upstream.sh locally."
+            git log --oneline "$PIN".."$NEW" | head -20
+            exit 2
+          fi

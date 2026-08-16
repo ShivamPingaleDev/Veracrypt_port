@@ -177,6 +177,10 @@ namespace VeraCrypt
 			BiometricUnlockButton->Show (hasStored);
 			if (options)
 				RememberBiometricCheckBox->SetValue (options->RememberPasswordWithBiometrics || hasStored);
+
+			wxStaticText *biometricWarning = new wxStaticText (this, wxID_ANY, LangString["MACOSX_BIOMETRIC_COMPELLED"]);
+			biometricWarning->Wrap (Gui->GetCharWidth (this) * 42);
+			GridBagSizer->Add (biometricWarning, wxGBPosition (14, 1), wxGBSpan (1, 2), wxTOP|wxBOTTOM|wxLEFT|wxEXPAND, 5);
 		}
 #endif
 

@@ -27,7 +27,7 @@ struct ContentView: View {
         NavigationStack {
             Form {
                 Section("High-threat") {
-                    Text("Screenshots are treated as sensitive. Biometrics can be compelled — prefer a long password and a keyfile not stored on this phone. Panic wipe destroys Keychain leftovers. This is not unbreakable.")
+                    Text("Stay offline by default. Screenshots are treated as sensitive. Wrap a file, share ciphertext as-is, or panic wipe. Biometrics can be compelled — prefer a long password and a keyfile not stored on this phone. This is not unbreakable.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Button("Panic wipe", role: .destructive) {

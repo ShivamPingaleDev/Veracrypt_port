@@ -183,6 +183,18 @@ namespace VeraCrypt
 			SecItemDelete ((__bridge CFDictionaryRef) query);
 		}
 	}
+
+	void MacOSXBiometric::DeleteAllStoredPasswords ()
+	{
+		@autoreleasepool
+		{
+			NSDictionary *query = @{
+				(__bridge id) kSecClass: (__bridge id) kSecClassGenericPassword,
+				(__bridge id) kSecAttrService: kBiometricService
+			};
+			SecItemDelete ((__bridge CFDictionaryRef) query);
+		}
+	}
 }
 
 #endif

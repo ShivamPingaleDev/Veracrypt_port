@@ -1,3 +1,6 @@
+# Local C lab — not part of VC Port / VeraCrypt
+experimental/
+
 # For those using Visual Studio Code for development
 .vscode/
 

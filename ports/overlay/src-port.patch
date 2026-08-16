@@ -1,0 +1,749 @@
+diff --git a/src/Build/Resources/MacOSX/Info.plist.xml b/src/Build/Resources/MacOSX/Info.plist.xml
+index 04ed21c1..ff20bfa0 100644
+--- a/src/Build/Resources/MacOSX/Info.plist.xml
++++ b/src/Build/Resources/MacOSX/Info.plist.xml
+@@ -96,5 +96,11 @@
+ 
+     <key>NSPrincipalClass</key>
+     <string>NSApplication</string>
++
++    <key>NSLocalNetworkUsageDescription</key>
++    <string>VeraCrypt presents encrypted volumes through a local filesystem helper on Apple silicon.</string>
++
++    <key>NSFaceIDUsageDescription</key>
++    <string>Touch ID or Face ID is used to unlock stored VeraCrypt volume passwords on this Mac.</string>
+ </dict>
+ </plist>
+diff --git a/src/Common/Language.xml b/src/Common/Language.xml
+index f205f6f9..7904b56c 100644
+--- a/src/Common/Language.xml
++++ b/src/Common/Language.xml
+@@ -1476,6 +1476,18 @@
+     <entry lang="en" key="LINUX_DESELECT">Deselect</entry>
+     <entry lang="en" key="LINUX_ADMIN_PW_QUERY">Enter your user password or administrator password:</entry>
+     <entry lang="en" key="LINUX_ADMIN_PW_QUERY_TITLE">Administrator privileges required</entry>
++    <entry lang="en" key="MACOSX_REMEMBER_TOUCH_ID">Remember password with Touch ID</entry>
++    <entry lang="en" key="MACOSX_UNLOCK_TOUCH_ID">Unlock with Touch ID</entry>
++    <entry lang="en" key="MACOSX_TOUCH_ID_FAILED">Touch ID could not retrieve the stored volume password.</entry>
++    <entry lang="en" key="IDM_CHECK_FOR_UPDATES">Check for updates…</entry>
++    <entry lang="en" key="IDC_STAY_OFFLINE">Stay offline (no automatic network use)</entry>
++    <entry lang="en" key="IDC_STAY_OFFLINE_HELP">The application never contacts the network on its own. Help links and update checks ask first, then disconnect.</entry>
++    <entry lang="en" key="STAY_OFFLINE_LEAVE_CONFIRM">This action opens a website and will use the network. Continue?</entry>
++    <entry lang="en" key="UPDATE_CHECK_CONFIRM">Check for updates now? This makes one short HTTPS request, then the application stays offline again. Nothing is downloaded unless you agree.</entry>
++    <entry lang="en" key="UPDATE_CHECK_BAD_MANIFEST">The update information could not be read. The application is offline again.</entry>
++    <entry lang="en" key="UPDATE_AVAILABLE">An update is available.\n\nPort {0} (you have {1})\nUpstream VeraCrypt {2}</entry>
++    <entry lang="en" key="UPDATE_OPEN_DOWNLOAD">Open the download page? The application returns to offline mode afterwards.</entry>
++    <entry lang="en" key="UPDATE_UP_TO_DATE">You already have the latest VC Port. The application is offline again.</entry>
+     <entry lang="en" key="LINUX_VC_RUNNING_ALREADY">VeraCrypt is already running.</entry>
+     <entry lang="en" key="LINUX_SYSTEM_ENC_PW_LENGTH_NOTE">System Encryption password is longer than {0} characters.</entry>
+     <entry lang="en" key="LINUX_MOUNT_SYSTEM_ENC_PREBOOT">Mount partition &amp;using system encryption (pre-boot authentication)</entry>
+diff --git a/src/Core/Core.make b/src/Core/Core.make
+index def349d8..92a76cc2 100644
+--- a/src/Core/Core.make
++++ b/src/Core/Core.make
+@@ -25,6 +25,7 @@ OBJS += Unix/CoreUnix.o
+ OBJS += Unix/$(PLATFORM)/Core$(PLATFORM).o
+ OBJS += Unix/$(PLATFORM)/Core$(PLATFORM).o
+ ifeq "$(PLATFORM)" "MacOSX"
++OBJS += Unix/MacOSX/MacOSXAuthorization.o
+ OBJS += Unix/FreeBSD/CoreFreeBSD.o
+ endif
+ 
+diff --git a/src/Core/MountOptions.cpp b/src/Core/MountOptions.cpp
+index 3b776520..7d1b1ec4 100644
+--- a/src/Core/MountOptions.cpp
++++ b/src/Core/MountOptions.cpp
+@@ -56,6 +56,9 @@ namespace VeraCrypt
+ 		TC_CLONE (SlotNumber);
+ 		TC_CLONE (UseBackupHeaders);
+ 		TC_CLONE (EMVSupportEnabled);
++#ifdef TC_MACOSX
++		TC_CLONE (RememberPasswordWithBiometrics);
++#endif
+ 	}
+ 
+ 	void MountOptions::Deserialize (shared_ptr <Stream> stream)
+diff --git a/src/Core/MountOptions.h b/src/Core/MountOptions.h
+index f70cd22e..2fa5a52e 100644
+--- a/src/Core/MountOptions.h
++++ b/src/Core/MountOptions.h
+@@ -42,6 +42,9 @@ namespace VeraCrypt
+ 			SlotNumber (0),
+ 			UseBackupHeaders (false),
+ 			EMVSupportEnabled (false)
++#ifdef TC_MACOSX
++			, RememberPasswordWithBiometrics (false)
++#endif
+ 		{
+ 		}
+ 
+@@ -79,6 +82,9 @@ namespace VeraCrypt
+ 		VolumeSlotNumber SlotNumber;
+ 		bool UseBackupHeaders;
+ 		bool EMVSupportEnabled;
++#ifdef TC_MACOSX
++		bool RememberPasswordWithBiometrics;
++#endif
+ 
+ 	protected:
+ 		void CopyFrom (const MountOptions &other);
+diff --git a/src/Core/Unix/CoreService.cpp b/src/Core/Unix/CoreService.cpp
+index ae7381ff..0c285c7a 100644
+--- a/src/Core/Unix/CoreService.cpp
++++ b/src/Core/Unix/CoreService.cpp
+@@ -34,6 +34,9 @@
+ #include "CoreUnix.h"
+ #include "CoreServiceRequest.h"
+ #include "CoreServiceResponse.h"
++#ifdef TC_MACOSX
++#include "MacOSX/MacOSXAuthorization.h"
++#endif
+ 
+ namespace VeraCrypt
+ {
+@@ -1453,15 +1456,30 @@ namespace VeraCrypt
+ 		{
+ 			request.ElevateUserPrivileges = true;
+ 			request.FastElevation = !ElevatedServiceAvailable;
++#ifdef TC_MACOSX
++			// Native Authorization Services shows the system admin dialog
++			// (any administrator + password or Touch ID). Do not collect a
++			// sudo password: sudo authenticates only the current user, so a
++			// standard user cannot elevate by typing the original admin password.
++			request.FastElevation = false;
++#endif
+ 			
+ 			while (!ElevatedServiceAvailable)
+ 			{
+ 				//	Test if the user has an active privilege helper session.
+ 				bool authCheckDone = false;
+ 				bool passwordCollected = false;
++#ifdef TC_MACOSX
++				PrivilegeHelper privilegeHelper = { PrivilegeHelperType::Sudo, "Authorization Services", "" };
++#else
+ 				PrivilegeHelper privilegeHelper = FindPrivilegeHelper ();
++#endif
+ 				if (!Core->GetUseDummySudoPassword ())
+ 				{
++#ifdef TC_MACOSX
++					authCheckDone = true;
++					passwordCollected = true;
++#else
+ 					// We are using -n to avoid prompting the user for a password.
+ 					// We are redirecting stderr to stdout and discarding both to avoid any output.
+ 					// This approach also works on newer macOS versions (12.0 and later).
+@@ -1494,6 +1512,7 @@ namespace VeraCrypt
+ 						//	Set to false to force the 'WarningEvent' to be raised in case of and elevation exception.
+ 						request.FastElevation = false;
+ 					}
++#endif
+ 				}
+ 			
+ 				try
+@@ -1570,6 +1589,10 @@ namespace VeraCrypt
+ 
+ 	void CoreService::StartElevated (const CoreServiceRequest &request)
+ 	{
++#ifdef TC_MACOSX
++		if (StartElevatedUsingAuthorization (request))
++			return;
++#endif
+ 		PrivilegeHelper privilegeHelper = FindPrivilegeHelper ();
+ 		int doasAuthTerminal = -1;
+ 		string doasAuthTerminalPath;
+@@ -1884,4 +1907,21 @@ namespace VeraCrypt
+ 
+ 	bool CoreService::ElevatedPrivileges = false;
+ 	bool CoreService::ElevatedServiceAvailable = false;
++
++#ifdef TC_MACOSX
++	void CoreService::AdoptElevatedChannel (int writeFd, int readFd)
++	{
++		ServiceInputStream = shared_ptr <Stream> (new FileStream (writeFd));
++		ServiceOutputStream = shared_ptr <Stream> (new FileStream (readFd));
++
++		uint8 sync[] = { 0, 0x11, 0x22 };
++		ServiceInputStream->Write (ConstBufferPtr (sync, array_capacity (sync)));
++
++		uint8 ready = 0;
++		if (ServiceOutputStream->Read (BufferPtr (&ready, 1)) != 1 || ready != 0x33)
++			throw ElevationFailed (SRC_POS, "Authorization Services", 1, "Elevated core service did not complete its handshake.");
++
++		ElevatedServiceAvailable = true;
++	}
++#endif
+ }
+diff --git a/src/Core/Unix/CoreService.h b/src/Core/Unix/CoreService.h
+index f11f259c..f3c03ee1 100644
+--- a/src/Core/Unix/CoreService.h
++++ b/src/Core/Unix/CoreService.h
+@@ -54,6 +54,9 @@ namespace VeraCrypt
+ 		template <class T> static unique_ptr <T> GetResponse ();
+ 		template <class T> static unique_ptr <T> SendRequest (CoreServiceRequest &request);
+ 		static void StartElevated (const CoreServiceRequest &request);
++#ifdef TC_MACOSX
++		static void AdoptElevatedChannel (int writeFd, int readFd);
++#endif
+ 
+ 		static shared_ptr <GetStringFunctor> AdminPasswordCallback;
+ 
+diff --git a/src/Driver/Fuse/FuseService.cpp b/src/Driver/Fuse/FuseService.cpp
+index d1cc507b..c35b245a 100644
+--- a/src/Driver/Fuse/FuseService.cpp
++++ b/src/Driver/Fuse/FuseService.cpp
+@@ -44,6 +44,7 @@
+ #include <sys/statvfs.h>
+ #include <sys/time.h>
+ #include <sys/wait.h>
++#include <sys/stat.h>
+ 
+ #include "FuseService.h"
+ #include "Platform/FileStream.h"
+@@ -663,14 +664,41 @@ namespace VeraCrypt
+ 		args.push_back ("nobrowse");
+ 
+ #ifdef VC_MACOSX_FUSET
+-		// Use FUSE-T's SMB backend for the auxiliary mount. The default NFS
+-		// backend can be affected by macOS Network Volumes privacy state.
+-		args.push_back ("-o");
+-		args.push_back ("backend=smb");
+-		args.push_back ("-o");
+-		args.push_back ("nonamedattr");
+-		args.push_back ("-o");
+-		args.push_back ("rwsize=262144");
++		// FUSE-T cannot be avoided on Apple Silicon yet: VeraCrypt presents a
++		// decrypted block image through FUSE, then hdiutil attaches it. Apple
++		// FSKit is not a drop-in replacement for that auxiliary image.
++		// Prefer FSKit when the installed FUSE-T build provides it, then SMB,
++		// then NFS. Forcing SMB when the backend is missing hangs the mount.
++		auto fuseTHasBackend = [](const char *name) -> bool {
++			string paths[] = {
++				string ("/Library/Application Support/fuse-t/bin/") + name,
++				string ("/Library/Application Support/fuse-t/bin/go-") + name,
++				string ("/usr/local/libexec/fuse-t/") + name
++			};
++			for (size_t i = 0; i < sizeof (paths) / sizeof (paths[0]); ++i)
++			{
++				struct stat st;
++				if (stat (paths[i].c_str(), &st) == 0)
++					return true;
++			}
++			return false;
++		};
++
++		if (fuseTHasBackend ("fskit") || fuseTHasBackend ("go-fskit"))
++		{
++			args.push_back ("-o");
++			args.push_back ("backend=fskit");
++		}
++		else if (fuseTHasBackend ("go-smb2") || fuseTHasBackend ("smb"))
++		{
++			args.push_back ("-o");
++			args.push_back ("backend=smb");
++			args.push_back ("-o");
++			args.push_back ("nonamedattr");
++			args.push_back ("-o");
++			args.push_back ("rwsize=262144");
++		}
++		// else: leave FUSE-T on its default NFS backend
+ #endif
+ 
+ 		if (getuid() == 0 || geteuid() == 0)
+diff --git a/src/Main/Forms/AboutDialog.cpp b/src/Main/Forms/AboutDialog.cpp
+index 02152b62..43e0f8b2 100644
+--- a/src/Main/Forms/AboutDialog.cpp
++++ b/src/Main/Forms/AboutDialog.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include "System.h"
+ #include "Volume/Version.h"
++#include "Main/PortVersion.h"
+ #include "Main/Application.h"
+ #include "Main/GraphicUserInterface.h"
+ #include "Main/Resources.h"
+@@ -31,6 +32,7 @@ namespace VeraCrypt
+ #ifdef VC_MACOSX_FUSET
+ 		versionStr += L" (FUSE-T build)";
+ #endif
++		versionStr += L"  |  VC Port " + StringConverter::ToWide (VC_PORT_VERSION);
+ 		VersionStaticText->SetLabel (Application::GetName() + L" " + versionStr);
+ 		CopyrightStaticText->SetLabel (TC_STR_RELEASED_BY);
+ 		WebsiteHyperlink->SetLabel (L"amcrypto.jp");
+diff --git a/src/Main/Forms/MainFrame.cpp b/src/Main/Forms/MainFrame.cpp
+index ce6d0edd..c745193b 100644
+--- a/src/Main/Forms/MainFrame.cpp
++++ b/src/Main/Forms/MainFrame.cpp
+@@ -28,6 +28,8 @@
+ #include "Main/Xml.h"
+ #include "MainFrame.h"
+ #include "AboutDialog.h"
++#include "Main/OfflineUpdate.h"
++#include "Main/PortVersion.h"
+ #include "BenchmarkDialog.h"
+ #include "ChangePasswordDialog.h"
+ #include "EncryptionTestDialog.h"
+@@ -57,7 +59,8 @@ namespace VeraCrypt
+ 		ListItemRightClickEventPending (false),
+ 		SelectedItemIndex (-1),
+ 		SelectedSlotNumber (0),
+-		ShowRequestFifo (-1)
++		ShowRequestFifo (-1),
++		CheckForUpdatesMenuItemId (wxID_HIGHEST + 42)
+ 	{
+ 		wxBusyCursor busy;
+ 
+@@ -347,6 +350,11 @@ namespace VeraCrypt
+ 
+ 		Gui->SetListCtrlHeight (SlotListCtrl, slotListRowCount);
+ 
++		CheckForUpdatesMenuItemId = wxID_HIGHEST + 42;
++		wxMenuItem *checkUpdates = new wxMenuItem (HelpMenu, CheckForUpdatesMenuItemId, LangString["IDM_CHECK_FOR_UPDATES"], wxEmptyString, wxITEM_NORMAL);
++		HelpMenu->Insert (HelpMenu->GetMenuItemCount() - 1, checkUpdates);
++		HelpMenu->InsertSeparator (HelpMenu->GetMenuItemCount() - 1);
++
+ #ifdef __WXGTK__
+ 		wxSize size (-1, (int) ((double) Gui->GetCharHeight (this) * 1.53));
+ 		CreateVolumeButton->SetMinSize (size);
+@@ -436,6 +444,8 @@ namespace VeraCrypt
+ 
+ 		mTimer.reset (dynamic_cast <wxTimer *> (new Timer (this)));
+ 		mTimer->Start (2000);
++
++		Bind (wxEVT_MENU, &MainFrame::OnCheckForUpdatesMenuItemSelected, this, CheckForUpdatesMenuItemId);
+ 	}
+ 
+ #ifdef TC_WINDOWS
+@@ -746,6 +756,53 @@ namespace VeraCrypt
+ 		dialog.ShowModal();
+ 	}
+ 
++	void MainFrame::OnCheckForUpdatesMenuItemSelected (wxCommandEvent& event)
++	{
++#ifdef TC_MACOSX
++		if (Gui->IsInBackgroundMode())
++			Gui->SetBackgroundMode (false);
++		EnsureVisible ();
++#endif
++		if (!Gui->AskYesNo (LangString["UPDATE_CHECK_CONFIRM"], false, true))
++			return;
++
++		wxBusyCursor busy;
++		try
++		{
++			string body = OfflineUpdate::FetchHttps (VC_PORT_UPDATE_MANIFEST_URL);
++			UpdateManifest manifest = OfflineUpdate::ParseManifest (body);
++			if (!manifest.Parsed)
++			{
++				Gui->ShowWarning (LangString["UPDATE_CHECK_BAD_MANIFEST"]);
++				return;
++			}
++
++			wxString msg;
++			if (OfflineUpdate::IsNewer (manifest.PortVersion, VC_PORT_VERSION)
++				|| OfflineUpdate::IsNewer (manifest.UpstreamVersion, VC_PORT_UPSTREAM_VERSION))
++			{
++				msg = LangString["UPDATE_AVAILABLE"];
++				msg.Replace (L"{0}", wxString::FromUTF8 (manifest.PortVersion.c_str()));
++				msg.Replace (L"{1}", wxString::FromUTF8 (VC_PORT_VERSION));
++				msg.Replace (L"{2}", wxString::FromUTF8 (manifest.UpstreamVersion.c_str()));
++				if (!manifest.Notes.empty())
++					msg += L"\n\n" + wxString::FromUTF8 (manifest.Notes.c_str());
++				if (!manifest.DownloadUrl.empty() && Gui->AskYesNo (msg + L"\n\n" + LangString["UPDATE_OPEN_DOWNLOAD"], true, true))
++					wxLaunchDefaultBrowser (wxString::FromUTF8 (manifest.DownloadUrl.c_str()), wxBROWSER_NEW_WINDOW);
++				else
++					Gui->ShowInfo (msg);
++			}
++			else
++			{
++				Gui->ShowInfo (LangString["UPDATE_UP_TO_DATE"]);
++			}
++		}
++		catch (exception &e)
++		{
++			Gui->ShowError (e);
++		}
++	}
++
+ 	void MainFrame::OnActivate (wxActivateEvent& event)
+ 	{
+ 		Gui->SetActiveFrame (this);
+diff --git a/src/Main/Forms/MainFrame.h b/src/Main/Forms/MainFrame.h
+index ed864169..faf7eacc 100644
+--- a/src/Main/Forms/MainFrame.h
++++ b/src/Main/Forms/MainFrame.h
+@@ -103,6 +103,7 @@ namespace VeraCrypt
+ 		void OnChangePasswordMenuItemSelected (wxCommandEvent& event) { ChangePassword (); }
+ 		void OnChangePkcs5PrfMenuItemSelected (wxCommandEvent& event) { ChangePassword (ChangePasswordDialog::Mode::ChangePkcs5Prf); }
+ 		void OnCheckFilesystemMenuItemSelected( wxCommandEvent& event ) { CheckFilesystem (); }
++		void OnCheckForUpdatesMenuItemSelected (wxCommandEvent& event);
+ 		void OnClearSlotSelectionMenuItemSelected (wxCommandEvent& event);
+ 		void OnClose (wxCloseEvent& event);
+ 		void OnCloseAllSecurityTokenSessionsMenuItemSelected (wxCommandEvent& event);
+@@ -238,6 +239,7 @@ namespace VeraCrypt
+ 		long SelectedItemIndex;
+ 		VolumeSlotNumber SelectedSlotNumber;
+ 		int ShowRequestFifo;
++		int CheckForUpdatesMenuItemId;
+ 		map <wstring, VolumeActivityMapEntry> VolumeActivityMap;
+ 	};
+ }
+diff --git a/src/Main/Forms/MountOptionsDialog.cpp b/src/Main/Forms/MountOptionsDialog.cpp
+index 23911c9c..6531a159 100644
+--- a/src/Main/Forms/MountOptionsDialog.cpp
++++ b/src/Main/Forms/MountOptionsDialog.cpp
+@@ -188,6 +188,9 @@ namespace VeraCrypt
+ 
+ 		Options.FilesystemOptions = FilesystemOptionsTextCtrl->GetValue();
+ 		Options.EMVSupportEnabled = Gui->GetPreferences().EMVSupportEnabled;
++#ifdef TC_MACOSX
++		Options.RememberPasswordWithBiometrics = PasswordPanel->ShouldRememberPasswordWithBiometrics();
++#endif
+ 
+ 		EndModal (wxID_OK);
+ 	}
+diff --git a/src/Main/Forms/PreferencesDialog.cpp b/src/Main/Forms/PreferencesDialog.cpp
+index 879394ca..6b54e6fb 100644
+--- a/src/Main/Forms/PreferencesDialog.cpp
++++ b/src/Main/Forms/PreferencesDialog.cpp
+@@ -94,6 +94,11 @@ namespace VeraCrypt
+ 		TC_CHECK_BOX_VALIDATOR (WipeCacheOnAutoDismount);
+ 		TC_CHECK_BOX_VALIDATOR (WipeCacheOnClose);
+ 
++		StayOfflineCheckBox = new wxCheckBox (SecurityPage, wxID_ANY, LangString["IDC_STAY_OFFLINE"]);
++		StayOfflineCheckBox->SetToolTip (LangString["IDC_STAY_OFFLINE_HELP"]);
++		SecurityPage->GetSizer()->Add (StayOfflineCheckBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
++		TC_CHECK_BOX_VALIDATOR (StayOffline);
++
+ #ifdef TC_MACOSX
+ 		wxStaticBoxSizer *screenProtectionSizer = new wxStaticBoxSizer (new wxStaticBox (SecurityPage, wxID_ANY, LangString["IDT_SECURITY_OPTIONS"]), wxVERTICAL);
+ 		DisableScreenProtectionCheckBox = new wxCheckBox (screenProtectionSizer->GetStaticBox(), wxID_ANY, LangString["IDC_DISABLE_SCREEN_PROTECTION"]);
+diff --git a/src/Main/Forms/PreferencesDialog.h b/src/Main/Forms/PreferencesDialog.h
+index 17a88d87..1ecd2179 100644
+--- a/src/Main/Forms/PreferencesDialog.h
++++ b/src/Main/Forms/PreferencesDialog.h
+@@ -61,6 +61,7 @@ namespace VeraCrypt
+ #ifdef TC_MACOSX
+ 		wxCheckBox *DisableScreenProtectionCheckBox;
+ #endif
++		wxCheckBox *StayOfflineCheckBox;
+ 		int LastVirtualKeyPressed;
+ 		unique_ptr <wxTimer> mTimer;
+ 		UserPreferences Preferences;
+diff --git a/src/Main/Forms/VolumePasswordPanel.cpp b/src/Main/Forms/VolumePasswordPanel.cpp
+index 2659de7a..806dbfa3 100644
+--- a/src/Main/Forms/VolumePasswordPanel.cpp
++++ b/src/Main/Forms/VolumePasswordPanel.cpp
+@@ -15,11 +15,17 @@
+ #include "KeyfilesDialog.h"
+ #include "VolumePasswordPanel.h"
+ #include "SecurityTokenKeyfilesDialog.h"
++#ifdef TC_MACOSX
++#include "Main/MacOSXBiometric.h"
++#endif
+ 
+ namespace VeraCrypt
+ {
+ 	VolumePasswordPanel::VolumePasswordPanel (wxWindow* parent, MountOptions* options, shared_ptr <VolumePassword> password, shared_ptr <KeyfileList> keyfiles, bool enableCache, bool enablePassword, bool enableKeyfiles, bool enableConfirmation, bool enablePkcs5Prf, bool isMountPassword, const wxString &passwordLabel)
+ 		: VolumePasswordPanelBase (parent), TopOwnerParent(NULL), Keyfiles (new KeyfileList), EnablePimEntry (true)
++#ifdef TC_MACOSX
++		, RememberBiometricCheckBox (nullptr), BiometricUnlockButton (nullptr), IsMountPassword (isMountPassword)
++#endif
+ 	{
+ 		size_t maxPasswordLength = CmdLine->ArgUseLegacyPassword? VolumePassword::MaxLegacySize : VolumePassword::MaxSize;
+ 		if (keyfiles)
+@@ -151,6 +157,29 @@ namespace VeraCrypt
+ 				c->SetDropTarget (new FileDropTarget (this));
+ 		}
+ 
++#ifdef TC_MACOSX
++		if (isMountPassword && enablePassword && !enableConfirmation)
++		{
++			if (options && options->Path)
++				VolumePathForBiometric = string (*options->Path);
++
++			RememberBiometricCheckBox = new wxCheckBox (this, wxID_ANY, LangString["MACOSX_REMEMBER_TOUCH_ID"], wxDefaultPosition, wxDefaultSize, 0);
++			GridBagSizer->Add (RememberBiometricCheckBox, wxGBPosition (12, 1), wxGBSpan (1, 2), wxTOP|wxBOTTOM|wxLEFT|wxALIGN_CENTER_VERTICAL, 5);
++			RememberBiometricCheckBox->Connect (wxEVT_COMMAND_CHECKBOX_CLICKED, wxCommandEventHandler (VolumePasswordPanel::OnRememberBiometricClick), nullptr, this);
++
++			BiometricUnlockButton = new wxButton (this, wxID_ANY, LangString["MACOSX_UNLOCK_TOUCH_ID"], wxDefaultPosition, wxDefaultSize, 0);
++			GridBagSizer->Add (BiometricUnlockButton, wxGBPosition (13, 1), wxGBSpan (1, 2), wxTOP|wxBOTTOM|wxLEFT, 5);
++			BiometricUnlockButton->Connect (wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler (VolumePasswordPanel::OnBiometricUnlockClick), nullptr, this);
++
++			bool biometricOk = MacOSXBiometric::IsAvailable ();
++			RememberBiometricCheckBox->Show (biometricOk);
++			bool hasStored = biometricOk && !VolumePathForBiometric.empty() && MacOSXBiometric::HasStoredPassword (VolumePathForBiometric);
++			BiometricUnlockButton->Show (hasStored);
++			if (options)
++				RememberBiometricCheckBox->SetValue (options->RememberPasswordWithBiometrics || hasStored);
++		}
++#endif
++
+ 		Layout();
+ 		Fit();
+ 
+@@ -160,6 +189,12 @@ namespace VeraCrypt
+ 	VolumePasswordPanel::~VolumePasswordPanel ()
+ 	{
+ 		Pkcs5PrfChoice->Disconnect (wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler (VolumePasswordPanel::OnPkcs5PrfChoiceSelected), nullptr, this);
++#ifdef TC_MACOSX
++		if (RememberBiometricCheckBox)
++			RememberBiometricCheckBox->Disconnect (wxEVT_COMMAND_CHECKBOX_CLICKED, wxCommandEventHandler (VolumePasswordPanel::OnRememberBiometricClick), nullptr, this);
++		if (BiometricUnlockButton)
++			BiometricUnlockButton->Disconnect (wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler (VolumePasswordPanel::OnBiometricUnlockClick), nullptr, this);
++#endif
+ 		WipeTextCtrl (PasswordTextCtrl);
+ 		WipeTextCtrl (ConfirmPasswordTextCtrl);
+ 	}
+@@ -518,4 +553,61 @@ namespace VeraCrypt
+ 			OnUpdate();
+ 		}
+ 	}
++
++#ifdef TC_MACOSX
++	bool VolumePasswordPanel::ShouldRememberPasswordWithBiometrics () const
++	{
++		return RememberBiometricCheckBox && RememberBiometricCheckBox->IsShown() && RememberBiometricCheckBox->GetValue();
++	}
++
++	void VolumePasswordPanel::SetPasswordFromUtf8 (const uint8 *data, size_t size)
++	{
++		wxString value = wxString::FromUTF8 (reinterpret_cast <const char *> (data), size);
++		PasswordTextCtrl->SetValue (value);
++	}
++
++	void VolumePasswordPanel::OnRememberBiometricClick (wxCommandEvent& event)
++	{
++		if (RememberBiometricCheckBox && !RememberBiometricCheckBox->GetValue() && !VolumePathForBiometric.empty())
++			MacOSXBiometric::DeleteStoredPassword (VolumePathForBiometric);
++		OnUpdate();
++	}
++
++	void VolumePasswordPanel::OnBiometricUnlockClick (wxCommandEvent& event)
++	{
++		if (VolumePathForBiometric.empty())
++			return;
++
++		shared_ptr <VolumePassword> password;
++		int pim = 0;
++		if (!MacOSXBiometric::LoadVolumePassword (VolumePathForBiometric, password, pim))
++		{
++			Gui->ShowWarning (LangString["MACOSX_TOUCH_ID_FAILED"]);
++			return;
++		}
++
++		if (password)
++			SetPasswordFromUtf8 (password->DataPtr(), password->Size());
++		if (pim > 0)
++		{
++			if (PimCheckBox->IsShown())
++			{
++				wxCommandEvent dummy;
++				PimCheckBox->SetValue (true);
++				OnUsePimCheckBoxClick (dummy);
++			}
++			SetVolumePim (pim);
++		}
++		OnUpdate();
++	}
++
++	void VolumePasswordPanel::ApplyStoredBiometricPassword ()
++	{
++		if (BiometricUnlockButton && BiometricUnlockButton->IsShown())
++		{
++			wxCommandEvent dummy;
++			OnBiometricUnlockClick (dummy);
++		}
++	}
++#endif
+ }
+diff --git a/src/Main/Forms/VolumePasswordPanel.h b/src/Main/Forms/VolumePasswordPanel.h
+index 48de7df9..b1e8ea69 100644
+--- a/src/Main/Forms/VolumePasswordPanel.h
++++ b/src/Main/Forms/VolumePasswordPanel.h
+@@ -43,6 +43,10 @@ namespace VeraCrypt
+ 		bool IsUsePimChecked () const { return PimCheckBox->GetValue (); }
+ 		void SetUsePimChecked (bool checked) const { PimCheckBox->SetValue (checked); }
+ 		bool UpdatePimHelpText (bool pimChanged);
++#ifdef TC_MACOSX
++		bool ShouldRememberPasswordWithBiometrics () const;
++		void ApplyStoredBiometricPassword ();
++#endif
+ 
+ 		Event UpdateEvent;
+ 		wxWindow* TopOwnerParent; // use to handle layout when embedded inside sizer child
+@@ -65,10 +69,21 @@ namespace VeraCrypt
+ 		void OnUpdate () { UpdateEvent.Raise(); }
+ 		void OnUseKeyfilesCheckBoxClick (wxCommandEvent& event) { OnUpdate(); }
+ 		void WipeTextCtrl (wxTextCtrl *textCtrl);
++#ifdef TC_MACOSX
++		void OnBiometricUnlockClick (wxCommandEvent& event);
++		void OnRememberBiometricClick (wxCommandEvent& event);
++		void SetPasswordFromUtf8 (const uint8 *data, size_t size);
++#endif
+ 
+ 		shared_ptr <KeyfileList> Keyfiles;
+ 		shared_ptr <Functor> UpdateCallback;
+ 		bool EnablePimEntry;
++#ifdef TC_MACOSX
++		wxCheckBox *RememberBiometricCheckBox;
++		wxButton *BiometricUnlockButton;
++		string VolumePathForBiometric;
++		bool IsMountPassword;
++#endif
+ 	};
+ }
+ 
+diff --git a/src/Main/GraphicUserInterface.cpp b/src/Main/GraphicUserInterface.cpp
+index 321a9396..fafaa749 100644
+--- a/src/Main/GraphicUserInterface.cpp
++++ b/src/Main/GraphicUserInterface.cpp
+@@ -35,6 +35,9 @@
+ #include "Forms/KeyfileGeneratorDialog.h"
+ #include "Forms/MainFrame.h"
+ #include "Forms/MountOptionsDialog.h"
++#ifdef TC_MACOSX
++#include "Main/MacOSXBiometric.h"
++#endif
+ #include "Forms/RandomPoolEnrichmentDialog.h"
+ #include "Forms/SecurityTokenKeyfilesDialog.h"
+ 
+@@ -1014,6 +1017,11 @@ namespace VeraCrypt
+ 			ShowError (e);
+ 		}
+ 
++#ifdef TC_MACOSX
++		if (volume && options.RememberPasswordWithBiometrics && options.Password && options.Path)
++			MacOSXBiometric::StoreVolumePassword (string (*options.Path), options.Password, options.Pim);
++#endif
++
+ #ifdef TC_LINUX
+ 		if (volume && !Preferences.NonInteractive && !Preferences.DisableKernelEncryptionModeWarning
+ 			&& volume->EncryptionModeName != L"XTS"
+@@ -1543,6 +1551,12 @@ namespace VeraCrypt
+ 
+ 	void GraphicUserInterface::OpenHomepageLink (wxWindow *parent, const wxString &linkId, const wxString &extraVars)
+ 	{
++		if (GetPreferences().StayOffline)
++		{
++			if (!AskYesNo (LangString["STAY_OFFLINE_LEAVE_CONFIRM"], false, true))
++				return;
++		}
++
+ 		wxString url;
+ 
+ 		BeginInteractiveBusyState (parent);
+diff --git a/src/Main/Main.make b/src/Main/Main.make
+index 36b8c1f6..904751a5 100755
+--- a/src/Main/Main.make
++++ b/src/Main/Main.make
+@@ -22,12 +22,14 @@ OBJS += UserPreferences.o
+ OBJS += Xml.o
+ OBJS += Unix/Main.o
+ OBJS += Resources.o
++OBJS += OfflineUpdate.o
+ 
+ ifndef TC_NO_GUI
+ OBJS += FatalErrorHandler.o
+ OBJS += GraphicUserInterface.o
+ ifeq "$(PLATFORM)" "MacOSX"
+ OBJS += MacOSXSecureTextFieldHotkeys.o
++OBJS += MacOSXBiometric.o
+ endif
+ OBJS += VolumeHistory.o
+ OBJS += Forms/AboutDialog.o
+diff --git a/src/Main/Unix/Main.cpp b/src/Main/Unix/Main.cpp
+index abed3916..5ea4799f 100644
+--- a/src/Main/Unix/Main.cpp
++++ b/src/Main/Unix/Main.cpp
+@@ -25,6 +25,9 @@
+ #if defined (TC_MACOSX) && !defined (TC_NO_GUI)
+ #include <ApplicationServices/ApplicationServices.h>
+ #endif
++#ifdef TC_MACOSX
++#include "Core/Unix/MacOSX/MacOSXAuthorization.h"
++#endif
+ 
+ using namespace VeraCrypt;
+ 
+@@ -53,6 +56,27 @@ int main (int argc, char **argv)
+ 				if (!forkProcess)
+ 					setenv (TC_DOAS_CORE_SERVICE_ENV, "1", 1);
+ 
++#ifdef TC_MACOSX
++				for (int i = 2; i + 1 < argc; ++i)
++				{
++					if (strcmp (argv[i], "--elevated-socket") == 0)
++					{
++						ConnectElevatedSocket (argv[i + 1]);
++						++i;
++					}
++					else if (strcmp (argv[i], "--client-uid") == 0)
++					{
++						setenv ("SUDO_UID", argv[i + 1], 1);
++						++i;
++					}
++					else if (strcmp (argv[i], "--client-gid") == 0)
++					{
++						setenv ("SUDO_GID", argv[i + 1], 1);
++						++i;
++					}
++				}
++#endif
++
+ 				CoreService::ProcessElevatedRequests (forkProcess);
+ 				return 0;
+ 			}
+diff --git a/src/Main/UserPreferences.cpp b/src/Main/UserPreferences.cpp
+index a626efc3..3cb43829 100644
+--- a/src/Main/UserPreferences.cpp
++++ b/src/Main/UserPreferences.cpp
+@@ -121,6 +121,7 @@ namespace VeraCrypt
+ 			TC_CONFIG_SET (UseKeyfiles);
+ 			TC_CONFIG_SET (WipeCacheOnAutoDismount);
+ 			TC_CONFIG_SET (WipeCacheOnClose);
++			TC_CONFIG_SET (StayOffline);
+ 
+ 			wstring defaultPrf;
+ 			if (configMap.count(L"DefaultPRF") > 0) { SetValue (configMap[L"DefaultPRF"], defaultPrf); configMap.erase (L"DefaultPRF"); }
+@@ -246,6 +247,7 @@ namespace VeraCrypt
+ 		TC_CONFIG_ADD (UseKeyfiles);
+ 		TC_CONFIG_ADD (WipeCacheOnAutoDismount);
+ 		TC_CONFIG_ADD (WipeCacheOnClose);
++		TC_CONFIG_ADD (StayOffline);
+ 
+ 		wstring defaultPrf = L"autodetection";
+ 		if (DefaultMountOptions.Kdf)
+diff --git a/src/Main/UserPreferences.h b/src/Main/UserPreferences.h
+index 07ab4176..fa813a94 100644
+--- a/src/Main/UserPreferences.h
++++ b/src/Main/UserPreferences.h
+@@ -53,7 +53,8 @@ namespace VeraCrypt
+ 			UseKeyfiles (false),
+ 			Verbose (false),
+ 			WipeCacheOnAutoDismount (true),
+-			WipeCacheOnClose (false)
++			WipeCacheOnClose (false),
++			StayOffline (true)
+ 		{
+ 		}
+ 
+@@ -99,6 +100,7 @@ namespace VeraCrypt
+ 		bool Verbose;
+ 		bool WipeCacheOnAutoDismount;
+ 		bool WipeCacheOnClose;
++		bool StayOffline;
+ 
+ 		// A map used to store unknown entries from the configuration file in order to preserve them when saving the configuration.
+ 		// This helps to preserve unknown entries that may be used by future versions of VeraCrypt or entries used by old versions that were removed from current version.
+diff --git a/src/Makefile b/src/Makefile
+index 7c15e5a3..fe0abc03 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -332,6 +332,7 @@ $(error Specified SDK version was not found, ensure your active developer direct
+ 	CXXFLAGS += -std=c++11
+ 	C_CXX_FLAGS += -DTC_UNIX -DTC_BSD -DTC_MACOSX -mmacosx-version-min=$(VC_OSX_TARGET) -isysroot $(VC_OSX_SDK_PATH)
+ 	LFLAGS += -mmacosx-version-min=$(VC_OSX_TARGET) -Wl,-syslibroot $(VC_OSX_SDK_PATH) -Wl,-export_dynamic
++	LFLAGS += -framework Security -framework LocalAuthentication -framework Foundation
+ 	# Xcode 15 linker emits a warning "no platform load command found" when linking object files generated by yasm
+ 	# To suppress this warning, we need to use -Wl,-ld_classic flag in order to use the old ld64 linker
+ 	# https://mjtsai.com/blog/2024/03/15/xcode-15-no-platform-load-command-found/

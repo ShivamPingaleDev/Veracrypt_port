@@ -133,7 +133,7 @@ class MainActivity : AppCompatActivity() {
                                 "VeraCrypt-compatible Android client. F-Droid build: no network."
                         )
                         Text(
-                            "High-threat default: screenshots blocked, recents hidden, no backups, no user CAs. Biometrics can be compelled — prefer a long password + keyfile, not Remember. Panic wipe destroys Keystore leftovers. This is not unbreakable.",
+                            "Stay offline by default. High-threat: screenshots blocked, recents hidden, no backups, no user CAs. Wrap a file, share ciphertext as-is, or panic wipe. Biometrics can be compelled — prefer a long password + keyfile, not Remember. This is not unbreakable.",
                             style = MaterialTheme.typography.bodySmall
                         )
                         OutlinedButton(onClick = {

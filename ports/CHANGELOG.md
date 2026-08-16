@@ -1,5 +1,9 @@
 # VC Port changelog
 
+## Unreleased
+
+CPU slices: Android `armeabi-v7a` / `arm64-v8a` / `x86` / `x86_64`; iOS device `arm64` and simulator `arm64`/`x86_64`; wrap extras chosen by ABI (ARMv8 crypto, x64 AVX2, x86 SSE2). GUI parity across macOS/Linux desktop, Android, and iOS. Overlay tooling so VeraCrypt source updates are a 3-way merge. See [UPSTREAM.md](UPSTREAM.md).
+
 ## 0.2.2
 
 Fix CI/NDK package builds: drop Windows-only `blake2s-ref.c`, link Argon2 SSE/AVX2 on x86_64.

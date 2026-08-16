@@ -1,3 +1,5 @@
+**VC Port** (this checkout): Android/iOS clients and Apple silicon extras on top of VeraCrypt. It is a **derived work**, **not named VeraCrypt**, and **not unbreakable**. GitHub Actions APKs are debug-signed previews. The macOS GUI has not been built on a machine with wxWidgets in this project’s remote setup. Licenses: [LICENSE](LICENSE), [NOTICE](NOTICE), full texts in [License.txt](License.txt).
+
 This archive contains the source code of VeraCrypt.
 It is based on the original TrueCrypt 7.1a with security enhancements and modifications.
 

@@ -24,6 +24,7 @@ namespace VeraCrypt
 		static bool StoreVolumePassword (const string &volumePath, shared_ptr <VolumePassword> password, int pim);
 		static bool LoadVolumePassword (const string &volumePath, shared_ptr <VolumePassword> &password, int &pim);
 		static void DeleteStoredPassword (const string &volumePath);
+		static void DeleteAllStoredPasswords ();
 
 	private:
 		MacOSXBiometric ();

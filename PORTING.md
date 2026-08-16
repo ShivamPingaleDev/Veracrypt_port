@@ -55,7 +55,9 @@ On the mount dialog:
 - **Unlock with Touch ID** retrieves it through LocalAuthentication
 - Secrets never leave the Secure Enclave-backed Keychain in plaintext at rest
 
-This is convenience, not a replacement for a strong volume password.
+This is convenience, not a replacement for a strong volume password. The mount dialog warns that biometrics can be compelled.
+
+**Tools menu (macOS and Linux GUI):** wrap/unwrap a single file (`.vcpw`, same Argon2id wrap as Android/iOS), share an encrypted container as-is, and panic wipe (dismount all, wipe password cache, clipboard, and stored Touch ID secrets).
 
 ## Build macOS (Apple silicon, FUSE-T)
 
@@ -70,6 +72,8 @@ Install [FUSE-T](https://www.fuse-t.org/) first. The FUSE-T VeraCrypt build is t
 
 Project: `ports/android`  
 Native core: `ports/shared` (VeraCrypt `Volume` + Crypto via NDK)
+
+One APK ships four ABIs: `armeabi-v7a` (32-bit ARM), `arm64-v8a` (ARM64), `x86` (32-bit Intel emulators), `x86_64`. Crypto extras follow the slice (ARMv8 AES, x64 AVX2, x86 SSE2). There is no 32-bit iOS.
 
 F-Droid / FOSS (no `INTERNET` permission, no Play libraries):
 
@@ -86,7 +90,7 @@ Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](port
 
 ## iOS
 
-There is no F-Droid for iPhone. Build from source (`ports/ios/build-native.sh` + XcodeGen) and sideload with AltStore / SideStore, or optionally submit to the App Store. See [ports/FOSS.md](ports/FOSS.md) and `ports/ios/README.md`.
+There is no F-Droid for iPhone. `ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Sideload with AltStore / SideStore, or optionally submit to the App Store. See [ports/FOSS.md](ports/FOSS.md) and `ports/ios/README.md`.
 
 The SwiftUI app uses the same `vc_mobile` C API and Keychain + Face ID / Touch ID. Unlock factors can be combined: biometric password (a Keychain-held keyfile), optional text password, more keyfiles, and PIM.
 
@@ -107,10 +111,14 @@ When VeraCrypt itself ships a new source tree, developers run:
 
 ```bash
 scripts/sync-upstream.sh --check   # temporary fetch, then offline
-scripts/sync-upstream.sh           # merge upstream, keep the port overlay
+scripts/sync-upstream.sh           # 3-way merge; restore owned files only
+scripts/refresh-overlay.sh
+scripts/check-upstream-layout.sh
 ```
 
-`ports/OVERLAY.files` lists every file this port owns. The merge restores those files so Apple silicon, Touch ID, admin auth, and mobile code are not dropped. `ports/UPSTREAM_COMMIT` records the last synced VeraCrypt revision.
+How the overlay is layered, and which files are owned vs patched: [ports/UPSTREAM.md](ports/UPSTREAM.md).
+
+`ports/overlay/owned.txt` is restored after a merge. `ports/overlay/patched.txt` is **not** overwritten (that would drop VeraCrypt’s own edits). `ports/UPSTREAM_COMMIT` is the last synced revision.
 
 The Android/iOS tree is also published on its own at https://github.com/ShivamPingaleDev/VCPort (`ports/` as the repo root).
 

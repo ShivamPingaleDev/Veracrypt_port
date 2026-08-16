@@ -1,0 +1,26 @@
+# This CITATION.cff file is for academic/software citation (recognition).
+# It does not add license terms. See LICENSE and License.txt.
+cff-version: 1.2.0
+title: VC Port
+message: If you use this software, please cite it as below.
+type: software
+authors:
+  - family-names: Pingale
+    given-names: Shivam
+repository-code: https://github.com/ShivamPingaleDev/Veracrypt_port
+license: Apache-2.0
+license-url: https://github.com/ShivamPingaleDev/Veracrypt_port/blob/master/LICENSE
+abstract: >
+  Derived work of VeraCrypt with Apple silicon / FUSE-T improvements and
+  Android/iOS clients named VC Port. Not named VeraCrypt. Dual-licensed
+  Apache-2.0 (original port code) and Apache-2.0 plus TrueCrypt License 3.0
+  (inherited volume/crypto).
+keywords:
+  - VeraCrypt
+  - TrueCrypt
+  - encryption
+  - Android
+  - iOS
+  - FOSS
+version: 0.2.2
+date-released: "2026-08-16"

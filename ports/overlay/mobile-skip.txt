@@ -1,0 +1,25 @@
+# Crypto/Volume units present in VeraCrypt but not compiled by VC Port.
+# After a VeraCrypt merge, new files show up as extras in check-upstream-layout.sh
+# until you add them to cmake or refresh this skip list on purpose.
+Crypto/AesSmall.c
+Crypto/CamelliaSmall.c
+Crypto/Serpent.c
+Crypto/SerpentFast_simd.cpp
+Crypto/Sha2Intel.c
+Crypto/Sha2Small.c
+Crypto/blake2s-ref.c
+Crypto/blake2s_SSE2.c
+Crypto/blake2s_SSE41.c
+Crypto/blake2s_SSSE3.c
+Crypto/chacha-xmm.c
+Crypto/chacha256.c
+Crypto/chachaRng.c
+Crypto/kuznyechik_simd.c
+Crypto/rdrand.c
+Crypto/sm4-impl-aesni.cpp
+Crypto/sm4.cpp
+Crypto/t1ha2.c
+Crypto/t1ha2_selfcheck.c
+Crypto/t1ha_selfcheck.c
+Crypto/wolfCrypt.c
+Volume/EncryptionModeWolfCryptXTS.cpp

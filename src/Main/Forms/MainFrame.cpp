@@ -12,6 +12,7 @@
 
 #include "System.h"
 
+#include <wx/clipbrd.h>
 #ifdef TC_UNIX
 #include <fcntl.h>
 #include <unistd.h>
@@ -30,6 +31,10 @@
 #include "AboutDialog.h"
 #include "Main/OfflineUpdate.h"
 #include "Main/PortVersion.h"
+#include "Main/PortFileWrap.h"
+#ifdef TC_MACOSX
+#include "Main/MacOSXBiometric.h"
+#endif
 #include "BenchmarkDialog.h"
 #include "ChangePasswordDialog.h"
 #include "EncryptionTestDialog.h"
@@ -354,6 +359,21 @@ namespace VeraCrypt
 		wxMenuItem *checkUpdates = new wxMenuItem (HelpMenu, CheckForUpdatesMenuItemId, LangString["IDM_CHECK_FOR_UPDATES"], wxEmptyString, wxITEM_NORMAL);
 		HelpMenu->Insert (HelpMenu->GetMenuItemCount() - 1, checkUpdates);
 		HelpMenu->InsertSeparator (HelpMenu->GetMenuItemCount() - 1);
+
+		WrapFileMenuItemId = wxID_HIGHEST + 43;
+		UnwrapFileMenuItemId = wxID_HIGHEST + 44;
+		ShareEncryptedMenuItemId = wxID_HIGHEST + 45;
+		PanicWipeMenuItemId = wxID_HIGHEST + 46;
+		ToolsMenu->Insert (0, new wxMenuItem (ToolsMenu, WrapFileMenuItemId, LangString["IDM_WRAP_FILE"], wxEmptyString, wxITEM_NORMAL));
+		ToolsMenu->Insert (1, new wxMenuItem (ToolsMenu, UnwrapFileMenuItemId, LangString["IDM_UNWRAP_FILE"], wxEmptyString, wxITEM_NORMAL));
+		ToolsMenu->Insert (2, new wxMenuItem (ToolsMenu, ShareEncryptedMenuItemId, LangString["IDM_SHARE_ENCRYPTED"], wxEmptyString, wxITEM_NORMAL));
+		ToolsMenu->InsertSeparator (3);
+		ToolsMenu->AppendSeparator();
+		ToolsMenu->Append (PanicWipeMenuItemId, LangString["IDM_PANIC_WIPE"]);
+		Connect (WrapFileMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnWrapFileMenuItemSelected));
+		Connect (UnwrapFileMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnUnwrapFileMenuItemSelected));
+		Connect (ShareEncryptedMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnShareEncryptedMenuItemSelected));
+		Connect (PanicWipeMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnPanicWipeMenuItemSelected));
 
 #ifdef __WXGTK__
 		wxSize size (-1, (int) ((double) Gui->GetCharHeight (this) * 1.53));
@@ -1869,6 +1889,45 @@ namespace VeraCrypt
 	{
 		Core->WipePasswordCache();
 		UpdateWipeCacheButton();
+	}
+
+	void MainFrame::OnWrapFileMenuItemSelected (wxCommandEvent&)
+	{
+		PortFileWrap::WrapFile (this);
+	}
+
+	void MainFrame::OnUnwrapFileMenuItemSelected (wxCommandEvent&)
+	{
+		PortFileWrap::UnwrapFile (this);
+	}
+
+	void MainFrame::OnShareEncryptedMenuItemSelected (wxCommandEvent&)
+	{
+		PortFileWrap::ShareEncrypted (this);
+	}
+
+	void MainFrame::OnPanicWipeMenuItemSelected (wxCommandEvent&)
+	{
+		if (!Gui->AskYesNo (LangString["PANIC_WIPE_CONFIRM"], false, true))
+			return;
+		try
+		{
+			if (!Core->GetMountedVolumes().empty())
+				Gui->DismountAllVolumes (true, false);
+		}
+		catch (...)
+		{
+		}
+		WipeCache();
+#ifdef TC_MACOSX
+		MacOSXBiometric::DeleteAllStoredPasswords();
+#endif
+		if (wxTheClipboard->Open())
+		{
+			wxTheClipboard->Clear();
+			wxTheClipboard->Close();
+		}
+		Gui->ShowInfo (LangString["PANIC_WIPE_DONE"]);
 	}
 	
 #ifdef TC_MACOSX

@@ -46,4 +46,6 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           set -euo pipefail
+          export IOS_SDK="${PLATFORM_NAME:-iphoneos}"
+          export IOS_ARCH="$(echo "${ARCHS:-arm64}" | awk '{print $1}')"
           exec "${SRCROOT}/build-native.sh"
