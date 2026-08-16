@@ -52,10 +52,12 @@ typedef struct VcDirEntry
 	char name[256];
 	uint8_t is_dir;
 	uint64_t size;
+	uint32_t first_cluster;
 } VcDirEntry;
 
 int vc_list_root (VcVolume *volume, VcDirEntry *entries, int max_entries);
 int vc_read_file (VcVolume *volume, const char *path, void *buffer, size_t buffer_size, size_t *out_size);
+int vc_export_file (VcVolume *volume, const char *path, const char *dest_path);
 
 #ifdef __cplusplus
 }

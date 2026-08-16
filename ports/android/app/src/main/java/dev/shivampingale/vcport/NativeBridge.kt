@@ -9,4 +9,5 @@ object NativeBridge {
     external fun closeVolume(handle: Long)
     external fun volumeSize(handle: Long): Long
     external fun listRoot(handle: Long): Array<String>
+    external fun exportFile(handle: Long, name: String, destPath: String): Int
 }

@@ -121,6 +121,7 @@ namespace VeraCrypt
 			TC_CONFIG_SET (UseKeyfiles);
 			TC_CONFIG_SET (WipeCacheOnAutoDismount);
 			TC_CONFIG_SET (WipeCacheOnClose);
+			TC_CONFIG_SET (StayOffline);
 
 			wstring defaultPrf;
 			if (configMap.count(L"DefaultPRF") > 0) { SetValue (configMap[L"DefaultPRF"], defaultPrf); configMap.erase (L"DefaultPRF"); }
@@ -246,6 +247,7 @@ namespace VeraCrypt
 		TC_CONFIG_ADD (UseKeyfiles);
 		TC_CONFIG_ADD (WipeCacheOnAutoDismount);
 		TC_CONFIG_ADD (WipeCacheOnClose);
+		TC_CONFIG_ADD (StayOffline);
 
 		wstring defaultPrf = L"autodetection";
 		if (DefaultMountOptions.Kdf)

@@ -66,3 +66,17 @@ Java_dev_shivampingale_vcport_NativeBridge_listRoot(JNIEnv *env, jobject, jlong 
 	}
 	return result;
 }
+
+extern "C" JNIEXPORT jint JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_exportFile(
+	JNIEnv *env, jobject, jlong handle, jstring name, jstring dest)
+{
+	if (handle <= 0)
+		return VC_ERR_ARGUMENT;
+	const char *cName = env->GetStringUTFChars(name, nullptr);
+	const char *cDest = env->GetStringUTFChars(dest, nullptr);
+	int rc = vc_export_file(reinterpret_cast<VcVolume *>(handle), cName, cDest);
+	env->ReleaseStringUTFChars(name, cName);
+	env->ReleaseStringUTFChars(dest, cDest);
+	return rc;
+}

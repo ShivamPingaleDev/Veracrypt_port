@@ -28,6 +28,8 @@
 #include "Main/Xml.h"
 #include "MainFrame.h"
 #include "AboutDialog.h"
+#include "Main/OfflineUpdate.h"
+#include "Main/PortVersion.h"
 #include "BenchmarkDialog.h"
 #include "ChangePasswordDialog.h"
 #include "EncryptionTestDialog.h"
@@ -57,7 +59,8 @@ namespace VeraCrypt
 		ListItemRightClickEventPending (false),
 		SelectedItemIndex (-1),
 		SelectedSlotNumber (0),
-		ShowRequestFifo (-1)
+		ShowRequestFifo (-1),
+		CheckForUpdatesMenuItemId (wxID_HIGHEST + 42)
 	{
 		wxBusyCursor busy;
 
@@ -347,6 +350,11 @@ namespace VeraCrypt
 
 		Gui->SetListCtrlHeight (SlotListCtrl, slotListRowCount);
 
+		CheckForUpdatesMenuItemId = wxID_HIGHEST + 42;
+		wxMenuItem *checkUpdates = new wxMenuItem (HelpMenu, CheckForUpdatesMenuItemId, LangString["IDM_CHECK_FOR_UPDATES"], wxEmptyString, wxITEM_NORMAL);
+		HelpMenu->Insert (HelpMenu->GetMenuItemCount() - 1, checkUpdates);
+		HelpMenu->InsertSeparator (HelpMenu->GetMenuItemCount() - 1);
+
 #ifdef __WXGTK__
 		wxSize size (-1, (int) ((double) Gui->GetCharHeight (this) * 1.53));
 		CreateVolumeButton->SetMinSize (size);
@@ -436,6 +444,8 @@ namespace VeraCrypt
 
 		mTimer.reset (dynamic_cast <wxTimer *> (new Timer (this)));
 		mTimer->Start (2000);
+
+		Bind (wxEVT_MENU, &MainFrame::OnCheckForUpdatesMenuItemSelected, this, CheckForUpdatesMenuItemId);
 	}
 
 #ifdef TC_WINDOWS
@@ -744,6 +754,53 @@ namespace VeraCrypt
 #endif
 		AboutDialog dialog (this);
 		dialog.ShowModal();
+	}
+
+	void MainFrame::OnCheckForUpdatesMenuItemSelected (wxCommandEvent& event)
+	{
+#ifdef TC_MACOSX
+		if (Gui->IsInBackgroundMode())
+			Gui->SetBackgroundMode (false);
+		EnsureVisible ();
+#endif
+		if (!Gui->AskYesNo (LangString["UPDATE_CHECK_CONFIRM"], false, true))
+			return;
+
+		wxBusyCursor busy;
+		try
+		{
+			string body = OfflineUpdate::FetchHttps (VC_PORT_UPDATE_MANIFEST_URL);
+			UpdateManifest manifest = OfflineUpdate::ParseManifest (body);
+			if (!manifest.Parsed)
+			{
+				Gui->ShowWarning (LangString["UPDATE_CHECK_BAD_MANIFEST"]);
+				return;
+			}
+
+			wxString msg;
+			if (OfflineUpdate::IsNewer (manifest.PortVersion, VC_PORT_VERSION)
+				|| OfflineUpdate::IsNewer (manifest.UpstreamVersion, VC_PORT_UPSTREAM_VERSION))
+			{
+				msg = LangString["UPDATE_AVAILABLE"];
+				msg.Replace (L"{0}", wxString::FromUTF8 (manifest.PortVersion.c_str()));
+				msg.Replace (L"{1}", wxString::FromUTF8 (VC_PORT_VERSION));
+				msg.Replace (L"{2}", wxString::FromUTF8 (manifest.UpstreamVersion.c_str()));
+				if (!manifest.Notes.empty())
+					msg += L"\n\n" + wxString::FromUTF8 (manifest.Notes.c_str());
+				if (!manifest.DownloadUrl.empty() && Gui->AskYesNo (msg + L"\n\n" + LangString["UPDATE_OPEN_DOWNLOAD"], true, true))
+					wxLaunchDefaultBrowser (wxString::FromUTF8 (manifest.DownloadUrl.c_str()), wxBROWSER_NEW_WINDOW);
+				else
+					Gui->ShowInfo (msg);
+			}
+			else
+			{
+				Gui->ShowInfo (LangString["UPDATE_UP_TO_DATE"]);
+			}
+		}
+		catch (exception &e)
+		{
+			Gui->ShowError (e);
+		}
 	}
 
 	void MainFrame::OnActivate (wxActivateEvent& event)

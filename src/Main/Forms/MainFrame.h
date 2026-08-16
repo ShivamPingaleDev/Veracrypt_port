@@ -103,6 +103,7 @@ namespace VeraCrypt
 		void OnChangePasswordMenuItemSelected (wxCommandEvent& event) { ChangePassword (); }
 		void OnChangePkcs5PrfMenuItemSelected (wxCommandEvent& event) { ChangePassword (ChangePasswordDialog::Mode::ChangePkcs5Prf); }
 		void OnCheckFilesystemMenuItemSelected( wxCommandEvent& event ) { CheckFilesystem (); }
+		void OnCheckForUpdatesMenuItemSelected (wxCommandEvent& event);
 		void OnClearSlotSelectionMenuItemSelected (wxCommandEvent& event);
 		void OnClose (wxCloseEvent& event);
 		void OnCloseAllSecurityTokenSessionsMenuItemSelected (wxCommandEvent& event);
@@ -238,6 +239,7 @@ namespace VeraCrypt
 		long SelectedItemIndex;
 		VolumeSlotNumber SelectedSlotNumber;
 		int ShowRequestFifo;
+		int CheckForUpdatesMenuItemId;
 		map <wstring, VolumeActivityMapEntry> VolumeActivityMap;
 	};
 }

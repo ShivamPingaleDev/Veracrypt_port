@@ -53,7 +53,8 @@ namespace VeraCrypt
 			UseKeyfiles (false),
 			Verbose (false),
 			WipeCacheOnAutoDismount (true),
-			WipeCacheOnClose (false)
+			WipeCacheOnClose (false),
+			StayOffline (true)
 		{
 		}
 
@@ -99,6 +100,7 @@ namespace VeraCrypt
 		bool Verbose;
 		bool WipeCacheOnAutoDismount;
 		bool WipeCacheOnClose;
+		bool StayOffline;
 
 		// A map used to store unknown entries from the configuration file in order to preserve them when saving the configuration.
 		// This helps to preserve unknown entries that may be used by future versions of VeraCrypt or entries used by old versions that were removed from current version.

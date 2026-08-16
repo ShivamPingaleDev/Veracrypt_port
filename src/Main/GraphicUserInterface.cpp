@@ -1551,6 +1551,12 @@ namespace VeraCrypt
 
 	void GraphicUserInterface::OpenHomepageLink (wxWindow *parent, const wxString &linkId, const wxString &extraVars)
 	{
+		if (GetPreferences().StayOffline)
+		{
+			if (!AskYesNo (LangString["STAY_OFFLINE_LEAVE_CONFIRM"], false, true))
+				return;
+		}
+
 		wxString url;
 
 		BeginInteractiveBusyState (parent);

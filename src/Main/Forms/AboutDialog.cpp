@@ -12,6 +12,7 @@
 
 #include "System.h"
 #include "Volume/Version.h"
+#include "Main/PortVersion.h"
 #include "Main/Application.h"
 #include "Main/GraphicUserInterface.h"
 #include "Main/Resources.h"
@@ -31,6 +32,7 @@ namespace VeraCrypt
 #ifdef VC_MACOSX_FUSET
 		versionStr += L" (FUSE-T build)";
 #endif
+		versionStr += L"  |  VC Port " + StringConverter::ToWide (VC_PORT_VERSION);
 		VersionStaticText->SetLabel (Application::GetName() + L" " + versionStr);
 		CopyrightStaticText->SetLabel (TC_STR_RELEASED_BY);
 		WebsiteHyperlink->SetLabel (L"amcrypto.jp");

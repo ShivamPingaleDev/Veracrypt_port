@@ -61,6 +61,7 @@ namespace VeraCrypt
 #ifdef TC_MACOSX
 		wxCheckBox *DisableScreenProtectionCheckBox;
 #endif
+		wxCheckBox *StayOfflineCheckBox;
 		int LastVirtualKeyPressed;
 		unique_ptr <wxTimer> mTimer;
 		UserPreferences Preferences;

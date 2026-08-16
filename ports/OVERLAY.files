@@ -1,0 +1,36 @@
+# Files this port owns on top of upstream VeraCrypt.
+# scripts/sync-upstream.sh keeps these when merging a new VeraCrypt release.
+PORTING.md
+ports/version.json
+ports/OVERLAY.files
+ports/UPSTREAM_COMMIT
+src/Main/PortVersion.h
+src/Main/OfflineUpdate.h
+src/Main/OfflineUpdate.cpp
+src/Main/MacOSXBiometric.h
+src/Main/MacOSXBiometric.mm
+src/Core/Unix/MacOSX/MacOSXAuthorization.h
+src/Core/Unix/MacOSX/MacOSXAuthorization.mm
+src/Core/Unix/CoreService.cpp
+src/Core/Unix/CoreService.h
+src/Core/Core.make
+src/Core/MountOptions.cpp
+src/Core/MountOptions.h
+src/Driver/Fuse/FuseService.cpp
+src/Main/Forms/MountOptionsDialog.cpp
+src/Main/Forms/VolumePasswordPanel.cpp
+src/Main/Forms/VolumePasswordPanel.h
+src/Main/Forms/MainFrame.cpp
+src/Main/Forms/MainFrame.h
+src/Main/Forms/PreferencesDialog.cpp
+src/Main/Forms/PreferencesDialog.h
+src/Main/Forms/AboutDialog.cpp
+src/Main/GraphicUserInterface.cpp
+src/Main/Main.make
+src/Main/Unix/Main.cpp
+src/Main/UserPreferences.cpp
+src/Main/UserPreferences.h
+src/Makefile
+src/Build/Resources/MacOSX/Info.plist.xml
+src/Common/Language.xml
+scripts/sync-upstream.sh

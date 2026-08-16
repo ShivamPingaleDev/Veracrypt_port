@@ -1479,6 +1479,15 @@
     <entry lang="en" key="MACOSX_REMEMBER_TOUCH_ID">Remember password with Touch ID</entry>
     <entry lang="en" key="MACOSX_UNLOCK_TOUCH_ID">Unlock with Touch ID</entry>
     <entry lang="en" key="MACOSX_TOUCH_ID_FAILED">Touch ID could not retrieve the stored volume password.</entry>
+    <entry lang="en" key="IDM_CHECK_FOR_UPDATES">Check for updates…</entry>
+    <entry lang="en" key="IDC_STAY_OFFLINE">Stay offline (no automatic network use)</entry>
+    <entry lang="en" key="IDC_STAY_OFFLINE_HELP">The application never contacts the network on its own. Help links and update checks ask first, then disconnect.</entry>
+    <entry lang="en" key="STAY_OFFLINE_LEAVE_CONFIRM">This action opens a website and will use the network. Continue?</entry>
+    <entry lang="en" key="UPDATE_CHECK_CONFIRM">Check for updates now? This makes one short HTTPS request, then the application stays offline again. Nothing is downloaded unless you agree.</entry>
+    <entry lang="en" key="UPDATE_CHECK_BAD_MANIFEST">The update information could not be read. The application is offline again.</entry>
+    <entry lang="en" key="UPDATE_AVAILABLE">An update is available.\n\nPort {0} (you have {1})\nUpstream VeraCrypt {2}</entry>
+    <entry lang="en" key="UPDATE_OPEN_DOWNLOAD">Open the download page? The application returns to offline mode afterwards.</entry>
+    <entry lang="en" key="UPDATE_UP_TO_DATE">You already have the latest VC Port. The application is offline again.</entry>
     <entry lang="en" key="LINUX_VC_RUNNING_ALREADY">VeraCrypt is already running.</entry>
     <entry lang="en" key="LINUX_SYSTEM_ENC_PW_LENGTH_NOTE">System Encryption password is longer than {0} characters.</entry>
     <entry lang="en" key="LINUX_MOUNT_SYSTEM_ENC_PREBOOT">Mount partition &amp;using system encryption (pre-boot authentication)</entry>

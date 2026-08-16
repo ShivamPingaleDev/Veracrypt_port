@@ -22,6 +22,7 @@ OBJS += UserPreferences.o
 OBJS += Xml.o
 OBJS += Unix/Main.o
 OBJS += Resources.o
+OBJS += OfflineUpdate.o
 
 ifndef TC_NO_GUI
 OBJS += FatalErrorHandler.o

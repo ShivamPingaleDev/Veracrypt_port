@@ -75,10 +75,36 @@ cd ports/android
 
 Biometric unlock uses Android Keystore + `BiometricPrompt` (strong biometrics). Opened containers are listed through a DocumentsProvider stub and the in-app FAT root browser.
 
+The in-app file list has a **Share decrypted** action that extracts the file from a FAT volume and opens the system share sheet. **Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no unlock). Other apps can also send files into VC Port (`ACTION_SEND` / `VIEW`).
+
 ## iOS
 
 Project notes: `ports/ios/README.md`  
 The SwiftUI app uses the same `vc_mobile` C API and Keychain + Face ID / Touch ID.
+
+**Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no password). **Share decrypted** on a listed file presents `UIActivityViewController` after extract. Incoming “Open in VC Port” files are handled with `onOpenURL` and the document types in `ports/ios/VCPort/Info.plist`.
+
+## Offline-first updates
+
+The apps **do not** contact the network on launch or in the background.
+
+| Action | Network |
+| --- | --- |
+| Mount, encrypt, browse, biometrics | None |
+| Settings → Stay offline (default on) | Help/website links ask first |
+| Help → Check for updates | One HTTPS GET of `ports/version.json`, then disconnect |
+| Download page (only if you agree) | Browser, then offline again |
+
+When VeraCrypt itself ships a new source tree, developers run:
+
+```bash
+scripts/sync-upstream.sh --check   # temporary fetch, then offline
+scripts/sync-upstream.sh           # merge upstream, keep the port overlay
+```
+
+`ports/OVERLAY.files` lists every file this port owns. The merge restores those files so Apple silicon, Touch ID, admin auth, and mobile code are not dropped. `ports/UPSTREAM_COMMIT` records the last synced VeraCrypt revision.
+
+There is no automatic updater and no always-on connection.
 
 ## License
 
