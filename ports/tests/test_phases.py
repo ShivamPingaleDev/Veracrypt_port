@@ -363,6 +363,7 @@ class Phase10RelaunchTests(unittest.TestCase):
 
     def test_hash_source_and_refuse_write_on_dirty_tree(self) -> None:
         import subprocess
+        from pathlib import Path
 
         script = str(resolve("ports/scripts/hash_release.py"))
         src = subprocess.run(
@@ -373,14 +374,19 @@ class Phase10RelaunchTests(unittest.TestCase):
         )
         self.assertEqual(src.returncode, 0, src.stderr)
         self.assertRegex(src.stdout.strip(), r"^[0-9a-f]{64}$")
-        write = subprocess.run(
-            ["python3", script, "--source", "--write"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-        )
-        self.assertNotEqual(write.returncode, 0)
-        self.assertIn("dirty", (write.stderr + write.stdout).lower())
+        marker = ROOT / "ports/.hash-write-dirty-check"
+        marker.write_text("dirty\n", encoding="utf-8")
+        try:
+            write = subprocess.run(
+                ["python3", script, "--source", "--write"],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(write.returncode, 0)
+            self.assertIn("dirty", (write.stderr + write.stdout).lower())
+        finally:
+            marker.unlink(missing_ok=True)
 
     def test_changelog_covers_hardening_cycle(self) -> None:
         log = read("ports/CHANGELOG.md")
