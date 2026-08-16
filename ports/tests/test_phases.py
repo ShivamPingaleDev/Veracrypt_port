@@ -156,6 +156,7 @@ class Phase6DesktopTests(unittest.TestCase):
         self.assertIn("OnCheckForUpdatesMenuItemSelected", frame)
         prefs = read("src/Main/UserPreferences.h")
         self.assertIn("StayOffline (true)", prefs)
+        self.assertIn("SaveHistory (false)", prefs)
 
     def test_panic_reports_dismount_failure(self) -> None:
         frame = read("src/Main/Forms/MainFrame.cpp")

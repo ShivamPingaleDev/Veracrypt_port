@@ -404,12 +404,22 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("no key escrow", main.lower())
         self.assertIn("nation-state implant still wins", main.lower())
 
+    def test_about_has_cypherpunk_quote(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        for blob in (main, view):
+            self.assertIn("We must defend our own privacy if we expect to have any", blob)
+            self.assertIn("Eric Hughes", blob)
+            self.assertIn("Cypherpunk", blob)
+
     def test_never_save_history_is_default(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         theme = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
         hardening = read("ports/android/app/src/main/java/dev/shivampingale/vcport/Hardening.kt")
         self.assertIn("var rememberBio by remember { mutableStateOf(false) }", main)
-        self.assertIn("Off by default. Never saved unless you check this", main)
+        self.assertIn("Type REMEMBER", main)
+        self.assertIn("rememberConfirmOpen", main)
+        self.assertIn("hasBio && rememberBio", main)
         self.assertIn("KeyboardType.Password", theme)
         self.assertIn("autoCorrect = false", theme)
         self.assertIn("IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS", hardening)
@@ -474,17 +484,28 @@ class IosHighThreatTests(unittest.TestCase):
     def test_never_save_history_is_default(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("rememberBiometrics = false", view)
+        self.assertIn("Type REMEMBER", view)
         self.assertIn("neverSaveHistory()", view)
         self.assertGreaterEqual(view.count("SecureField("), 5)
         self.assertGreaterEqual(view.count(".neverSaveHistory()"), 5)
         self.assertIn("textContentType(.oneTimeCode)", view)
-        self.assertIn("Off by default. Never saved unless you turn this on", view)
+        self.assertIn("hasBio && remember", view)
 
 
 class MacosDesktopTests(unittest.TestCase):
     def test_stay_offline_default(self) -> None:
         prefs = read("src/Main/UserPreferences.h")
         self.assertIn("StayOffline (true)", prefs)
+        self.assertIn("SaveHistory (false)", prefs)
+        cpp = read("src/Main/UserPreferences.cpp")
+        self.assertIn('formatter.AddEntry (L"SaveHistory", false)', cpp)
+        self.assertIn("never restore volume-path history", cpp)
+        history = read("src/Main/VolumeHistory.cpp")
+        self.assertIn("WipeHistoryFile", history)
+        self.assertIn("ConfirmEnable", history)
+        self.assertNotIn("historyXml", history)
+        frame = read("src/Main/Forms/MainFrame.cpp")
+        self.assertIn("VolumeHistory::ConfirmEnable", frame)
         filecpp = read("src/Platform/Unix/File.cpp")
         self.assertIn("TC_IOS", filecpp)
         keyfile = read("src/Volume/Keyfile.cpp")

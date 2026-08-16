@@ -15,6 +15,8 @@
 #include "GraphicUserInterface.h"
 #include "Xml.h"
 #include "VolumeHistory.h"
+#include <wx/ffile.h>
+#include <vector>
 
 namespace VeraCrypt
 {
@@ -65,6 +67,34 @@ namespace VeraCrypt
 		Save();
 	}
 
+	bool VolumeHistory::ConfirmEnable ()
+	{
+		return Gui->AskYesNo (
+			L"Saving history keeps volume paths in this window for this session only. History.xml is never written. A seized computer can still see this list. Enable for this session?",
+			false, true);
+	}
+
+	static void WipeHistoryFile (const FilePath &path)
+	{
+		if (!path.IsFile())
+			return;
+		wxString native (wstring (path));
+		wxFFile file (native, wxT("r+b"));
+		if (file.IsOpened())
+		{
+			wxFileOffset len = file.Length();
+			if (len > 0 && len <= 1024 * 1024)
+			{
+				vector <char> zeros ((size_t) len, 0);
+				file.Seek (0);
+				file.Write (&zeros[0], zeros.size());
+				file.Flush();
+			}
+			file.Close();
+		}
+		wxRemoveFile (native);
+	}
+
 	void VolumeHistory::ConnectComboBox (wxComboBox *comboBox)
 	{
 		ScopeLock lock (AccessMutex);
@@ -91,46 +121,14 @@ namespace VeraCrypt
 	{
 		ScopeLock lock (AccessMutex);
 		FilePath historyCfgPath = Application::GetConfigFilePath (GetFileName());
-
-		if (historyCfgPath.IsFile())
-		{
-			if (!Gui->GetPreferences().SaveHistory)
-			{
-				historyCfgPath.Delete();
-			}
-			else
-			{
-				foreach_reverse (const XmlNode &node, XmlParser (historyCfgPath).GetNodes (L"volume"))
-				{
-					Add (wstring (node.InnerText));
-				}
-			}
-		}
+		WipeHistoryFile (historyCfgPath);
 	}
 
 	void VolumeHistory::Save ()
 	{
 		ScopeLock lock (AccessMutex);
-		FilePath historyCfgPath = Application::GetConfigFilePath (GetFileName(), true);
-
-		if (!Gui->GetPreferences().SaveHistory || VolumePaths.empty())
-		{
-			if (historyCfgPath.IsFile())
-				historyCfgPath.Delete();
-		}
-		else
-		{
-			XmlNode historyXml (L"history");
-
-			foreach (const VolumePath &path, VolumePaths)
-			{
-				historyXml.InnerNodes.push_back (XmlNode (L"volume", wstring (path)));
-			}
-
-			XmlWriter historyWriter (historyCfgPath);
-			historyWriter.WriteNode (historyXml);
-			historyWriter.Close();
-		}
+		FilePath historyCfgPath = Application::GetConfigFilePath (GetFileName());
+		WipeHistoryFile (historyCfgPath);
 	}
 
 	void VolumeHistory::UpdateComboBox (wxComboBox *comboBox)

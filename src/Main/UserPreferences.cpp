@@ -116,6 +116,7 @@ namespace VeraCrypt
 			TC_CONFIG_SET (OpenExplorerWindowAfterMount);
 			if (configMap.count(L"PreserveTimestamps") > 0) { SetValue (configMap[L"PreserveTimestamps"], DefaultMountOptions.PreserveTimestamps); configMap.erase (L"PreserveTimestamps"); }
 			TC_CONFIG_SET (SaveHistory);
+			SaveHistory = false; // VC Port: never restore volume-path history from Configuration.xml
 			if (configMap.count(L"SecurityTokenLibrary") > 0) { SetValue (configMap[L"SecurityTokenLibrary"], SecurityTokenModule); configMap.erase (L"SecurityTokenLibrary"); }
 			TC_CONFIG_SET (StartOnLogon);
 			TC_CONFIG_SET (UseKeyfiles);
@@ -241,7 +242,7 @@ namespace VeraCrypt
 		formatter.AddEntry (L"NoKernelCrypto", DefaultMountOptions.NoKernelCrypto);
 		TC_CONFIG_ADD (OpenExplorerWindowAfterMount);
 		formatter.AddEntry (L"PreserveTimestamps", DefaultMountOptions.PreserveTimestamps);
-		TC_CONFIG_ADD (SaveHistory);
+		formatter.AddEntry (L"SaveHistory", false); // never persist volume-path history
 		formatter.AddEntry (L"SecurityTokenLibrary", wstring (SecurityTokenModule));
 		TC_CONFIG_ADD (StartOnLogon);
 		TC_CONFIG_ADD (UseKeyfiles);

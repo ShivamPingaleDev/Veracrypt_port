@@ -1357,17 +1357,25 @@ namespace VeraCrypt
 	void MainFrame::OnNoHistoryCheckBoxClick (wxCommandEvent& event)
 	{
 		UserPreferences prefs = GetPreferences();
-		prefs.SaveHistory = !event.IsChecked();
-		Gui->SetPreferences (prefs);
-
-		if (event.IsChecked())
+		if (!event.IsChecked())
 		{
+			if (!VolumeHistory::ConfirmEnable())
+			{
+				NoHistoryCheckBox->SetValue (true);
+				return;
+			}
+			prefs.SaveHistory = true;
+		}
+		else
+		{
+			prefs.SaveHistory = false;
 			try
 			{
 				VolumeHistory::Clear();
 			}
 			catch (exception &e) { Gui->ShowError (e); }
 		}
+		Gui->SetPreferences (prefs);
 	}
 
 	void MainFrame::OnOrganizeFavoritesMenuItemSelected (wxCommandEvent& event)

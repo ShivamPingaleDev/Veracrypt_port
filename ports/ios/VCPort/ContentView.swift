@@ -9,6 +9,8 @@ struct ContentView: View {
     @State private var useTextPassword = true
     @State private var useBiometric = false
     @State private var rememberBiometrics = false
+    @State private var rememberConfirmPresented = false
+    @State private var rememberConfirmText = ""
     @State private var biometricKey: Data?
     @State private var keyfileURLs: [URL] = []
     @State private var keyfileImporterPresented = false
@@ -293,8 +295,18 @@ struct ContentView: View {
                         Button("Import keyfile as biometric password…") { importBioPresented = true }
                         Button("Export biometric keyfile") { exportBiometricKeyfile() }
                         Button("Unlock with Face ID, Touch ID, or passcode") { loadBiometricFactors() }
-                        Toggle("Remember this combination", isOn: $rememberBiometrics)
-                        Text("Off by default. Never saved unless you turn this on. Compelled Face ID / Touch ID can still open a remembered set.")
+                        Toggle("Remember this combination", isOn: Binding(
+                            get: { rememberBiometrics },
+                            set: { on in
+                                if on {
+                                    rememberConfirmText = ""
+                                    rememberConfirmPresented = true
+                                } else {
+                                    rememberBiometrics = false
+                                }
+                            }
+                        ))
+                        Text("Off by default. Type REMEMBER to store factors this session. Compelled Face ID / Touch ID can still open a remembered set.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -364,6 +376,10 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                 }
                 Section("About / licenses") {
+                    Text("“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)")
+                        .font(.caption)
+                        .italic()
+                        .foregroundStyle(.secondary)
                     Text("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
                     Link("http://www.truecrypt.org/", destination: URL(string: "http://www.truecrypt.org/")!)
                     Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.")
@@ -562,6 +578,20 @@ struct ContentView: View {
                 Button("Rename") { renameSelected(namePromptValue) }
                 Button("Cancel", role: .cancel) {}
             }
+            .alert("Store unlock factors on this phone?", isPresented: $rememberConfirmPresented) {
+                TextField("Type REMEMBER", text: $rememberConfirmText)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                Button("Store") {
+                    if rememberConfirmText.trimmingCharacters(in: .whitespacesAndNewlines) == "REMEMBER" {
+                        rememberBiometrics = true
+                    }
+                    rememberConfirmText = ""
+                }
+                Button("Cancel", role: .cancel) { rememberConfirmText = "" }
+            } message: {
+                Text("A compelled Face ID / Touch ID can open a remembered set. Type REMEMBER to store factors this session. Volume-path history is never written.")
+            }
             .onChange(of: scenePhase) { phase in
                 if phase == .background {
                     lockSession()
@@ -742,6 +772,7 @@ struct ContentView: View {
             keys.insert(url.path, at: 0)
         }
         let storedBio = hasBio ? biometricKey : nil
+        let remember = rememberBiometrics
         let hiddenPw = createHidden ? createHiddenPassword : ""
         let hiddenPimVal = Int32(createHiddenPim) ?? 0
         let nested = createHidden
@@ -772,7 +803,7 @@ struct ContentView: View {
                 if nested {
                     msg += " Nested volume is inside; open it with the nested password. Do not fill the outer volume."
                 }
-                if hasBio {
+                if hasBio && remember {
                     msg += " Export the phone-unlock keyfile for those other devices."
                     _ = BiometricStore.store(
                         path: dest.path,
@@ -873,8 +904,8 @@ struct ContentView: View {
         let secret = FactorCodec.randomBiometricKey()
         biometricKey = secret
         useBiometric = true
-        guard let path = containerURL?.path else {
-            status = "Created a 64-byte phone-unlock keyfile in memory. Create the volume with it checked, then export the keyfile for a computer."
+        guard rememberBiometrics, let path = containerURL?.path else {
+            status = "Created a 64-byte phone-unlock keyfile in memory. It is not stored unless you type REMEMBER."
             return
         }
         let ok = BiometricStore.store(

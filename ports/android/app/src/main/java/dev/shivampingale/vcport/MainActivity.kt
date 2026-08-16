@@ -61,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -112,6 +113,8 @@ class MainActivity : AppCompatActivity() {
                 var useTextPassword by remember { mutableStateOf(true) }
                 var useBiometric by remember { mutableStateOf(false) }
                 var rememberBio by remember { mutableStateOf(false) }
+                var rememberConfirmOpen by remember { mutableStateOf(false) }
+                var rememberConfirmText by remember { mutableStateOf("") }
                 var bioSecret by remember { mutableStateOf<ByteArray?>(null) }
                 var keyfileUris by remember { mutableStateOf(listOf<Uri>()) }
                 var status by statusState
@@ -871,6 +874,7 @@ class MainActivity : AppCompatActivity() {
                                                         keyfileUris = keyfileUris,
                                                         useBiometric = useBiometric,
                                                         bioSecret = bioSecret,
+                                                        rememberBio = rememberBio,
                                                         hidden = createHidden,
                                                         hiddenPassword = createHiddenPassword,
                                                         hiddenPimText = createHiddenPim,
@@ -1395,8 +1399,8 @@ class MainActivity : AppCompatActivity() {
                                                             val secret = FactorCodec.randomBiometricKey()
                                                             bioSecret = secret
                                                             useBiometric = true
-                                                            if (path.isEmpty()) {
-                                                                status = "Created a 64-byte phone-unlock keyfile in memory. Create the volume with it checked, then export the keyfile for a computer."
+                                                            if (path.isEmpty() || !rememberBio) {
+                                                                status = "Created a 64-byte phone-unlock keyfile in memory. It is not stored unless you type REMEMBER."
                                                             } else {
                                                                 vault.store(
                                                                     this@MainActivity,
@@ -1458,11 +1462,22 @@ class MainActivity : AppCompatActivity() {
                                                         modifier = Modifier.fillMaxWidth()
                                                     ) { Text("Unlock with fingerprint, face, or screen lock") }
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Checkbox(rememberBio, { rememberBio = it }, enabled = !busy)
+                                                        Checkbox(
+                                                            rememberBio,
+                                                            {
+                                                                if (it) {
+                                                                    rememberConfirmText = ""
+                                                                    rememberConfirmOpen = true
+                                                                } else {
+                                                                    rememberBio = false
+                                                                }
+                                                            },
+                                                            enabled = !busy
+                                                        )
                                                         Text("Remember this combination")
                                                     }
                                                     Text(
-                                                        "Off by default. Never saved unless you check this. Compelled biometrics can still open a remembered set.",
+                                                        "Off by default. Type REMEMBER to store factors this session. Compelled biometrics can still open a remembered set.",
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = colors.onSurfaceVariant
                                                     )
@@ -1480,6 +1495,11 @@ class MainActivity : AppCompatActivity() {
                                         }
                                         VcCard {
                                             Text("About / licenses", style = MaterialTheme.typography.titleMedium)
+                                            Text(
+                                                "“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)",
+                                                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                                                color = colors.onSurfaceVariant
+                                            )
                                             Text(
                                                 "Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
                                                 style = MaterialTheme.typography.bodySmall,
@@ -1510,6 +1530,47 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+            if (rememberConfirmOpen) {
+                AlertDialog(
+                    onDismissRequest = {
+                        rememberConfirmOpen = false
+                        rememberConfirmText = ""
+                    },
+                    title = { Text("Store unlock factors on this phone?") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("A compelled fingerprint can open them. Type REMEMBER to store this session only. Volume-path history is never written.")
+                            OutlinedTextField(
+                                rememberConfirmText,
+                                { rememberConfirmText = it },
+                                label = { Text("Type REMEMBER") },
+                                singleLine = true
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                if (rememberConfirmText.trim() == "REMEMBER") {
+                                    rememberBio = true
+                                }
+                                rememberConfirmOpen = false
+                                rememberConfirmText = ""
+                            },
+                            enabled = rememberConfirmText.trim() == "REMEMBER"
+                        ) { Text("Store") }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                rememberConfirmOpen = false
+                                rememberConfirmText = ""
+                                rememberBio = false
+                            }
+                        ) { Text("Cancel") }
+                    }
+                )
+            }
             if (namePrompt != null) {
                 AlertDialog(
                     onDismissRequest = { namePrompt = null },
@@ -1653,6 +1714,7 @@ class MainActivity : AppCompatActivity() {
         keyfileUris: List<Uri>,
         useBiometric: Boolean,
         bioSecret: ByteArray?,
+        rememberBio: Boolean,
         hidden: Boolean,
         hiddenPassword: String,
         hiddenPimText: String,
@@ -1756,7 +1818,7 @@ class MainActivity : AppCompatActivity() {
                             onStatus(msg)
                             onSaved()
                         }
-                        if (hasBio && vault.isAvailable()) {
+                        if (hasBio && rememberBio && vault.isAvailable()) {
                             vault.store(
                                 this,
                                 dest.absolutePath,
