@@ -9,6 +9,9 @@ This tree is a working fork of [VeraCrypt](https://github.com/veracrypt/VeraCryp
 
 The mobile apps are named **VC Port**. The VeraCrypt license does not allow a derived work to be called VeraCrypt.
 
+Mobile-only GitHub repo: https://github.com/ShivamPingaleDev/VCPort  
+Full tree (macOS + VeraCrypt src + mobile): https://github.com/ShivamPingaleDev/Veracrypt_port
+
 ## FUSE-T vs FSKit (Apple silicon)
 
 **FUSE-T cannot be avoided yet.** VeraCrypt on macOS does not mount the guest filesystem itself. It:
@@ -103,6 +106,8 @@ scripts/sync-upstream.sh           # merge upstream, keep the port overlay
 ```
 
 `ports/OVERLAY.files` lists every file this port owns. The merge restores those files so Apple silicon, Touch ID, admin auth, and mobile code are not dropped. `ports/UPSTREAM_COMMIT` records the last synced VeraCrypt revision.
+
+The Android/iOS tree is also published on its own at https://github.com/ShivamPingaleDev/VCPort (`ports/` as the repo root).
 
 There is no automatic updater and no always-on connection.
 

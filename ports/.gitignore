@@ -1,0 +1,12 @@
+.DS_Store
+build/
+.gradle/
+.idea/
+*.iml
+local.properties
+xcuserdata/
+DerivedData/
+*.xcuserstate
+veracrypt/
+*.apk
+*.aab
