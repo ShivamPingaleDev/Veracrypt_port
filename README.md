@@ -2,6 +2,8 @@
 
 **Contact:** Shivam Mangesh Pingale — [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me) · [shivampingaledev@gmail.com](mailto:shivampingaledev@gmail.com)
 
+**Footnote:** A programming noob with a five-year IT engineering degree that did not work out. Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
+
 Security reports: [SECURITY.md](SECURITY.md).
 
 This archive contains the source code of VeraCrypt.

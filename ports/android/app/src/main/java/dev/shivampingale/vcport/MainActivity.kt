@@ -1516,6 +1516,11 @@ class MainActivity : AppCompatActivity() {
                                                 color = colors.onSurfaceVariant
                                             )
                                             Text(
+                                                "Footnote: A programming noob with a five-year IT engineering degree that did not work out. Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colors.onSurfaceVariant
+                                            )
+                                            Text(
                                                 if (BuildConfig.ENABLE_UPDATE_CHECK)
                                                     "No ads, analytics, or crash reporters. Passwords stay on this device. GitHub flavor may make one HTTPS request if you tap Check for updates. Source updates become a new app only after a rebuild."
                                                 else

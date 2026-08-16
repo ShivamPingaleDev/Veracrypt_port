@@ -14,6 +14,8 @@ Full tree (macOS + VeraCrypt src + mobile): https://github.com/ShivamPingaleDev/
 
 Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com
 
+**Footnote:** A programming noob with a five-year IT engineering degree that did not work out. Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
+
 ## FUSE-T vs FSKit (Apple silicon)
 
 **FUSE-T cannot be avoided yet.** VeraCrypt on macOS does not mount the guest filesystem itself. It:
