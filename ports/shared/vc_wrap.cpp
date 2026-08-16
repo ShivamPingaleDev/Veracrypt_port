@@ -250,7 +250,7 @@ int vc_generate_password (char *out, size_t out_size, int length)
 		out[i] = kAlphabet[r % (uint32_t) alpha_len];
 	}
 
-	static const char kClasses[4][8] = { "ABCDEFGH", "abcdefgh", "23456789", "!@#$%^&*" };
+	static const char kClasses[4][9] = { "ABCDEFGH", "abcdefgh", "23456789", "!@#$%^&*" };
 	for (int c = 0; c < 4 && c < length; ++c)
 	{
 		uint32_t pick = 0;

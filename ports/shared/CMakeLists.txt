@@ -4,7 +4,20 @@ project(vc_mobile C CXX)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_C_STANDARD 11)
 
-set(VC_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../src)
+if(NOT VC_SRC)
+	foreach(_candidate
+		"${CMAKE_CURRENT_SOURCE_DIR}/../../src"
+		"${CMAKE_CURRENT_SOURCE_DIR}/../veracrypt/src"
+		"${CMAKE_CURRENT_SOURCE_DIR}/veracrypt/src")
+		if(EXISTS "${_candidate}/Volume/Volume.h")
+			set(VC_SRC "${_candidate}")
+			break()
+		endif()
+	endforeach()
+endif()
+if(NOT VC_SRC)
+	message(FATAL_ERROR "Set VC_SRC to the VeraCrypt src tree (clone ShivamPingaleDev/Veracrypt_port).")
+endif()
 
 add_definitions(
 	-DTC_UNIX

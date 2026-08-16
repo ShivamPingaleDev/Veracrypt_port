@@ -37,9 +37,9 @@ android {
         jvmTarget = '17'
     }
     externalNativeBuild {
-        cmake {
-            path file('../../../shared/CMakeLists.txt')
-        }
+            cmake {
+                path file('../../shared/CMakeLists.txt')
+            }
     }
 }
 
