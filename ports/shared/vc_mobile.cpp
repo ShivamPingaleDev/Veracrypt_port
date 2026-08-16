@@ -48,6 +48,19 @@ struct VcVolume
 	int read_only;
 };
 
+void vc_runtime_start (void)
+{
+	try
+	{
+		if (!EncryptionThreadPool::IsRunning ())
+			EncryptionThreadPool::Start ();
+	}
+	catch (...)
+	{
+		/* 1 CPU or thread limit: stay on the caller thread for XTS. */
+	}
+}
+
 static shared_ptr <KeyfileList> MakeKeyfilesFrom (const char *const *keyfiles, size_t count)
 {
 	if (!keyfiles || count == 0)
@@ -91,8 +104,7 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 			reinterpret_cast <const uint8 *> (pw), pwLen));
 
 		shared_ptr <Volume> volume (new Volume);
-		if (!EncryptionThreadPool::IsRunning ())
-			EncryptionThreadPool::Start ();
+		vc_runtime_start ();
 
 		shared_ptr <VolumePassword> protPassword;
 		int protPim = 0;
@@ -1899,6 +1911,7 @@ int vc_create_volume (const VcCreateOptions *options)
 
 	try
 	{
+		vc_runtime_start ();
 		vc_progress_set (-1, "Deriving keys");
 		shared_ptr <VeraCrypt::EncryptionAlgorithm> ea = FindCipher (
 			options->cipher && options->cipher[0] ? options->cipher : "AES(Twofish(Serpent))");
@@ -1992,8 +2005,7 @@ static shared_ptr <Volume> OpenWritableVolume (const char *path, const char *pas
 	shared_ptr <VolumePassword> pw (new VolumePassword (
 		reinterpret_cast <const uint8 *> (password ? password : ""), passwordLen));
 	shared_ptr <Volume> volume (new Volume);
-	if (!EncryptionThreadPool::IsRunning ())
-		EncryptionThreadPool::Start ();
+	vc_runtime_start ();
 	volume->Open (
 		VolumePath (wstring (path, path + strlen (path))),
 		true,
@@ -2329,8 +2341,7 @@ int vc_benchmark (char *out, size_t out_size)
 		return VC_ERR_ARGUMENT;
 	try
 	{
-		if (!EncryptionThreadPool::IsRunning ())
-			EncryptionThreadPool::Start ();
+		vc_runtime_start ();
 		string result;
 		const size_t bytes = 1024 * 1024;
 		SecureBuffer buf (bytes);

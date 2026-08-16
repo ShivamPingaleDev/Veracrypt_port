@@ -1,0 +1,1 @@
+VC Port 0.3.1: hidden-volume write protection, emulator NativeBridge and Compose UI tests, ARM crypto (-O2 +crypto / NEON), XTS thread pool on phones. GitHub APKs stay debug-signed previews. Not unbreakable. exFAT is unsupported.

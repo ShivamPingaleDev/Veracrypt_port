@@ -213,25 +213,53 @@ class BlackBoxTests(unittest.TestCase):
         sim = read(
             "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/DeviceSimulationTest.kt"
         )
+        ui = read(
+            "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/MainActivityUiTest.kt"
+        )
         gradle = read("ports/android/app/build.gradle")
+        script = read("ports/android/run_device_sim.sh")
         self.assertIn("createStoreEncryptDecryptReopen", sim)
+        self.assertIn("hiddenVolumeWriteProtection", sim)
         self.assertIn("NativeBridge.createVolume", sim)
         self.assertIn("NativeBridge.wrapFile", sim)
         self.assertIn("NativeBridge.unwrapFile", sim)
         self.assertIn("NativeBridge.importFile", sim)
         self.assertIn("NativeBridge.changeHeader", sim)
+        self.assertIn("protectHidden", sim)
+        self.assertIn("protectionTriggered", sim)
+        self.assertIn("readOnly", sim)
         self.assertNotIn("UpdateChecker.check()", sim)
+        self.assertNotIn("UpdateChecker.check()", ui)
         self.assertIn("NativeBridge.isOpen", sim)
+        self.assertIn("createAndroidComposeRule", ui)
+        self.assertIn("Panic wipe", ui)
+        self.assertIn("Stay offline. F-Droid: no network.", ui)
+        self.assertIn("Encrypt file", ui)
+        self.assertIn("tab_create", ui)
+        self.assertIn("Check for updates", ui)
+        self.assertIn("Working…", ui)
+        self.assertIn("ui-test-junit4", gradle)
+        self.assertIn("ui-test-manifest", gradle)
+        self.assertIn("animationsDisabled true", gradle)
         self.assertIn("AndroidJUnitRunner", gradle)
         self.assertIn("ENABLE_UPDATE_CHECK", gradle)
+        self.assertIn("vcport-api35", script)
+        self.assertIn("connectedFdroidDebugAndroidTest", script)
         cmake = read("ports/shared/CMakeLists.txt")
         self.assertIn("-fgnu89-inline", cmake)
+        self.assertIn("armv8-a+crypto", cmake)
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("jni_live_handle", jni)
+        self.assertIn("vc_runtime_start", jni)
+        self.assertIn("startRuntime", jni)
         native = read(
             "ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt"
         )
         self.assertIn("fun isOpen", native)
+        header = read("ports/shared/vc_mobile.h")
+        self.assertIn("vc_runtime_start", header)
+        life = read("ports/shared/test_lifecycle_main.cpp")
+        self.assertIn("vc_runtime_start", life)
 
     def test_user_never_sees_install_from_the_app(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
@@ -332,7 +360,7 @@ class FunctionalTests(unittest.TestCase):
 class SmokeSanityTests(unittest.TestCase):
     def test_version_json_parses(self) -> None:
         v = json.loads(read("ports/version.json"))
-        self.assertEqual(v["port_version"], "0.3.0")
+        self.assertEqual(v["port_version"], "0.3.1")
         self.assertEqual(len(v["upstream_commit"]), 40)
 
     def test_pin_file_matches_json(self) -> None:

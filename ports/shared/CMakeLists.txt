@@ -36,8 +36,14 @@ if(ANDROID)
 	endif()
 	# C11 inline in cpu.c does not emit CPU_QueryAES/SHA2 at -O0 (Android
 	# Studio / connectedDebug). GNU89 inline keeps ARM crypto detection.
-	set_source_files_properties("${VC_SRC}/Crypto/cpu.c"
-		PROPERTIES COMPILE_FLAGS "-fgnu89-inline")
+	# arm64 also needs +crypto so DetectArmFeatures / Aes_hw_armv8 agree.
+	if(ANDROID_ABI STREQUAL "arm64-v8a")
+		set_source_files_properties("${VC_SRC}/Crypto/cpu.c"
+			PROPERTIES COMPILE_FLAGS "-fgnu89-inline -march=armv8-a+crypto")
+	else()
+		set_source_files_properties("${VC_SRC}/Crypto/cpu.c"
+			PROPERTIES COMPILE_FLAGS "-fgnu89-inline")
+	endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	add_definitions(-DTC_MACOSX -DTC_IOS)
 elseif(APPLE)
@@ -68,6 +74,28 @@ add_library(vc_mobile STATIC
 )
 
 target_compile_options(vc_mobile PRIVATE -fPIC -fno-strict-aliasing)
+
+# ARM: ARMv8 AES/SHA (+crypto) and NEON. Debug NDK is otherwise -O0, which
+# leaves CPU_QueryAES uninlined and skips auto-vectorized Twofish/Serpent/SHA-512.
+# HMAC-SHA-512 stays sequential; the pool parallelizes XTS and auto-detect KDF.
+if(ANDROID AND ANDROID_ABI STREQUAL "arm64-v8a")
+	target_compile_options(vc_mobile PRIVATE -ftree-vectorize -march=armv8-a+crypto)
+	if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+		target_compile_options(vc_mobile PRIVATE -O2)
+	endif()
+elseif(ANDROID AND ANDROID_ABI STREQUAL "armeabi-v7a")
+	target_compile_options(vc_mobile PRIVATE -ftree-vectorize -mfpu=neon)
+	if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+		target_compile_options(vc_mobile PRIVATE -O2)
+	endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+		target_compile_options(vc_mobile PRIVATE -O2 -ftree-vectorize -march=armv8-a+crypto)
+	endif()
+elseif(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
+	target_compile_options(vc_mobile PRIVATE -ftree-vectorize -march=armv8-a+crypto)
+endif()
+
 if(NOT APPLE)
 	target_link_libraries(vc_mobile PRIVATE dl)
 endif()
@@ -75,6 +103,17 @@ endif()
 if(ANDROID)
 	add_library(vcport SHARED android_jni.cpp)
 	target_link_libraries(vcport PRIVATE vc_mobile log)
+	if(ANDROID_ABI STREQUAL "arm64-v8a")
+		target_compile_options(vcport PRIVATE -ftree-vectorize -march=armv8-a+crypto)
+		if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+			target_compile_options(vcport PRIVATE -O2)
+		endif()
+	elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
+		target_compile_options(vcport PRIVATE -ftree-vectorize -mfpu=neon)
+		if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+			target_compile_options(vcport PRIVATE -O2)
+		endif()
+	endif()
 elseif(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	find_package(Threads REQUIRED)
 	target_link_libraries(vc_mobile PRIVATE Threads::Threads)

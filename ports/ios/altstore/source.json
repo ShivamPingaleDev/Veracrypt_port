@@ -21,6 +21,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "0.3.1",
+          "buildVersion": "6",
+          "date": "2026-08-16T00:00:00-00:00",
+          "localizedDescription": "Draft listing. No IPA is published while source must stay public for TrueCrypt 3.0. Build from ports/ios.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "0.3.0",
           "buildVersion": "5",
           "date": "2026-08-16T00:00:00-00:00",

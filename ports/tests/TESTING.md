@@ -66,6 +66,17 @@ itself is unchanged.
 
 A "phone session" in the same binary walks every NativeBridge call: entropy,
 create, wrap/unwrap, open, store, dismount, reopen, header backup/restore,
-change password. Android emulator / device: `ports/android/run_device_sim.sh`
-(skips if `adb` has no device). That test never calls `UpdateChecker.check()`.
+change password, read-only, backup header, hidden-volume write protection.
+Android emulator / device: `ports/android/run_device_sim.sh` (starts AVD
+`vcport-api35` when adb is empty; skips if there is no SDK/AVD). That test
+never calls `UpdateChecker.check()`. Compose UI coverage is `MainActivityUiTest`
+(tabs, Panic wipe, Stay offline, Wrap/Create/Tools copy; does not tap Panic
+wipe or Check for updates).
+
+ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-march=armv8-a+crypto`.
+Debug NDK builds still use `-O2` on that slice so AES/SHA detection and
+Twofish/Serpent/SHA-512 are not stuck at `-O0`. armeabi-v7a uses NEON.
+`vc_runtime_start()` warms VeraCrypt's EncryptionThreadPool at JNI load (and
+on iOS before open/create) so XTS uses every core. HMAC-SHA-512 PBKDF2 stays
+sequential per password.
 

@@ -15,7 +15,7 @@
  * reads VC_PORT_UPDATE_MANIFEST_URL (our tree) and VC_PORT_UPSTREAM_RELEASES
  * (official VeraCrypt GitHub latest). Neither call installs software.
  */
-#define VC_PORT_VERSION			"0.3.0"
+#define VC_PORT_VERSION			"0.3.1"
 #define VC_PORT_UPSTREAM_VERSION	"1.26.29"
 #define VC_PORT_UPSTREAM_COMMIT	"b48e31f5b47da7d41025e3f0e02751675e15005a"
 #define VC_PORT_UPSTREAM_TAG		"VeraCrypt_1.26.29"

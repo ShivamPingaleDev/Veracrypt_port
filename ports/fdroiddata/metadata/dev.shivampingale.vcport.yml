@@ -45,6 +45,15 @@ RepoType: git
 Repo: https://github.com/ShivamPingaleDev/Veracrypt_port.git
 
 Builds:
+  - versionName: 0.3.1
+    versionCode: 6
+    commit: v0.3.1
+    subdir: ports/android
+    gradle:
+      - fdroid
+    ndk: r26d
+    scandelete:
+      - ../ios
   - versionName: 0.3.0
     versionCode: 5
     commit: v0.3.0
@@ -85,5 +94,5 @@ Builds:
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
 UpdateCheckName: dev.shivampingale.vcport
-CurrentVersion: 0.3.0
-CurrentVersionCode: 5
+CurrentVersion: 0.3.1
+CurrentVersionCode: 6

@@ -3,6 +3,7 @@ package dev.shivampingale.vcport
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,11 +23,7 @@ class DeviceSimulationTest {
             deleteRecursively()
             mkdirs()
         }
-
-        NativeBridge.resetEntropy()
-        val sample = ByteArray(32) { 0x5A }
-        repeat(320) { NativeBridge.addEntropy(sample) }
-        assertEquals(100, NativeBridge.entropyPercent())
+        fillEntropy()
         assertEquals(0, NativeBridge.testVectors())
 
         NativeBridge.resetProgress()
@@ -79,6 +76,11 @@ class DeviceSimulationTest {
         )
         assertTrue("wrong password returned $wrong", !NativeBridge.isOpen(wrong))
 
+        val pimZero = NativeBridge.openVolume(
+            volume.absolutePath, volumePassword, 0, false, keyfiles, false
+        )
+        assertTrue("TrueCrypt Mode PIM 0 must not open a PIM 1 volume: $pimZero", !NativeBridge.isOpen(pimZero))
+
         val handle = NativeBridge.openVolume(
             volume.absolutePath, volumePassword, 1, false, keyfiles, false
         )
@@ -94,6 +96,10 @@ class DeviceSimulationTest {
         assertEquals(0, NativeBridge.importFile(handle, "VAULT", plain.absolutePath, "NOTE.TXT"))
         assertTrue(NativeBridge.listRoot(handle).any { it.startsWith("VAULT\t") })
         assertTrue(NativeBridge.listDir(handle, "VAULT").any { it.startsWith("NOTE.TXT\t") })
+        val page0 = NativeBridge.listDir(handle, "/", 0)
+        val page1 = NativeBridge.listDir(handle, "/", 1)
+        assertTrue(page0.isNotEmpty())
+        assertTrue(page1.size <= page0.size)
 
         val exported = File(dir, "out.txt")
         assertEquals(0, NativeBridge.exportFile(handle, "VAULT/NOTE.TXT", exported.absolutePath))
@@ -103,6 +109,15 @@ class DeviceSimulationTest {
         assertEquals(0, NativeBridge.importFile(handle, "VAULT", plain.absolutePath, "NOTE.TXT"))
         assertEquals(0, NativeBridge.wipeFreeSpace(handle))
         NativeBridge.closeVolume(handle)
+
+        val readOnly = NativeBridge.openVolume(
+            volume.absolutePath, volumePassword, 1, false, keyfiles, readOnly = true
+        )
+        assertTrue("read-only open failed with $readOnly", NativeBridge.isOpen(readOnly))
+        assertTrue(NativeBridge.mkdir(readOnly, "/", "DENIED") != 0)
+        assertTrue(NativeBridge.importFile(readOnly, "/", plain.absolutePath, "NOPE.TXT") != 0)
+        assertTrue(NativeBridge.deleteFile(readOnly, "HELLO.TXT") != 0)
+        NativeBridge.closeVolume(readOnly)
 
         val again = NativeBridge.openVolume(
             volume.absolutePath, volumePassword, 1, false, keyfiles, false
@@ -116,6 +131,11 @@ class DeviceSimulationTest {
 
         val bak = File(dir, "headers.bak")
         assertEquals(0, NativeBridge.backupHeaders(volume.absolutePath, bak.absolutePath, volumePassword, 1, keyfiles))
+        val fromBackup = NativeBridge.openVolume(
+            volume.absolutePath, volumePassword, 1, true, keyfiles, false
+        )
+        assertTrue("use backup header failed with $fromBackup", NativeBridge.isOpen(fromBackup))
+        NativeBridge.closeVolume(fromBackup)
         assertEquals(0, NativeBridge.restoreHeaders(volume.absolutePath, bak.absolutePath, volumePassword, 1, keyfiles))
 
         val changed = "vcport-changed-password-ok"
@@ -142,7 +162,73 @@ class DeviceSimulationTest {
         Hardening.wipeDir(dir)
     }
 
+    @Test
+    fun hiddenVolumeWriteProtection() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val dir = File(ctx.cacheDir, "device-sim-hidden").apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        fillEntropy()
+        val volume = File(dir, "nested.hc")
+        val outer = "vcport-outer-password"
+        val hidden = "vcport-hidden-password"
+        assertEquals(
+            0,
+            NativeBridge.createVolume(
+                volume.absolutePath,
+                outer,
+                1,
+                6L * 1024L * 1024L,
+                NativeBridge.DEFAULT_CIPHER,
+                NativeBridge.DEFAULT_KDF,
+                emptyArray(),
+                hidden,
+                1,
+                2L * 1024L * 1024L,
+                emptyArray()
+            )
+        )
+
+        val denied = NativeBridge.openVolume(
+            volume.absolutePath, outer, 1, false, emptyArray(), false,
+            protectHidden = true, hiddenPassword = "wrong-hidden", hiddenPim = 1
+        )
+        assertTrue("wrong nested password returned $denied", !NativeBridge.isOpen(denied))
+
+        val handle = NativeBridge.openVolume(
+            volume.absolutePath, outer, 1, false, emptyArray(), false,
+            protectHidden = true, hiddenPassword = hidden, hiddenPim = 1
+        )
+        assertTrue("protect-hidden open failed with $handle", NativeBridge.isOpen(handle))
+        val info = NativeBridge.volumeInfo(handle)
+        assertNotNull(info)
+        assertTrue(info!!.contains("Volume type: Outer"))
+        assertTrue(info.contains("Hidden Volume Protected: Yes"))
+        assertFalse(NativeBridge.protectionTriggered(handle))
+        NativeBridge.wipeFreeSpace(handle)
+        if (!NativeBridge.protectionTriggered(handle)) {
+            val fill = File(dir, "fill.bin").apply {
+                writeBytes(ByteArray(3 * 1024 * 1024) { 0xAA.toByte() })
+            }
+            NativeBridge.importFile(handle, "/", fill.absolutePath, "FILL.BIN")
+        }
+        assertTrue(
+            "writing outer free space must trip hidden-volume protection",
+            NativeBridge.protectionTriggered(handle)
+        )
+        NativeBridge.closeVolume(handle)
+        Hardening.wipeDir(dir)
+    }
+
     companion object {
         private const val PAYLOAD = "from-device-encrypted\n"
+
+        private fun fillEntropy() {
+            NativeBridge.resetEntropy()
+            val sample = ByteArray(32) { 0x5A }
+            repeat(320) { NativeBridge.addEntropy(sample) }
+            assertEquals(100, NativeBridge.entropyPercent())
+        }
     }
 }

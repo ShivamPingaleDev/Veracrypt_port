@@ -508,7 +508,7 @@ static unsigned worker_count (size_t jobs)
 	unsigned hw = std::thread::hardware_concurrency ();
 	if (hw < 2)
 		hw = 2;
-	/* Leave cores for VeraCrypt EncryptionThreadPool (XTS import/export). */
+	/* Independent volumes on half the cores; EncryptionThreadPool uses the rest for XTS. */
 	unsigned cap = hw / 2;
 	if (cap < 1)
 		cap = 1;
@@ -819,6 +819,7 @@ static void test_hidden_protect (void)
 int main ()
 {
 	printf ("VC Port volume lifecycle simulation\n");
+	vc_runtime_start ();
 	fill_entropy ();
 	{
 		FlushOnExit flush;

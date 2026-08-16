@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -571,10 +573,10 @@ class MainActivity : AppCompatActivity() {
                                 contentColor = colors.primary,
                                 edgePadding = 8.dp
                             ) {
-                                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Volume") })
-                                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Wrap") })
-                                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Create") })
-                                Tab(selected = tab == 3, onClick = { tab = 3 }, text = { Text("Tools") })
+                                Tab(selected = tab == 0, onClick = { tab = 0 }, modifier = Modifier.testTag("tab_volume"), text = { Text("Volume") })
+                                Tab(selected = tab == 1, onClick = { tab = 1 }, modifier = Modifier.testTag("tab_wrap"), text = { Text("Wrap") })
+                                Tab(selected = tab == 2, onClick = { tab = 2 }, modifier = Modifier.testTag("tab_create"), text = { Text("Create") })
+                                Tab(selected = tab == 3, onClick = { tab = 3 }, modifier = Modifier.testTag("tab_tools"), text = { Text("Tools") })
                             }
                             Column(
                                 Modifier
@@ -2803,6 +2805,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
         beginWork("Creating folder $name…")
+        Thread {
+            val rc = NativeBridge.mkdir(handle, if (dirPath.isEmpty()) "/" else dirPath, name)
             runOnUiThread {
                 endWork()
                 if (rc != 0) onStatus(importErrorMessage(name, rc))
@@ -2823,6 +2827,8 @@ class MainActivity : AppCompatActivity() {
         onStatus: (String) -> Unit
     ) {
         beginWork("Renaming ${entry.name}…")
+        Thread {
+            val rc = NativeBridge.renameFile(handle, joinDir(dirPath, entry.name), newName)
             runOnUiThread {
                 endWork()
                 if (rc != 0) onStatus(importErrorMessage(entry.name, rc))
@@ -2842,6 +2848,8 @@ class MainActivity : AppCompatActivity() {
         onStatus: (String) -> Unit
     ) {
         beginWork(if (entry.isDir) "Deleting folder ${entry.name}…" else "Deleting ${entry.name}…")
+        Thread {
+            val path = joinDir(dirPath, entry.name)
             val rc = if (entry.isDir) NativeBridge.rmdir(handle, path) else NativeBridge.deleteFile(handle, path)
             runOnUiThread {
                 endWork()

@@ -97,6 +97,9 @@ android {
         abortOnError true
         disable 'GoogleAppIndexingWarning', 'ExpiredTargetSdkVersion'
     }
+    testOptions {
+        animationsDisabled true
+    }
 }
 
 def releaseStore = System.getenv('VC_PORT_RELEASE_STORE_FILE')
@@ -123,6 +126,9 @@ dependencies {
     implementation 'androidx.fragment:fragment-ktx:1.8.2'
     implementation 'androidx.biometric:biometric:1.1.0'
     implementation 'androidx.documentfile:documentfile:1.0.1'
+    androidTestImplementation platform('androidx.compose:compose-bom:2024.06.00')
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
 }

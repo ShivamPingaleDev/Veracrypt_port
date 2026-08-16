@@ -14,7 +14,12 @@ struct VcStatusCode: Error {
 }
 
 enum VcMobileBridge {
+    static func startCpu() {
+        vc_runtime_start()
+    }
+
     static func open(path: String, password: String, pim: Int32, keyfiles: [String], useBackupHeader: Bool = false, readOnly: Bool = false, protectHidden: Bool = false, hiddenPassword: String = "", hiddenPim: Int32 = 0, error: UnsafeMutablePointer<Int32>) -> OpaquePointer? {
+        startCpu()
         path.withCString { cPath in
             password.withCString { cPassword in
                 hiddenPassword.withCString { cHidden in
@@ -241,6 +246,7 @@ enum VcMobileBridge {
         hiddenSizeBytes: UInt64 = 0,
         hiddenKeyfiles: [String] = []
     ) -> Int32 {
+        startCpu()
         path.withCString { cPath in
             password.withCString { cPassword in
                 cipher.withCString { cCipher in
@@ -353,6 +359,7 @@ enum VcMobileBridge {
     }
 
     static func benchmark() -> String {
+        startCpu()
         var buf = [CChar](repeating: 0, count: 2048)
         guard vc_benchmark(&buf, 2048) == 0 else { return "Benchmark failed." }
         return String(cString: buf)

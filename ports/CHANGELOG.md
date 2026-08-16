@@ -2,11 +2,15 @@
 
 ## Unreleased
 
+## 0.3.1
+
+Phone release: hidden-volume write protection, full emulator NativeBridge + Compose UI tests, ARM crypto flags, and the XTS thread pool on open/create.
+
 - Official VeraCrypt git + latest-release URLs in `ports/version.json`. Check for updates is a ≤20s HTTPS window to those hosts plus GitHub status; no redirects; the app never listens and never fetches `src/` or installs itself.
 - Progress overlay on long jobs. Copy/move, New folder / Rename / Delete / Properties / Wipe free space, Read-only and TrueCrypt Mode, restore from the embedded backup header.
 - Aligned FAT copy/wipe/export skip an extra sector buffer. Overlay polls at 10 Hz only while a job runs.
 - Host tests: wrap/volume object cache, `test_quality.py` taxonomy + property/fuzz, fail-closed VCF2 decode. See `ports/tests/TESTING.md`.
-- Fastlane changelog for versionCode 5; F-Droid recipe clones public `Veracrypt_port`; SECURITY.md and CI path filters match a public tree.
+- Fastlane changelog for versionCode 6; F-Droid recipe clones public `Veracrypt_port`; SECURITY.md and CI path filters match a public tree.
 - FAT list cap 1024; `vc_list_dir_from` + Load more; iOS wrap uses `arc4random_buf`; iOS native defines `TC_IOS`.
 - Nation-state APTs (Unit 8200, TAO, Lazarus, and the rest) are documented as out of scope: no key escrow, no intelligence backdoor, and no foolproof claim.
 - Remember / biometric save stays off unless the user types REMEMBER. Password fields skip IME, Autofill, and iOS Keychain history. Desktop never writes History.xml; leftover history is overwritten then deleted.
@@ -23,6 +27,7 @@
 - iOS compiles on Xcode 26: listDir uses an Error wrapper; biometric keyfile byte count is not inlined in SwiftUI Text.
 - Host lifecycle simulation: create a FAT volume with password, PIM, and a biometric keyfile, store files, dismount, reopen. Independent cases run on a CPU worker pool; HMAC-SHA-512 is unchanged. Phone-session + optional emulator NativeBridge test stay offline (no UpdateChecker).
 - Android 64-bit openVolume handles: a live pointer may look negative as signed Long; JNI/UI use isOpen instead of handle > 0. Debug ARM cpu.c links with GNU89 inline so CPU_QueryAES/SHA2 exist at -O0.
+- Emulator NativeBridge covers read-only, backup header, PIM 0, and hidden-volume write protection. Compose UI test walks Volume/Wrap/Create/Tools without tapping Panic wipe or Check for updates. ARM64 Debug NDK uses `-O2 -march=armv8-a+crypto`; armeabi-v7a uses NEON. `vc_runtime_start` warms the XTS thread pool after native load.
 
 ## 0.3.0
 

@@ -72,6 +72,10 @@ typedef struct VcCreateOptions
 	size_t hidden_keyfile_count;
 } VcCreateOptions;
 
+/* Start VeraCrypt EncryptionThreadPool (XTS + auto-detect KDF). Safe to call
+ * more than once. HMAC-SHA-512 itself stays sequential per password. */
+void vc_runtime_start (void);
+
 VcVolume *vc_open (const VcOpenOptions *options, int *error);
 int vc_create_volume (const VcCreateOptions *options);
 void vc_entropy_reset (void);

@@ -528,10 +528,17 @@ Java_dev_shivampingale_vcport_NativeBridge_progressPhase(JNIEnv *env, jobject)
 	return env->NewStringUTF(phase);
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_startRuntime(JNIEnv *, jobject)
+{
+	vc_runtime_start();
+}
+
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *, void *)
 {
 #ifdef __linux__
 	prctl(PR_SET_DUMPABLE, 0);
 #endif
+	/* Worker threads start from NativeBridge.startRuntime after loadLibrary. */
 	return JNI_VERSION_1_6;
 }

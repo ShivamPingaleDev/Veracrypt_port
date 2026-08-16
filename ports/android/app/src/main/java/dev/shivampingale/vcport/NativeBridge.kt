@@ -4,7 +4,9 @@ object NativeBridge {
     const val LIST_UI_MAX = 1024
     init {
         System.loadLibrary("vcport")
+        startRuntime()
     }
+    private external fun startRuntime()
 
     external fun openVolume(
         path: String,
