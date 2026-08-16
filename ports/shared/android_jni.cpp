@@ -92,16 +92,25 @@ Java_dev_shivampingale_vcport_NativeBridge_volumeSize(JNIEnv *, jobject, jlong h
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_dev_shivampingale_vcport_NativeBridge_listRoot(JNIEnv *env, jobject, jlong handle)
+Java_dev_shivampingale_vcport_NativeBridge_listDir(JNIEnv *env, jobject, jlong handle, jstring path)
 {
 	jclass stringClass = env->FindClass("java/lang/String");
 	if (handle <= 0)
 		return env->NewObjectArray(0, stringClass, nullptr);
 
+	std::string cPath = jni_copy_utf(env, path);
+	if (cPath.empty())
+		cPath = "/";
 	VcDirEntry entries[128];
-	int n = vc_list_root(reinterpret_cast<VcVolume *>(handle), entries, 128);
+	int n = vc_list_dir(reinterpret_cast<VcVolume *>(handle), cPath.c_str(), entries, 128);
 	if (n < 0)
-		n = 0;
+	{
+		char line[64];
+		snprintf(line, sizeof(line), "!error!\t0\t%d", n);
+		jobjectArray result = env->NewObjectArray(1, stringClass, nullptr);
+		env->SetObjectArrayElement(result, 0, env->NewStringUTF(line));
+		return result;
+	}
 	jobjectArray result = env->NewObjectArray(n, stringClass, nullptr);
 	for (int i = 0; i < n; ++i)
 	{
@@ -113,6 +122,12 @@ Java_dev_shivampingale_vcport_NativeBridge_listRoot(JNIEnv *env, jobject, jlong 
 		env->SetObjectArrayElement(result, i, env->NewStringUTF(line));
 	}
 	return result;
+}
+
+extern "C" JNIEXPORT jobjectArray JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_listRoot(JNIEnv *env, jobject obj, jlong handle)
+{
+	return Java_dev_shivampingale_vcport_NativeBridge_listDir(env, obj, handle, env->NewStringUTF("/"));
 }
 
 extern "C" JNIEXPORT jint JNICALL

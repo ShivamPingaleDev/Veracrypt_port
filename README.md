@@ -2,6 +2,8 @@
 
 **Contact:** Shivam Mangesh Pingale — [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me) · [shivampingaledev@gmail.com](mailto:shivampingaledev@gmail.com)
 
+Security reports: [SECURITY.md](SECURITY.md).
+
 This archive contains the source code of VeraCrypt.
 It is based on the original TrueCrypt 7.1a with security enhancements and modifications.
 

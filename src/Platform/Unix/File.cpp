@@ -19,6 +19,10 @@
 #include <sys/mount.h>
 #endif
 
+#ifdef TC_MACOSX
+#include <sys/disk.h>
+#endif
+
 #ifdef TC_BSD
 #include <sys/disk.h>
 #endif

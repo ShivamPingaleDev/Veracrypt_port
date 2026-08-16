@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private val generatedPasswordState = mutableStateOf("")
     private val handleState = mutableStateOf(0L)
     private val entriesState = mutableStateOf(listOf<VaultEntry>())
+    private val dirPathState = mutableStateOf("")
     private var suppressLock = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,6 +77,7 @@ class MainActivity : AppCompatActivity() {
                     var status by statusState
                     var entries by entriesState
                     var handle by handleState
+                    var dirPath by dirPathState
                     var wrapPassword by wrapPasswordState
                     var generatedPassword by generatedPasswordState
                     val incoming by incomingState
@@ -143,6 +145,7 @@ class MainActivity : AppCompatActivity() {
                             generatedPassword = ""
                             handle = 0
                             entries = emptyList()
+                            dirPath = ""
                             status = "Panic wipe complete. Keystore, cache, clipboard, and remembered factors are gone."
                         }) { Text("Panic wipe") }
                         Spacer(Modifier.height(12.dp))
@@ -414,7 +417,11 @@ class MainActivity : AppCompatActivity() {
                             style = MaterialTheme.typography.bodySmall
                         )
                         Text(
-                            "VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt.",
+                            "VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. Not unbreakable.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            "Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com",
                             style = MaterialTheme.typography.bodySmall
                         )
                         Text(
@@ -424,12 +431,32 @@ class MainActivity : AppCompatActivity() {
                                 "No ads, analytics, crash reporters, or INTERNET permission. Passwords stay on this device. Updates come from F-Droid.",
                             style = MaterialTheme.typography.bodySmall
                         )
+                        if (handle > 0) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (dirPath.isNotEmpty()) {
+                                    OutlinedButton(onClick = {
+                                        dirPath = parentDir(dirPath)
+                                        loadDir(handle, dirPath, { entries = it }, { status = it })
+                                    }) { Text("Up") }
+                                    Spacer(Modifier.padding(8.dp))
+                                }
+                                Text(
+                                    if (dirPath.isEmpty()) "/" else "/$dirPath",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
                         entries.forEach { entry ->
                             Row(
                                 Modifier
                                     .fillMaxWidth()
-                                    .clickable(enabled = !entry.isDir) {
-                                        shareVaultFile(handle, entry) { status = it }
+                                    .clickable {
+                                        if (entry.isDir) {
+                                            dirPath = joinDir(dirPath, entry.name)
+                                            loadDir(handle, dirPath, { entries = it }, { status = it })
+                                        } else {
+                                            shareVaultFile(handle, dirPath, entry) { status = it }
+                                        }
                                     }
                                     .padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -443,7 +470,7 @@ class MainActivity : AppCompatActivity() {
                                 }
                                 if (!entry.isDir) {
                                     OutlinedButton(onClick = {
-                                        shareVaultFile(handle, entry) { status = it }
+                                        shareVaultFile(handle, dirPath, entry) { status = it }
                                     }) { Text("Share decrypted") }
                                 }
                             }
@@ -474,6 +501,7 @@ class MainActivity : AppCompatActivity() {
         if (handle > 0) NativeBridge.closeVolume(handle)
         handleState.value = 0L
         entriesState.value = emptyList()
+        dirPathState.value = ""
         passwordState.value = ""
         wrapPasswordState.value = ""
         generatedPasswordState.value = ""
@@ -547,22 +575,32 @@ class MainActivity : AppCompatActivity() {
                     if (result <= 0) {
                         onHandle(0)
                         onEntries(emptyList())
-                        onStatus("Open failed (code $result). Wrong password, PIM, or keyfile mix.")
+                        onStatus(openErrorMessage(result))
                     } else {
                         onHandle(result)
-                        onEntries(NativeBridge.listRoot(result).mapNotNull { parseEntry(it) })
-                        onStatus("Opened. Size ${NativeBridge.volumeSize(result)} bytes. Tap a file to share the decrypted copy.")
-                        if (rememberBio && vault.isAvailable()) {
-                            vault.store(
-                                this,
-                                path,
-                                FactorBundle(
-                                    pim = pimText.toIntOrNull() ?: 0,
-                                    password = text,
-                                    biometricKey = if (useBiometric) bioSecret else null,
-                                    keyfileUris = keyfileUris.map { it.toString() }
-                                )
-                            ) {}
+                        val listed = NativeBridge.listDir(result, "/")
+                        val parsed = listed.mapNotNull { parseEntry(it) }
+                        if (parsed.size == 1 && parsed[0].name == "!error!") {
+                            NativeBridge.closeVolume(result)
+                            onHandle(0)
+                            onEntries(emptyList())
+                            onStatus(listErrorMessage(parsed[0].size.toInt()))
+                        } else {
+                            onEntries(parsed)
+                            dirPathState.value = ""
+                            onStatus("Opened. Size ${NativeBridge.volumeSize(result)} bytes. Tap a folder to open it, or a file to share the decrypted copy.")
+                            if (rememberBio && vault.isAvailable()) {
+                                vault.store(
+                                    this,
+                                    path,
+                                    FactorBundle(
+                                        pim = pimText.toIntOrNull() ?: 0,
+                                        password = text,
+                                        biometricKey = if (useBiometric) bioSecret else null,
+                                        keyfileUris = keyfileUris.map { it.toString() }
+                                    )
+                                ) {}
+                            }
                         }
                     }
                 }
@@ -724,29 +762,75 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun shareVaultFile(handle: Long, entry: VaultEntry, onStatus: (String) -> Unit) {
+    private fun shareVaultFile(handle: Long, dirPath: String, entry: VaultEntry, onStatus: (String) -> Unit) {
         if (handle <= 0) {
             onStatus("Open a volume first.")
             return
         }
         beginShare()
         if (entry.isDir) {
-            onStatus("Folders cannot be shared yet.")
+            onStatus("Open the folder, then share a file inside it.")
             return
         }
+        val volumePath = joinDir(dirPath, entry.name)
         onStatus("Preparing ${entry.name}…")
         Thread {
             val dest = File(ShareHelper.shareDir(this), ShareHelper.safeName(entry.name))
-            val rc = NativeBridge.exportFile(handle, entry.name, dest.absolutePath)
+            val rc = NativeBridge.exportFile(handle, volumePath, dest.absolutePath)
             runOnUiThread {
                 if (rc != 0 || !dest.exists()) {
-                    onStatus("Could not extract ${entry.name} (code $rc). FAT/exFAT only.")
+                    onStatus(extractErrorMessage(entry.name, rc))
                 } else {
                     onStatus("Share ${entry.name} with WhatsApp, Gmail, Drive, or any app.")
                     ShareHelper.shareFiles(this, listOf(dest), "Share ${entry.name}")
                 }
             }
         }.start()
+    }
+
+    private fun loadDir(handle: Long, path: String, onEntries: (List<VaultEntry>) -> Unit, onStatus: (String) -> Unit) {
+        if (handle <= 0) return
+        val listed = NativeBridge.listDir(handle, if (path.isEmpty()) "/" else path)
+        val parsed = listed.mapNotNull { parseEntry(it) }
+        if (parsed.size == 1 && parsed[0].name == "!error!") {
+            onStatus(listErrorMessage(parsed[0].size.toInt()))
+            return
+        }
+        onEntries(parsed)
+    }
+
+    private fun joinDir(dir: String, name: String): String {
+        return if (dir.isEmpty()) name else "$dir/$name"
+    }
+
+    private fun parentDir(dir: String): String {
+        val slash = dir.lastIndexOf('/')
+        return if (slash <= 0) "" else dir.substring(0, slash)
+    }
+
+    private fun openErrorMessage(code: Long): String {
+        return when (code.toInt()) {
+            -2 -> "Wrong password, PIM, or keyfile mix."
+            -6 -> "This container uses exFAT or another filesystem VC Port does not open. FAT only."
+            -1 -> "Could not read the container file."
+            -3 -> "Not a VeraCrypt-compatible volume, or the header is damaged."
+            -4 -> "Missing path or password argument."
+            else -> "Open failed (code $code)."
+        }
+    }
+
+    private fun listErrorMessage(code: Int): String {
+        return when (code) {
+            -6 -> "Opened the volume, but the filesystem is exFAT or otherwise unsupported. FAT only."
+            else -> "Could not list files (code $code)."
+        }
+    }
+
+    private fun extractErrorMessage(name: String, rc: Int): String {
+        return when (rc) {
+            -6 -> "Could not extract $name. FAT only; exFAT is unsupported."
+            else -> "Could not extract $name (code $rc)."
+        }
     }
 
     private fun parseEntry(line: String): VaultEntry? {

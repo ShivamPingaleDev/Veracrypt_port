@@ -151,9 +151,16 @@ int vc_write (VcVolume *volume, uint64_t offset, const void *buffer, size_t size
 		return VC_ERR_ARGUMENT;
 	try
 	{
-		SecureBuffer buf (size);
-		memcpy (buf.Ptr (), buffer, size);
-		volume->volume->WriteSectors (buf, offset);
+		size_t sector = volume->volume->GetSectorSize ();
+		uint64_t alignedOffset = offset - (offset % sector);
+		size_t prefix = (size_t) (offset - alignedOffset);
+		size_t total = prefix + size;
+		total = ((total + sector - 1) / sector) * sector;
+		SecureBuffer buf (total);
+		if (prefix || total != size)
+			volume->volume->ReadSectors (buf, alignedOffset);
+		memcpy (buf.Ptr () + prefix, buffer, size);
+		volume->volume->WriteSectors (buf, alignedOffset);
 		return VC_OK;
 	}
 	catch (...)
@@ -403,27 +410,101 @@ static int fat_parse_dir (const uint8_t *dir, size_t bytes, VcDirEntry *entries,
 	return count;
 }
 
-static int fat_find (VcVolume *volume, const char *path, VcDirEntry *found)
+static int fat_load_dir (VcVolume *volume, const FatGeom *g, uint32_t cluster, std::vector <uint8_t> &dir)
 {
-	VcDirEntry entries[128];
-	int n = vc_list_root (volume, entries, 128);
-	if (n < 0)
-		return n;
-	const char *name = path;
-	if (name[0] == '/' || name[0] == '\\')
-		++name;
-	for (int i = 0; i < n; ++i)
+	if (!g->fat32 && cluster < 2)
+		return fat_load_root (volume, g, dir);
+	if (g->fat32 && cluster < 2)
+		cluster = g->root_cluster;
+	return fat_read_chain (volume, g, cluster, dir, 8 * 1024 * 1024);
+}
+
+static int fat_is_root_path (const char *path)
+{
+	if (!path || !path[0])
+		return 1;
+	while (*path == '/' || *path == '\\')
+		++path;
+	return *path == 0;
+}
+
+static const char *fat_next_component (const char *path, char *out, size_t out_size)
+{
+	while (*path == '/' || *path == '\\')
+		++path;
+	if (!*path)
+		return nullptr;
+	size_t n = 0;
+	while (path[n] && path[n] != '/' && path[n] != '\\')
+		++n;
+	if (n == 0 || n >= out_size)
+		return nullptr;
+	memcpy (out, path, n);
+	out[n] = 0;
+	if (strcmp (out, ".") == 0 || strcmp (out, "..") == 0)
+		return nullptr;
+	return path + n;
+}
+
+static int fat_find_path (VcVolume *volume, const char *path, VcDirEntry *found)
+{
+	if (!path || !found)
+		return VC_ERR_ARGUMENT;
+	if (fat_is_root_path (path))
+		return VC_ERR_UNSUPPORTED;
+
+	FatGeom geom;
+	int rc = fat_load_geom (volume, &geom);
+	if (rc != VC_OK)
+		return rc;
+
+	uint32_t cluster = 0;
+	const char *cursor = path;
+	char name[256];
+	for (;;)
 	{
-		if (strcasecmp (entries[i].name, name) == 0)
+		const char *next = fat_next_component (cursor, name, sizeof (name));
+		if (!next)
+			return VC_ERR_ARGUMENT;
+		std::vector <uint8_t> dir;
+		rc = fat_load_dir (volume, &geom, cluster, dir);
+		if (rc != VC_OK)
+			return rc;
+		if (dir.empty ())
+			return VC_ERR_IO;
+		VcDirEntry entries[128];
+		int n = fat_parse_dir (&dir[0], dir.size (), entries, 128);
+		int hit = -1;
+		for (int i = 0; i < n; ++i)
 		{
-			*found = entries[i];
+			if (strcasecmp (entries[i].name, name) == 0)
+			{
+				hit = i;
+				break;
+			}
+		}
+		if (hit < 0)
+			return VC_ERR_IO;
+		while (*next == '/' || *next == '\\')
+			++next;
+		if (!*next)
+		{
+			*found = entries[hit];
 			return VC_OK;
 		}
+		if (!entries[hit].is_dir)
+			return VC_ERR_UNSUPPORTED;
+		cluster = entries[hit].first_cluster;
+		cursor = next;
 	}
-	return VC_ERR_IO;
 }
 
 int vc_list_root (VcVolume *volume, VcDirEntry *entries, int max_entries)
+{
+	return vc_list_dir (volume, "/", entries, max_entries);
+}
+
+int vc_list_dir (VcVolume *volume, const char *path, VcDirEntry *entries, int max_entries)
 {
 	if (!volume || !entries || max_entries <= 0)
 		return VC_ERR_ARGUMENT;
@@ -433,8 +514,20 @@ int vc_list_root (VcVolume *volume, VcDirEntry *entries, int max_entries)
 	if (rc != VC_OK)
 		return rc;
 
+	uint32_t cluster = 0;
+	if (!fat_is_root_path (path))
+	{
+		VcDirEntry dirent;
+		rc = fat_find_path (volume, path, &dirent);
+		if (rc != VC_OK)
+			return rc;
+		if (!dirent.is_dir)
+			return VC_ERR_UNSUPPORTED;
+		cluster = dirent.first_cluster;
+	}
+
 	std::vector <uint8_t> dir;
-	rc = fat_load_root (volume, &geom, dir);
+	rc = fat_load_dir (volume, &geom, cluster, dir);
 	if (rc != VC_OK)
 		return rc;
 	if (dir.empty ())
@@ -503,7 +596,7 @@ int vc_read_file (VcVolume *volume, const char *path, void *buffer, size_t buffe
 		return VC_ERR_ARGUMENT;
 
 	VcDirEntry entry;
-	int rc = fat_find (volume, path, &entry);
+	int rc = fat_find_path (volume, path, &entry);
 	if (rc != VC_OK)
 		return rc;
 	return fat_copy_file (volume, &entry, buffer, buffer_size, out_size, nullptr);
@@ -515,7 +608,7 @@ int vc_export_file (VcVolume *volume, const char *path, const char *dest_path)
 		return VC_ERR_ARGUMENT;
 
 	VcDirEntry entry;
-	int rc = fat_find (volume, path, &entry);
+	int rc = fat_find_path (volume, path, &entry);
 	if (rc != VC_OK)
 		return rc;
 	if (entry.is_dir)

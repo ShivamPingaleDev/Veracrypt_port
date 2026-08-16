@@ -7,9 +7,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>dev.shivampingale.vcport</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.2</string>
+	<string>0.3.0</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>5</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID unlocks stored volume passwords on this device.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

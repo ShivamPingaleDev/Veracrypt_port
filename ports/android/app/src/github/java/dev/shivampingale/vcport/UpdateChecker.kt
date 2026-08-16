@@ -5,15 +5,17 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object UpdateChecker {
-    const val LOCAL_VERSION = "0.2.2"
+    const val LOCAL_VERSION = "0.3.0"
     private const val MANIFEST =
         "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json"
+    private val SHA256 = Regex("^[0-9a-fA-F]{64}$")
 
     data class Result(
         val newer: Boolean,
         val remoteVersion: String,
         val notes: String,
-        val downloadUrl: String
+        val downloadUrl: String,
+        val apkSha256: String
     )
 
     fun check(): Result {
@@ -22,18 +24,24 @@ object UpdateChecker {
             connectTimeout = 15000
             readTimeout = 15000
             instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "VCPort-OfflineUpdate/0.2")
+            setRequestProperty("User-Agent", "VCPort-OfflineUpdate/$LOCAL_VERSION")
             setRequestProperty("Connection", "close")
         }
         try {
             val body = connection.inputStream.bufferedReader().readText()
             val json = JSONObject(body)
             val remote = json.optString("port_version")
+            if (remote.isEmpty()) error("bad manifest")
+            val sha = json.optString("android_apk_sha256")
+            if (sha.isNotEmpty() && !SHA256.matches(sha)) error("bad manifest")
+            val url = json.optString("android_url").ifEmpty { json.optString("download_url") }
+            if (url.isNotEmpty() && !url.startsWith("https://")) error("bad manifest")
             return Result(
                 newer = compare(remote, LOCAL_VERSION) > 0,
                 remoteVersion = remote,
                 notes = json.optString("notes"),
-                downloadUrl = json.optString("android_url").ifEmpty { json.optString("download_url") }
+                downloadUrl = url,
+                apkSha256 = sha
             )
         } finally {
             connection.disconnect()

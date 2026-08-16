@@ -56,6 +56,7 @@ typedef struct VcDirEntry
 } VcDirEntry;
 
 int vc_list_root (VcVolume *volume, VcDirEntry *entries, int max_entries);
+int vc_list_dir (VcVolume *volume, const char *path, VcDirEntry *entries, int max_entries);
 int vc_read_file (VcVolume *volume, const char *path, void *buffer, size_t buffer_size, size_t *out_size);
 int vc_export_file (VcVolume *volume, const char *path, const char *dest_path);
 

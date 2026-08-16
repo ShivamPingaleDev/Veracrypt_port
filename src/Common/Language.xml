@@ -1505,6 +1505,7 @@
     <entry lang="en" key="SHARE_ENCRYPTED_HINT">This sends the ciphertext only. No password, no decrypt.</entry>
     <entry lang="en" key="PANIC_WIPE_CONFIRM">Panic wipe dismounts all volumes, wipes the password cache, clears the clipboard, and deletes stored biometric volume passwords on this computer. Continue?</entry>
     <entry lang="en" key="PANIC_WIPE_DONE">Panic wipe finished. Mounted volumes were dismounted. Cached and stored secrets were wiped. This is not unbreakable.</entry>
+    <entry lang="en" key="PANIC_WIPE_DISMOUNT_FAILED">Panic wipe still cleared the password cache, clipboard, and stored biometric secrets, but one or more volumes could not be dismounted. Dismount them manually. This is not unbreakable.</entry>
     <entry lang="en" key="MACOSX_BIOMETRIC_COMPELLED">Do not use Touch ID as the only factor in a danger-state. Biometrics can be compelled. Prefer a long password and a keyfile you do not keep on this Mac. This is not unbreakable.</entry>
     <entry lang="en" key="STAY_OFFLINE_LEAVE_CONFIRM">This action opens a website and will use the network. Continue?</entry>
     <entry lang="en" key="UPDATE_CHECK_CONFIRM">Check for updates now? This makes one short HTTPS request, then the application stays offline again. Nothing is downloaded unless you agree.</entry>

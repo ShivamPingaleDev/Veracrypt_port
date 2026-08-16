@@ -48,11 +48,15 @@ enum VcMobileBridge {
         vc_size(handle)
     }
 
-    static func listRoot(_ handle: OpaquePointer) -> [VaultEntry] {
+    static func listDir(_ handle: OpaquePointer, path: String = "/") -> Result<[VaultEntry], Int32> {
         var entries = Array(repeating: VcDirEntry(), count: 128)
-        let count = vc_list_root(handle, &entries, 128)
-        guard count > 0 else { return [] }
-        return (0..<Int(count)).compactMap { index in
+        let count = path.withCString { cPath in
+            vc_list_dir(handle, cPath, &entries, 128)
+        }
+        if count < 0 {
+            return .failure(count)
+        }
+        let listed = (0..<Int(count)).compactMap { index -> VaultEntry? in
             let entry = entries[index]
             let name = withUnsafeBytes(of: entry.name) { raw in
                 String(cString: raw.bindMemory(to: CChar.self).baseAddress!)
@@ -60,6 +64,11 @@ enum VcMobileBridge {
             guard !name.isEmpty else { return nil }
             return VaultEntry(name: name, isDir: entry.is_dir != 0, size: entry.size)
         }
+        return .success(listed)
+    }
+
+    static func listRoot(_ handle: OpaquePointer) -> [VaultEntry] {
+        (try? listDir(handle, path: "/").get()) ?? []
     }
 
     static func exportFile(_ handle: OpaquePointer, name: String, dest: String) -> Int32 {

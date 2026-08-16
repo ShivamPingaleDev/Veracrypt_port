@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var importerPresented = false
     @State private var shareEncImporterPresented = false
     @State private var volumeHandle: OpaquePointer?
+    @State private var dirPath = ""
     @State private var incomingFile: URL?
     @State private var wrapPassword = ""
     @State private var wrapImporterPresented = false
@@ -168,8 +169,11 @@ struct ContentView: View {
                 Section("About / licenses") {
                     Text("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
                     Link("http://www.truecrypt.org/", destination: URL(string: "http://www.truecrypt.org/")!)
-                    Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt.")
+                    Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. Not unbreakable.")
                         .font(.caption)
+                    Text("Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Text("No ads, analytics, or crash reporters. Volume passwords stay on this device. Face ID / Touch ID never leave the Secure Enclave-backed Keychain.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -179,7 +183,20 @@ struct ContentView: View {
                 }
                 Section("Files") {
                     if entries.isEmpty {
-                        Text("Open a volume to list files. Share decrypted copies from here, or share the encrypted volume from the section above.")
+                        Text("Open a volume to list files. Share decrypted copies from here, or share the encrypted volume from the section above. FAT folders are browsable; exFAT is not.")
+                    }
+                    if volumeHandle != nil {
+                        HStack {
+                            if !dirPath.isEmpty {
+                                Button("Up") {
+                                    dirPath = parentDir(dirPath)
+                                    reloadDir()
+                                }
+                            }
+                            Text(dirPath.isEmpty ? "/" : "/\(dirPath)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     ForEach(entries) { entry in
                         HStack {
@@ -190,7 +207,12 @@ struct ContentView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if !entry.isDir {
+                            if entry.isDir {
+                                Button("Open") {
+                                    dirPath = joinDir(dirPath, entry.name)
+                                    reloadDir()
+                                }
+                            } else {
                                 Button("Share decrypted") { shareVaultFile(entry) }
                             }
                         }
@@ -300,12 +322,21 @@ struct ContentView: View {
         )
         temps.forEach { try? FileManager.default.removeItem(at: $0) }
         guard let handle else {
-            status = "Open failed (code \(error)). Wrong password, PIM, or keyfile mix."
+            status = openErrorMessage(error)
             return
         }
         volumeHandle = handle
-        status = "Opened. Size \(VcMobileBridge.size(handle)) bytes. Tap Share on a file."
-        entries = VcMobileBridge.listRoot(handle)
+        dirPath = ""
+        switch VcMobileBridge.listDir(handle, path: "/") {
+        case .failure(let code):
+            VcMobileBridge.close(handle)
+            volumeHandle = nil
+            status = listErrorMessage(code)
+            entries = []
+        case .success(let listed):
+            entries = listed
+            status = "Opened. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file."
+        }
         if rememberBiometrics {
             _ = BiometricStore.store(
                 path: path,
@@ -396,6 +427,7 @@ struct ContentView: View {
         password = ""
         wrapPassword = ""
         entries = []
+        dirPath = ""
         SensitivePaste.forget()
         if !status.hasPrefix("Panic") {
             status = "Locked. Passwords cleared. Panic wipe also destroys Keychain leftovers."
@@ -410,6 +442,7 @@ struct ContentView: View {
         rememberBiometrics = false
         useBiometric = false
         entries = []
+        dirPath = ""
         BiometricStore.deleteAll()
         SensitivePaste.forget()
         let tmp = FileManager.default.temporaryDirectory
@@ -426,20 +459,65 @@ struct ContentView: View {
             status = "Open a volume first."
             return
         }
+        let volumePath = joinDir(dirPath, entry.name)
         status = "Preparing \(entry.name)…"
         DispatchQueue.global(qos: .userInitiated).async {
             let dest = FileManager.default.temporaryDirectory
                 .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
-            let rc = VcMobileBridge.exportFile(handle, name: entry.name, dest: dest.path)
+            let rc = VcMobileBridge.exportFile(handle, name: volumePath, dest: dest.path)
             DispatchQueue.main.async {
                 if rc != 0 {
-                    status = "Could not extract \(entry.name) (code \(rc)). FAT volumes only."
+                    status = extractErrorMessage(entry.name, rc)
                     return
                 }
                 status = "Share \(entry.name) with WhatsApp, Mail, Drive, or any app."
                 SystemShare.present(items: [dest])
             }
         }
+    }
+
+    private func reloadDir() {
+        guard let handle = volumeHandle else { return }
+        let path = dirPath.isEmpty ? "/" : dirPath
+        switch VcMobileBridge.listDir(handle, path: path) {
+        case .failure(let code):
+            status = listErrorMessage(code)
+        case .success(let listed):
+            entries = listed
+        }
+    }
+
+    private func joinDir(_ dir: String, _ name: String) -> String {
+        dir.isEmpty ? name : "\(dir)/\(name)"
+    }
+
+    private func parentDir(_ dir: String) -> String {
+        guard let slash = dir.lastIndex(of: "/") else { return "" }
+        return String(dir[..<slash])
+    }
+
+    private func openErrorMessage(_ code: Int32) -> String {
+        switch code {
+        case -2: return "Wrong password, PIM, or keyfile mix."
+        case -6: return "This container uses exFAT or another filesystem VC Port does not open. FAT only."
+        case -1: return "Could not read the container file."
+        case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
+        default: return "Open failed (code \(code))."
+        }
+    }
+
+    private func listErrorMessage(_ code: Int32) -> String {
+        if code == -6 {
+            return "Opened the volume, but the filesystem is exFAT or otherwise unsupported. FAT only."
+        }
+        return "Could not list files (code \(code))."
+    }
+
+    private func extractErrorMessage(_ name: String, _ rc: Int32) -> String {
+        if rc == -6 {
+            return "Could not extract \(name). FAT only; exFAT is unsupported."
+        }
+        return "Could not extract \(name) (code \(rc))."
     }
 
     private func wrapURL(_ url: URL) {

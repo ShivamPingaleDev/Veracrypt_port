@@ -25,13 +25,15 @@ Recipe to copy into [fdroiddata](https://gitlab.com/fdroid/fdroiddata): `fdroidd
 
 ### Still required before an inclusion merge request
 
-1. **Public git repo.** TrueCrypt License 3.0 and F-Droid both require publicly available source. `VCPort` is still private until you change visibility.
-2. **Git tag** matching `versionName`, e.g. `v0.2.2`, on the commit F-Droid should build.
-3. **Screenshots** in `android/fastlane/metadata/android/en-US/images/phoneScreenshots/`.
+1. **Public git repo.** TrueCrypt License 3.0 and F-Droid both require publicly available source. This tree is [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). The mobile-only [VCPort](https://github.com/ShivamPingaleDev/VCPort) mirror may still be private.
+2. **Git tag** matching `versionName`, e.g. `v0.3.0`, on the commit F-Droid should build.
+3. **Screenshots** in `android/fastlane/metadata/android/en-US/images/phoneScreenshots/`. Do not fake device photos; leave that folder empty until a real capture exists.
 4. **VeraCrypt `src` as an F-Droid srclib** (`fdroiddata/srclibs/VeraCryptPort.yml`), because this repo does not vendor the whole VeraCrypt tree.
 5. **License review.** VeraCrypt is dual-licensed Apache-2.0 / TrueCrypt 3.0. TrueCrypt 3.0 is **not** OSI/FSF/Debian-free. F-Droid defers to those lists. They may accept Apache-2.0 for VeraCrypt-authored files, or they may refuse the inherited TrueCrypt files. If the main repo refuses, host your own F-Droid repo with `fdroidserver` or ask [IzzyOnDroid](https://apt.izzysoft.de/fdroid/) — still FOSS, not Google Play.
 
-Do not add a second signing key later if you want reproducible builds; decide that on the first published APK.
+Do not add a second signing key later if you want reproducible builds; decide that on the first published APK. GitHub Actions APKs are **debug-signed previews**. F-Droid (or `VC_PORT_RELEASE_STORE_FILE`) must sign production builds.
+
+Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com. See [SECURITY.md](../SECURITY.md).
 
 ## iPhone — there is no F-Droid equivalent
 

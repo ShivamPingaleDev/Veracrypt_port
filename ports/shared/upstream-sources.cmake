@@ -23,6 +23,11 @@ set(VC_CRYPTO
 	${VC_SRC}/Crypto/Argon2/src/selftest.c
 )
 
+set_source_files_properties(
+	${VC_SRC}/Crypto/jitterentropy-base.c
+	PROPERTIES COMPILE_FLAGS "-O0"
+)
+
 # Pick extra crypto by ABI, not by the host CPU. Android Gradle sets
 # ANDROID_ABI per slice. iOS may set CMAKE_OSX_ARCHITECTURES.
 set(_vc_cpu "${CMAKE_SYSTEM_PROCESSOR}")

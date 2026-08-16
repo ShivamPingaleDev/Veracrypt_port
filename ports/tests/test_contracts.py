@@ -53,6 +53,8 @@ class VersionMatrixTests(unittest.TestCase):
             "notes",
             "download_url",
             "android_url",
+            "android_apk_sha256",
+            "source_sha256",
         ):
             self.assertIn(key, self.v)
         self.assertEqual(self.v["upstream_name"], "VeraCrypt")
@@ -83,6 +85,8 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("x86_64", gradle)
         self.assertIn("ENABLE_UPDATE_CHECK", gradle)
         self.assertIn("minifyEnabled false", gradle)
+        self.assertIn("abortOnError true", gradle)
+        self.assertIn("VC_PORT_RELEASE_STORE_FILE", gradle)
         self.assertNotIn("play-services", gradle)
         self.assertNotIn("firebase", gradle.lower())
 
@@ -93,6 +97,8 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn(f'LOCAL_VERSION = "{self.port}"', github)
         self.assertIn('error("F-Droid build has no network")', fdroid)
         self.assertIn("raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port", github)
+        self.assertIn("android_apk_sha256", github)
+        self.assertIn("https://", github)
         self.assertNotIn("INTERNET", fdroid)
 
     def test_ios_plist_and_xcodegen(self) -> None:
@@ -124,6 +130,8 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn(f"versionCode: {int(self.code)}", yml)
         self.assertIn("Name: VC Port", yml)
         self.assertIn("truecrypt.org", yml.lower())
+        self.assertIn("TrueCrypt License 3.0", yml)
+        self.assertIn("not OSI", yml)
         self.assertNotIn("Name: VeraCrypt", yml)
 
     def test_changelog_mentions_current(self) -> None:
@@ -137,12 +145,31 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn('<string name="app_name">VC Port</string>', strings)
         self.assertIn("truecrypt.org", strings)
         self.assertIn("This app is not named VeraCrypt", strings)
+        self.assertIn("shivampingaledev@proton.me", strings)
+        self.assertIn("shivampingaledev@gmail.com", strings)
 
     def test_notice(self) -> None:
         notice = read("ports/NOTICE")
         self.assertIn("TrueCrypt", notice)
         self.assertIn("not named VeraCrypt", notice)
         self.assertIn("Apache-2.0", notice)
+
+    def test_security_md_contact_and_scope(self) -> None:
+        sec = read("SECURITY.md")
+        self.assertIn("shivampingaledev@proton.me", sec)
+        self.assertIn("shivampingaledev@gmail.com", sec)
+        self.assertIn("not unbreakable", sec.lower())
+        self.assertIn("TrueCrypt License 3.0", sec)
+
+    def test_android_readme_has_no_documents_provider(self) -> None:
+        readme = read("ports/android/README.md")
+        self.assertNotIn("DocumentsProvider stub", readme)
+        self.assertIn("no DocumentsProvider", readme)
+
+    def test_contributing_has_item_5(self) -> None:
+        text = read("ports/CONTRIBUTING.md")
+        self.assertIn("5. Report security issues", text)
+        self.assertIn("SECURITY.md", text)
 
     def test_mobile_sources_do_not_brand_as_veracrypt(self) -> None:
         for rel in (
@@ -303,6 +330,13 @@ class MacosDesktopTests(unittest.TestCase):
         frame = read("src/Main/Forms/MainFrame.cpp")
         self.assertIn("OnPanicWipeMenuItemSelected", frame)
         self.assertIn("PortFileWrap::WrapFile", frame)
+        self.assertIn("GetPreferences().StayOffline", frame)
+        self.assertIn("PANIC_WIPE_DISMOUNT_FAILED", frame)
+        update = read("src/Main/OfflineUpdate.cpp")
+        self.assertIn("VCPort-OfflineUpdate/", update)
+        self.assertIn("VC_PORT_VERSION", update)
+        self.assertIn("android_apk_sha256", update)
+        self.assertNotIn("VCPort-OfflineUpdate/0.1", update)
         bio = read("src/Main/MacOSXBiometric.h")
         self.assertIn("DeleteAllStoredPasswords", bio)
 
@@ -349,6 +383,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         ios = read("ports/ios/build-native.sh")
         self.assertIn("iphonesimulator", ios)
         self.assertIn("x86_64", ios)
+        self.assertIn("--all", ios)
+        self.assertIn("${SDK}-${ARCH}", ios)
         yml = read("ports/ios/project.yml")
         self.assertIn("IOS_SDK", yml)
         self.assertIn("TARGETED_DEVICE_FAMILY: \"1,2\"", yml)
@@ -358,6 +394,11 @@ class SharedNativeContractsTests(unittest.TestCase):
     def test_wrap_kdf_is_32mib_argon2id(self) -> None:
         wrap = read("ports/shared/vc_wrap.cpp")
         self.assertIn("const uint32_t kMemKib = 32768", wrap)
+        header = read("ports/shared/vc_mobile.h")
+        self.assertIn("vc_list_dir", header)
+        mobile = read("ports/shared/vc_mobile.cpp")
+        self.assertIn("fat_find_path", mobile)
+        self.assertIn("EXFAT   ", mobile)
         self.assertIn("fopen_private_write", wrap)
         self.assertIn("O_CREAT | O_TRUNC, 0600", wrap)
         self.assertIn("mlock", wrap)
@@ -367,6 +408,8 @@ class SharedNativeContractsTests(unittest.TestCase):
         cmake = read("ports/shared/upstream-sources.cmake")
         self.assertNotIn("blake2s-ref.c", cmake)
         self.assertIn("blake2s.c", cmake)
+        self.assertIn("jitterentropy-base.c", cmake)
+        self.assertIn('COMPILE_FLAGS "-O0"', cmake)
         self.assertIn("opt_sse2.c", cmake)
         self.assertIn("opt_avx2.c", cmake)
 
@@ -383,6 +426,8 @@ class SharedNativeContractsTests(unittest.TestCase):
         jni = read("ports/shared/android_jni.cpp")
         self.assertNotIn("__android_log_print", jni)
         self.assertIn("vc_secure_wipe", jni)
+        self.assertIn("listDir", jni)
+        self.assertIn("vc_list_dir", jni)
 
 
 class OverlayInventoryTests(unittest.TestCase):

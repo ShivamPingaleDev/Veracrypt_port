@@ -1,6 +1,8 @@
 Categories:
   - Security
   - System
+# SPDX for original VC Port UI. Inherited volume/crypto is Apache-2.0 AND
+# TrueCrypt License 3.0 (not OSI / not SPDX). See Description.
 License: Apache-2.0
 AuthorName: Shivam Mangesh Pingale
 AuthorEmail: shivampingaledev@proton.me
@@ -26,13 +28,27 @@ Description: |-
     http://www.truecrypt.org/
 
     Original VC Port code is Apache-2.0. The native volume core is VeraCrypt,
-    which is dual-licensed Apache-2.0 / TrueCrypt License 3.0. Reviewers should
-    treat the inherited TrueCrypt files under that dual-license statement.
+    which is dual-licensed Apache-2.0 AND TrueCrypt License 3.0. TrueCrypt
+    License 3.0 is not OSI-listed. Reviewers should treat the inherited
+    TrueCrypt files under that dual-license statement.
 
 RepoType: git
 Repo: https://github.com/ShivamPingaleDev/VCPort.git
 
 Builds:
+  - versionName: 0.3.0
+    versionCode: 5
+    commit: v0.3.0
+    subdir: android
+    srclibs:
+      - VeraCryptPort@v0.3.0
+    prebuild:
+      - ln -sfn $$VeraCryptPort$$ ../veracrypt
+    gradle:
+      - fdroid
+    ndk: r26d
+    scandelete:
+      - ios
   - versionName: 0.2.2
     versionCode: 4
     commit: v0.2.2
@@ -76,5 +92,5 @@ Builds:
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
 UpdateCheckName: dev.shivampingale.vcport
-CurrentVersion: 0.2.2
-CurrentVersionCode: 4
+CurrentVersion: 0.3.0
+CurrentVersionCode: 5

@@ -1,11 +1,13 @@
 {
-  "port_version": "0.2.2",
+  "port_version": "0.3.0",
   "upstream_name": "VeraCrypt",
   "upstream_version": "1.26.29",
   "upstream_commit": "b48e31f5b47da7d41025e3f0e02751675e15005a",
-  "notes": "VC Port 0.2.2: NDK/CI package build fix on top of 0.2.1 hardening.",
+  "notes": "VC Port 0.3.0: FAT folder browse, host volume tests, StayOffline on desktop updates, manifest SHA-256 fields. GitHub APKs remain debug-signed previews. Not unbreakable.",
   "download_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
   "macos_url": "",
   "android_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
-  "ios_url": ""
+  "ios_url": "",
+  "android_apk_sha256": "",
+  "source_sha256": ""
 }

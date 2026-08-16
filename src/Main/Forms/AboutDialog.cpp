@@ -85,6 +85,8 @@ namespace VeraCrypt
 
 			L"Stay Offline is on by default. Tools menu: wrap/unwrap a single file, share ciphertext as-is, panic wipe. Touch ID can be compelled — prefer a long password and a keyfile not stored on this Mac. This is not unbreakable.\n\n"
 
+			L"VC Port contact: Shivam Mangesh Pingale <shivampingaledev@proton.me> / <shivampingaledev@gmail.com>\n\n"
+
 			L"An AM Crypto Release");
 	}
 }

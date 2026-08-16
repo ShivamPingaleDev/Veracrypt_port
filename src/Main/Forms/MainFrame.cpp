@@ -783,7 +783,12 @@ namespace VeraCrypt
 			Gui->SetBackgroundMode (false);
 		EnsureVisible ();
 #endif
-		if (!Gui->AskYesNo (LangString["UPDATE_CHECK_CONFIRM"], false, true))
+		if (Gui->GetPreferences().StayOffline)
+		{
+			if (!Gui->AskYesNo (LangString["STAY_OFFLINE_LEAVE_CONFIRM"], false, true))
+				return;
+		}
+		else if (!Gui->AskYesNo (LangString["UPDATE_CHECK_CONFIRM"], false, true))
 			return;
 
 		wxBusyCursor busy;
@@ -1910,6 +1915,7 @@ namespace VeraCrypt
 	{
 		if (!Gui->AskYesNo (LangString["PANIC_WIPE_CONFIRM"], false, true))
 			return;
+		bool dismountFailed = false;
 		try
 		{
 			if (!Core->GetMountedVolumes().empty())
@@ -1917,6 +1923,7 @@ namespace VeraCrypt
 		}
 		catch (...)
 		{
+			dismountFailed = true;
 		}
 		WipeCache();
 #ifdef TC_MACOSX
@@ -1927,7 +1934,10 @@ namespace VeraCrypt
 			wxTheClipboard->Clear();
 			wxTheClipboard->Close();
 		}
-		Gui->ShowInfo (LangString["PANIC_WIPE_DONE"]);
+		if (dismountFailed)
+			Gui->ShowWarning (LangString["PANIC_WIPE_DISMOUNT_FAILED"]);
+		else
+			Gui->ShowInfo (LangString["PANIC_WIPE_DONE"]);
 	}
 	
 #ifdef TC_MACOSX

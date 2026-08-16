@@ -1,7 +1,7 @@
 import Foundation
 
 enum UpdateChecker {
-    static let localVersion = "0.2.2"
+    static let localVersion = "0.3.0"
     static let manifestURL = URL(string: "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json")!
 
     struct Result {
@@ -13,7 +13,7 @@ enum UpdateChecker {
 
     static func check() throws -> Result {
         var request = URLRequest(url: manifestURL, timeoutInterval: 20)
-        request.setValue("VCPort-OfflineUpdate/0.2", forHTTPHeaderField: "User-Agent")
+        request.setValue("VCPort-OfflineUpdate/\(localVersion)", forHTTPHeaderField: "User-Agent")
         request.setValue("close", forHTTPHeaderField: "Connection")
         request.cachePolicy = .reloadIgnoringLocalCacheData
         let session = URLSession(configuration: .ephemeral)
@@ -30,12 +30,21 @@ enum UpdateChecker {
         if let fetchError { throw fetchError }
         guard let body,
               let json = try JSONSerialization.jsonObject(with: body) as? [String: Any],
-              let remote = json["port_version"] as? String else {
+              let remote = json["port_version"] as? String, !remote.isEmpty else {
             throw URLError(.cannotParseResponse)
+        }
+        if let sha = json["android_apk_sha256"] as? String, !sha.isEmpty {
+            let hex = CharacterSet(charactersIn: "0123456789abcdefABCDEF")
+            guard sha.count == 64, sha.unicodeScalars.allSatisfy({ hex.contains($0) }) else {
+                throw URLError(.cannotParseResponse)
+            }
         }
         let notes = json["notes"] as? String ?? ""
         let url = (json["ios_url"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             ?? (json["download_url"] as? String ?? "")
+        if !url.isEmpty, !url.hasPrefix("https://") {
+            throw URLError(.cannotParseResponse)
+        }
         return Result(newer: compare(remote, localVersion) > 0, remoteVersion: remote, notes: notes, downloadURL: url)
     }
 

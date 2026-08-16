@@ -9,7 +9,7 @@ http://www.truecrypt.org/
 
 Licenses:
   - VC Port original code (Android UI, iOS UI, wrap helper, JNI, macOS extras):
-    Apache License 2.0. Copyright 2026 Shivam Mangesh Pingale.
+    Apache License 2.0 (Apache-2.0). Copyright 2026 Shivam Mangesh Pingale.
   - VeraCrypt volume/crypto core: Apache License 2.0 AND TrueCrypt License 3.0
   - Full texts: License.txt (repo root) / this tree's License.txt
 

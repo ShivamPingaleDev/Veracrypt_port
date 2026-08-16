@@ -19,6 +19,8 @@ namespace VeraCrypt
 		string UpstreamVersion;
 		string Notes;
 		string DownloadUrl;
+		string AndroidApkSha256;
+		string SourceSha256;
 		bool Parsed;
 	};
 

@@ -33,6 +33,7 @@ echo "host  $(uname -s) $(uname -m)"
 python3 --version
 
 run "wrap/crypto (Argon2id + AES-CTR)" ports/shared/run_wrap_test.sh
+run "volume open/list/export (FAT fixture)" ports/shared/run_volume_test.sh
 run "version + device contracts" python3 ports/tests/test_contracts.py
 run "VCF2 factor codec + semver" python3 ports/tests/test_factors.py
 run "panic wipe semantics" python3 ports/tests/test_wipe.py

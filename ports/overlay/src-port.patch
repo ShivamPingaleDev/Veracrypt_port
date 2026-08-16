@@ -15,10 +15,10 @@ index 04ed21c1..ff20bfa0 100644
  </dict>
  </plist>
 diff --git a/src/Common/Language.xml b/src/Common/Language.xml
-index f205f6f9..7904b56c 100644
+index f205f6f9..f39e0101 100644
 --- a/src/Common/Language.xml
 +++ b/src/Common/Language.xml
-@@ -1476,6 +1476,18 @@
+@@ -1476,6 +1476,42 @@
      <entry lang="en" key="LINUX_DESELECT">Deselect</entry>
      <entry lang="en" key="LINUX_ADMIN_PW_QUERY">Enter your user password or administrator password:</entry>
      <entry lang="en" key="LINUX_ADMIN_PW_QUERY_TITLE">Administrator privileges required</entry>
@@ -28,6 +28,30 @@ index f205f6f9..7904b56c 100644
 +    <entry lang="en" key="IDM_CHECK_FOR_UPDATES">Check for updates…</entry>
 +    <entry lang="en" key="IDC_STAY_OFFLINE">Stay offline (no automatic network use)</entry>
 +    <entry lang="en" key="IDC_STAY_OFFLINE_HELP">The application never contacts the network on its own. Help links and update checks ask first, then disconnect.</entry>
++    <entry lang="en" key="IDM_WRAP_FILE">Wrap a single file…</entry>
++    <entry lang="en" key="IDM_UNWRAP_FILE">Unwrap a file…</entry>
++    <entry lang="en" key="IDM_SHARE_ENCRYPTED">Share encrypted file…</entry>
++    <entry lang="en" key="IDM_PANIC_WIPE">Panic wipe</entry>
++    <entry lang="en" key="IDM_GENERATE_WRAP_PASSWORD">Generate strong password</entry>
++    <entry lang="en" key="WRAP_SELECT_FILE">Select a file to wrap</entry>
++    <entry lang="en" key="WRAP_SAVE_AS">Save wrapped file</entry>
++    <entry lang="en" key="WRAP_PASSWORD_TITLE">Wrap password</entry>
++    <entry lang="en" key="WRAP_PASSWORD_HINT">This password is never stored. Use at least 16 characters, or generate one. Share the .vcpw file as-is.</entry>
++    <entry lang="en" key="WRAP_PASSWORD_TOO_SHORT">Use Generate strong password, or type at least 16 characters. Nothing is saved.</entry>
++    <entry lang="en" key="WRAP_FAILED">Could not wrap the file.</entry>
++    <entry lang="en" key="WRAP_OK">File wrapped. Share the .vcpw file. The password was not saved.</entry>
++    <entry lang="en" key="UNWRAP_SELECT_FILE">Select a wrapped file</entry>
++    <entry lang="en" key="UNWRAP_SELECT_DIR">Choose a folder for the decrypted file</entry>
++    <entry lang="en" key="UNWRAP_PASSWORD_TITLE">Unwrap password</entry>
++    <entry lang="en" key="UNWRAP_NOT_WRAP">That file is not a VC Port wrap (.vcpw).</entry>
++    <entry lang="en" key="UNWRAP_WRONG_PASSWORD">Wrong password, or the wrap was tampered with.</entry>
++    <entry lang="en" key="UNWRAP_FAILED">Could not unwrap the file.</entry>
++    <entry lang="en" key="UNWRAP_OK">Unwrapped to {0}</entry>
++    <entry lang="en" key="SHARE_SELECT_FILE">Select an encrypted container or wrap to share as-is</entry>
++    <entry lang="en" key="SHARE_ENCRYPTED_HINT">This sends the ciphertext only. No password, no decrypt.</entry>
++    <entry lang="en" key="PANIC_WIPE_CONFIRM">Panic wipe dismounts all volumes, wipes the password cache, clears the clipboard, and deletes stored biometric volume passwords on this computer. Continue?</entry>
++    <entry lang="en" key="PANIC_WIPE_DONE">Panic wipe finished. Mounted volumes were dismounted. Cached and stored secrets were wiped. This is not unbreakable.</entry>
++    <entry lang="en" key="MACOSX_BIOMETRIC_COMPELLED">Do not use Touch ID as the only factor in a danger-state. Biometrics can be compelled. Prefer a long password and a keyfile you do not keep on this Mac. This is not unbreakable.</entry>
 +    <entry lang="en" key="STAY_OFFLINE_LEAVE_CONFIRM">This action opens a website and will use the network. Continue?</entry>
 +    <entry lang="en" key="UPDATE_CHECK_CONFIRM">Check for updates now? This makes one short HTTPS request, then the application stays offline again. Nothing is downloaded unless you agree.</entry>
 +    <entry lang="en" key="UPDATE_CHECK_BAD_MANIFEST">The update information could not be read. The application is offline again.</entry>
@@ -250,7 +274,7 @@ index d1cc507b..c35b245a 100644
  
  		if (getuid() == 0 || geteuid() == 0)
 diff --git a/src/Main/Forms/AboutDialog.cpp b/src/Main/Forms/AboutDialog.cpp
-index 02152b62..43e0f8b2 100644
+index 02152b62..53c4e67d 100644
 --- a/src/Main/Forms/AboutDialog.cpp
 +++ b/src/Main/Forms/AboutDialog.cpp
 @@ -12,6 +12,7 @@
@@ -269,20 +293,43 @@ index 02152b62..43e0f8b2 100644
  		VersionStaticText->SetLabel (Application::GetName() + L" " + versionStr);
  		CopyrightStaticText->SetLabel (TC_STR_RELEASED_BY);
  		WebsiteHyperlink->SetLabel (L"amcrypto.jp");
+@@ -79,6 +81,10 @@ namespace VeraCrypt
+ 
+ 			L"This software uses wxWidgets library, which is copyright \xA9 1998-2011 Julian Smart, Robert Roebling et al.\n\n"
+ 
++			L"Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/\n\n"
++
++			L"Stay Offline is on by default. Tools menu: wrap/unwrap a single file, share ciphertext as-is, panic wipe. Touch ID can be compelled — prefer a long password and a keyfile not stored on this Mac. This is not unbreakable.\n\n"
++
+ 			L"An AM Crypto Release");
+ 	}
+ }
 diff --git a/src/Main/Forms/MainFrame.cpp b/src/Main/Forms/MainFrame.cpp
-index ce6d0edd..c745193b 100644
+index ce6d0edd..79272b14 100644
 --- a/src/Main/Forms/MainFrame.cpp
 +++ b/src/Main/Forms/MainFrame.cpp
-@@ -28,6 +28,8 @@
+@@ -12,6 +12,7 @@
+ 
+ #include "System.h"
+ 
++#include <wx/clipbrd.h>
+ #ifdef TC_UNIX
+ #include <fcntl.h>
+ #include <unistd.h>
+@@ -28,6 +29,12 @@
  #include "Main/Xml.h"
  #include "MainFrame.h"
  #include "AboutDialog.h"
 +#include "Main/OfflineUpdate.h"
 +#include "Main/PortVersion.h"
++#include "Main/PortFileWrap.h"
++#ifdef TC_MACOSX
++#include "Main/MacOSXBiometric.h"
++#endif
  #include "BenchmarkDialog.h"
  #include "ChangePasswordDialog.h"
  #include "EncryptionTestDialog.h"
-@@ -57,7 +59,8 @@ namespace VeraCrypt
+@@ -57,7 +64,8 @@ namespace VeraCrypt
  		ListItemRightClickEventPending (false),
  		SelectedItemIndex (-1),
  		SelectedSlotNumber (0),
@@ -292,7 +339,7 @@ index ce6d0edd..c745193b 100644
  	{
  		wxBusyCursor busy;
  
-@@ -347,6 +350,11 @@ namespace VeraCrypt
+@@ -347,6 +355,26 @@ namespace VeraCrypt
  
  		Gui->SetListCtrlHeight (SlotListCtrl, slotListRowCount);
  
@@ -301,10 +348,25 @@ index ce6d0edd..c745193b 100644
 +		HelpMenu->Insert (HelpMenu->GetMenuItemCount() - 1, checkUpdates);
 +		HelpMenu->InsertSeparator (HelpMenu->GetMenuItemCount() - 1);
 +
++		WrapFileMenuItemId = wxID_HIGHEST + 43;
++		UnwrapFileMenuItemId = wxID_HIGHEST + 44;
++		ShareEncryptedMenuItemId = wxID_HIGHEST + 45;
++		PanicWipeMenuItemId = wxID_HIGHEST + 46;
++		ToolsMenu->Insert (0, new wxMenuItem (ToolsMenu, WrapFileMenuItemId, LangString["IDM_WRAP_FILE"], wxEmptyString, wxITEM_NORMAL));
++		ToolsMenu->Insert (1, new wxMenuItem (ToolsMenu, UnwrapFileMenuItemId, LangString["IDM_UNWRAP_FILE"], wxEmptyString, wxITEM_NORMAL));
++		ToolsMenu->Insert (2, new wxMenuItem (ToolsMenu, ShareEncryptedMenuItemId, LangString["IDM_SHARE_ENCRYPTED"], wxEmptyString, wxITEM_NORMAL));
++		ToolsMenu->InsertSeparator (3);
++		ToolsMenu->AppendSeparator();
++		ToolsMenu->Append (PanicWipeMenuItemId, LangString["IDM_PANIC_WIPE"]);
++		Connect (WrapFileMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnWrapFileMenuItemSelected));
++		Connect (UnwrapFileMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnUnwrapFileMenuItemSelected));
++		Connect (ShareEncryptedMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnShareEncryptedMenuItemSelected));
++		Connect (PanicWipeMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnPanicWipeMenuItemSelected));
++
  #ifdef __WXGTK__
  		wxSize size (-1, (int) ((double) Gui->GetCharHeight (this) * 1.53));
  		CreateVolumeButton->SetMinSize (size);
-@@ -436,6 +444,8 @@ namespace VeraCrypt
+@@ -436,6 +464,8 @@ namespace VeraCrypt
  
  		mTimer.reset (dynamic_cast <wxTimer *> (new Timer (this)));
  		mTimer->Start (2000);
@@ -313,7 +375,7 @@ index ce6d0edd..c745193b 100644
  	}
  
  #ifdef TC_WINDOWS
-@@ -746,6 +756,53 @@ namespace VeraCrypt
+@@ -746,6 +776,53 @@ namespace VeraCrypt
  		dialog.ShowModal();
  	}
  
@@ -367,8 +429,54 @@ index ce6d0edd..c745193b 100644
  	void MainFrame::OnActivate (wxActivateEvent& event)
  	{
  		Gui->SetActiveFrame (this);
+@@ -1813,6 +1890,45 @@ namespace VeraCrypt
+ 		Core->WipePasswordCache();
+ 		UpdateWipeCacheButton();
+ 	}
++
++	void MainFrame::OnWrapFileMenuItemSelected (wxCommandEvent&)
++	{
++		PortFileWrap::WrapFile (this);
++	}
++
++	void MainFrame::OnUnwrapFileMenuItemSelected (wxCommandEvent&)
++	{
++		PortFileWrap::UnwrapFile (this);
++	}
++
++	void MainFrame::OnShareEncryptedMenuItemSelected (wxCommandEvent&)
++	{
++		PortFileWrap::ShareEncrypted (this);
++	}
++
++	void MainFrame::OnPanicWipeMenuItemSelected (wxCommandEvent&)
++	{
++		if (!Gui->AskYesNo (LangString["PANIC_WIPE_CONFIRM"], false, true))
++			return;
++		try
++		{
++			if (!Core->GetMountedVolumes().empty())
++				Gui->DismountAllVolumes (true, false);
++		}
++		catch (...)
++		{
++		}
++		WipeCache();
++#ifdef TC_MACOSX
++		MacOSXBiometric::DeleteAllStoredPasswords();
++#endif
++		if (wxTheClipboard->Open())
++		{
++			wxTheClipboard->Clear();
++			wxTheClipboard->Close();
++		}
++		Gui->ShowInfo (LangString["PANIC_WIPE_DONE"]);
++	}
+ 	
+ #ifdef TC_MACOSX
+ 	void MainFrame::OnMoveHandler(wxMoveEvent& event)
 diff --git a/src/Main/Forms/MainFrame.h b/src/Main/Forms/MainFrame.h
-index ed864169..faf7eacc 100644
+index ed864169..e700083a 100644
 --- a/src/Main/Forms/MainFrame.h
 +++ b/src/Main/Forms/MainFrame.h
 @@ -103,6 +103,7 @@ namespace VeraCrypt
@@ -379,11 +487,26 @@ index ed864169..faf7eacc 100644
  		void OnClearSlotSelectionMenuItemSelected (wxCommandEvent& event);
  		void OnClose (wxCloseEvent& event);
  		void OnCloseAllSecurityTokenSessionsMenuItemSelected (wxCommandEvent& event);
-@@ -238,6 +239,7 @@ namespace VeraCrypt
+@@ -173,6 +174,10 @@ namespace VeraCrypt
+ 		void OnUserGuideMenuItemSelected (wxCommandEvent& event) { Gui->OpenUserGuide (this); }
+ 		void OnWebsiteMenuItemSelected (wxCommandEvent& event) { Gui->OpenHomepageLink (this, L"website"); }
+ 		void OnWipeCacheButtonClick (wxCommandEvent& event);
++		void OnWrapFileMenuItemSelected (wxCommandEvent& event);
++		void OnUnwrapFileMenuItemSelected (wxCommandEvent& event);
++		void OnShareEncryptedMenuItemSelected (wxCommandEvent& event);
++		void OnPanicWipeMenuItemSelected (wxCommandEvent& event);
+ 		void OrganizeFavorites (const FavoriteVolumeList &favorites, size_t newItemCount = 0);
+ 		void OpenSelectedVolume () const;
+ 		void SavePreferences () const;
+@@ -238,6 +243,11 @@ namespace VeraCrypt
  		long SelectedItemIndex;
  		VolumeSlotNumber SelectedSlotNumber;
  		int ShowRequestFifo;
 +		int CheckForUpdatesMenuItemId;
++		int WrapFileMenuItemId;
++		int UnwrapFileMenuItemId;
++		int ShareEncryptedMenuItemId;
++		int PanicWipeMenuItemId;
  		map <wstring, VolumeActivityMapEntry> VolumeActivityMap;
  	};
  }
@@ -430,7 +553,7 @@ index 17a88d87..1ecd2179 100644
  		unique_ptr <wxTimer> mTimer;
  		UserPreferences Preferences;
 diff --git a/src/Main/Forms/VolumePasswordPanel.cpp b/src/Main/Forms/VolumePasswordPanel.cpp
-index 2659de7a..806dbfa3 100644
+index 2659de7a..932315a3 100644
 --- a/src/Main/Forms/VolumePasswordPanel.cpp
 +++ b/src/Main/Forms/VolumePasswordPanel.cpp
 @@ -15,11 +15,17 @@
@@ -451,7 +574,7 @@ index 2659de7a..806dbfa3 100644
  	{
  		size_t maxPasswordLength = CmdLine->ArgUseLegacyPassword? VolumePassword::MaxLegacySize : VolumePassword::MaxSize;
  		if (keyfiles)
-@@ -151,6 +157,29 @@ namespace VeraCrypt
+@@ -151,6 +157,33 @@ namespace VeraCrypt
  				c->SetDropTarget (new FileDropTarget (this));
  		}
  
@@ -475,13 +598,17 @@ index 2659de7a..806dbfa3 100644
 +			BiometricUnlockButton->Show (hasStored);
 +			if (options)
 +				RememberBiometricCheckBox->SetValue (options->RememberPasswordWithBiometrics || hasStored);
++
++			wxStaticText *biometricWarning = new wxStaticText (this, wxID_ANY, LangString["MACOSX_BIOMETRIC_COMPELLED"]);
++			biometricWarning->Wrap (Gui->GetCharWidth (this) * 42);
++			GridBagSizer->Add (biometricWarning, wxGBPosition (14, 1), wxGBSpan (1, 2), wxTOP|wxBOTTOM|wxLEFT|wxEXPAND, 5);
 +		}
 +#endif
 +
  		Layout();
  		Fit();
  
-@@ -160,6 +189,12 @@ namespace VeraCrypt
+@@ -160,6 +193,12 @@ namespace VeraCrypt
  	VolumePasswordPanel::~VolumePasswordPanel ()
  	{
  		Pkcs5PrfChoice->Disconnect (wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler (VolumePasswordPanel::OnPkcs5PrfChoiceSelected), nullptr, this);
@@ -494,7 +621,7 @@ index 2659de7a..806dbfa3 100644
  		WipeTextCtrl (PasswordTextCtrl);
  		WipeTextCtrl (ConfirmPasswordTextCtrl);
  	}
-@@ -518,4 +553,61 @@ namespace VeraCrypt
+@@ -518,4 +557,61 @@ namespace VeraCrypt
  			OnUpdate();
  		}
  	}
@@ -633,24 +760,39 @@ index 321a9396..fafaa749 100644
  
  		BeginInteractiveBusyState (parent);
 diff --git a/src/Main/Main.make b/src/Main/Main.make
-index 36b8c1f6..904751a5 100755
+index 36b8c1f6..63766cc2 100755
 --- a/src/Main/Main.make
 +++ b/src/Main/Main.make
-@@ -22,12 +22,14 @@ OBJS += UserPreferences.o
+@@ -22,12 +22,17 @@ OBJS += UserPreferences.o
  OBJS += Xml.o
  OBJS += Unix/Main.o
  OBJS += Resources.o
 +OBJS += OfflineUpdate.o
++OBJS += VcWrap.o
  
  ifndef TC_NO_GUI
  OBJS += FatalErrorHandler.o
  OBJS += GraphicUserInterface.o
++OBJS += PortFileWrap.o
  ifeq "$(PLATFORM)" "MacOSX"
  OBJS += MacOSXSecureTextFieldHotkeys.o
 +OBJS += MacOSXBiometric.o
++OBJS += MacOSXShare.o
  endif
  OBJS += VolumeHistory.o
  OBJS += Forms/AboutDialog.o
+@@ -80,6 +85,11 @@ RESOURCES += ../Mount/Logo_96dpi.bmp.h
+ endif
+ 
+ CXXFLAGS += -I$(BASE_DIR)/Main
++CXXFLAGS += -I$(BASE_DIR)/../ports/shared
++
++VcWrap.o: $(BASE_DIR)/../ports/shared/vc_wrap.cpp
++	@echo Compiling vc_wrap.cpp
++	$(CXX) $(CXXFLAGS) -c $(BASE_DIR)/../ports/shared/vc_wrap.cpp -o $@
+ 
+ 
+ #------ wxWidgets configuration ------
 diff --git a/src/Main/Unix/Main.cpp b/src/Main/Unix/Main.cpp
 index abed3916..5ea4799f 100644
 --- a/src/Main/Unix/Main.cpp
@@ -736,14 +878,14 @@ index 07ab4176..fa813a94 100644
  		// A map used to store unknown entries from the configuration file in order to preserve them when saving the configuration.
  		// This helps to preserve unknown entries that may be used by future versions of VeraCrypt or entries used by old versions that were removed from current version.
 diff --git a/src/Makefile b/src/Makefile
-index 7c15e5a3..fe0abc03 100644
+index 7c15e5a3..77948578 100644
 --- a/src/Makefile
 +++ b/src/Makefile
 @@ -332,6 +332,7 @@ $(error Specified SDK version was not found, ensure your active developer direct
  	CXXFLAGS += -std=c++11
  	C_CXX_FLAGS += -DTC_UNIX -DTC_BSD -DTC_MACOSX -mmacosx-version-min=$(VC_OSX_TARGET) -isysroot $(VC_OSX_SDK_PATH)
  	LFLAGS += -mmacosx-version-min=$(VC_OSX_TARGET) -Wl,-syslibroot $(VC_OSX_SDK_PATH) -Wl,-export_dynamic
-+	LFLAGS += -framework Security -framework LocalAuthentication -framework Foundation
++	LFLAGS += -framework Security -framework LocalAuthentication -framework Foundation -framework AppKit
  	# Xcode 15 linker emits a warning "no platform load command found" when linking object files generated by yasm
  	# To suppress this warning, we need to use -Wl,-ld_classic flag in order to use the old ld64 linker
  	# https://mjtsai.com/blog/2024/03/15/xcode-15-no-platform-load-command-found/

@@ -57,11 +57,31 @@ namespace VeraCrypt
 		args.push_back ("0");
 		args.push_back ("--no-sessionid");
 		args.push_back ("-A");
-		args.push_back ("VCPort-OfflineUpdate/0.1");
+		args.push_back (string ("VCPort-OfflineUpdate/") + VC_PORT_VERSION);
 		args.push_back (url);
 
 		// curl exits after the response. No keep-alive session is retained.
 		return Process::Execute (curlPath, args, 25000);
+	}
+
+	static bool ValidSha256 (const string &hex)
+	{
+		if (hex.empty())
+			return true;
+		if (hex.size() != 64)
+			return false;
+		for (size_t i = 0; i < hex.size(); ++i)
+		{
+			char c = hex[i];
+			if (!isxdigit ((unsigned char) c))
+				return false;
+		}
+		return true;
+	}
+
+	static bool ValidHttpsUrl (const string &url)
+	{
+		return url.empty() || url.compare (0, 8, "https://") == 0;
 	}
 
 	UpdateManifest OfflineUpdate::ParseManifest (const string &json)
@@ -74,7 +94,15 @@ namespace VeraCrypt
 		m.DownloadUrl = JsonStringField (json, "download_url");
 		if (m.DownloadUrl.empty())
 			m.DownloadUrl = JsonStringField (json, "macos_url");
-		m.Parsed = !m.PortVersion.empty();
+		m.AndroidApkSha256 = JsonStringField (json, "android_apk_sha256");
+		m.SourceSha256 = JsonStringField (json, "source_sha256");
+		if (m.PortVersion.empty())
+			return m;
+		if (!ValidSha256 (m.AndroidApkSha256) || !ValidSha256 (m.SourceSha256))
+			return m;
+		if (!ValidHttpsUrl (m.DownloadUrl))
+			return m;
+		m.Parsed = true;
 		return m;
 	}
 

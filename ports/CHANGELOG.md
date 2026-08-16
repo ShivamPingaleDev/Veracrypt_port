@@ -2,7 +2,18 @@
 
 ## Unreleased
 
-CPU slices: Android `armeabi-v7a` / `arm64-v8a` / `x86` / `x86_64`; iOS device `arm64` and simulator `arm64`/`x86_64`; wrap extras chosen by ABI (ARMv8 crypto, x64 AVX2, x86 SSE2). GUI parity across macOS/Linux desktop, Android, and iOS. Overlay tooling so VeraCrypt source updates are a 3-way merge. See [UPSTREAM.md](UPSTREAM.md).
+## 0.3.0
+
+Pre-public hardening cycle, then public relaunch.
+
+- Host tests open a known-password FAT volume, list folders, and export nested files
+- In-app FAT folder navigation on Android and iOS; exFAT stays unsupported
+- Desktop Help → Check for updates honors StayOffline; panic wipe reports dismount failures
+- `version.json` carries `android_apk_sha256` / `source_sha256` (empty until a hashed artifact exists)
+- GitHub Release APK attach stays off; CI APKs are debug-signed previews only
+- Contact emails and SECURITY.md
+
+Not unbreakable. F-Droid screenshots are still missing.
 
 ## 0.2.2
 

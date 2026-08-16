@@ -1,12 +1,34 @@
 #!/bin/sh
-# Build libvc_mobile for the current iOS SDK/arch.
+# Build libvc_mobile for the current iOS SDK/arch, and keep per-slice copies.
 # Xcode sets PLATFORM_NAME and ARCHS. From a shell:
 #   IOS_SDK=iphoneos IOS_ARCH=arm64 ports/ios/build-native.sh
 #   IOS_SDK=iphonesimulator IOS_ARCH=arm64 ports/ios/build-native.sh
-#   IOS_SDK=iphonesimulator IOS_ARCH=x86_64 ports/ios/build-native.sh
+#   ./build-native.sh --all
 set -euo pipefail
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+SELF="${ROOT}/ios/build-native.sh"
 OUT="${ROOT}/ios/build/native"
+
+build_one() {
+	SDK="$1"
+	ARCH="$2"
+	SRC="$3"
+	SLICE="${OUT}/${SDK}-${ARCH}"
+	mkdir -p "$SLICE"
+	cmake -S "${ROOT}/shared" -B "${SLICE}/cmake" \
+		-DCMAKE_SYSTEM_NAME=iOS \
+		-DCMAKE_OSX_ARCHITECTURES="$ARCH" \
+		-DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
+		-DCMAKE_OSX_SYSROOT="$SDK" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DVC_SRC="$SRC"
+	cmake --build "${SLICE}/cmake" --target vc_mobile
+	cp "${SLICE}/cmake/libvc_mobile.a" "${SLICE}/libvc_mobile.a"
+	# Xcode pre-build script still links ${OUT}/libvc_mobile.a for the active SDK.
+	cp "${SLICE}/libvc_mobile.a" "${OUT}/libvc_mobile.a"
+	echo "Wrote ${SLICE}/libvc_mobile.a and ${OUT}/libvc_mobile.a ($SDK $ARCH)"
+}
+
 SRC="${VC_SRC:-}"
 if [ -z "$SRC" ]; then
 	for candidate in \
@@ -23,6 +45,17 @@ fi
 if [ -z "$SRC" ] || [ ! -f "${SRC}/Volume/Volume.h" ]; then
 	echo "Set VC_SRC to the VeraCrypt src tree (clone ShivamPingaleDev/Veracrypt_port)." >&2
 	exit 1
+fi
+
+if [ "${1:-}" = "--all" ]; then
+	mkdir -p "$OUT"
+	build_one iphoneos arm64 "$SRC"
+	HOST_ARCH="$(uname -m)"
+	case "$HOST_ARCH" in
+		arm64|x86_64) build_one iphonesimulator "$HOST_ARCH" "$SRC" ;;
+		*) echo "Skipping simulator slice on $HOST_ARCH" ;;
+	esac
+	exit 0
 fi
 
 SDK="${IOS_SDK:-}"
@@ -44,7 +77,6 @@ if [ -z "$ARCH" ]; then
 	fi
 fi
 
-# Device iOS is arm64-only. Simulator follows the Mac (arm64 or x86_64).
 case "$SDK:$ARCH" in
 	iphoneos:arm64) ;;
 	iphonesimulator:arm64|iphonesimulator:x86_64) ;;
@@ -55,13 +87,4 @@ case "$SDK:$ARCH" in
 esac
 
 mkdir -p "$OUT"
-cmake -S "${ROOT}/shared" -B "${OUT}/cmake-${SDK}-${ARCH}" \
-	-DCMAKE_SYSTEM_NAME=iOS \
-	-DCMAKE_OSX_ARCHITECTURES="$ARCH" \
-	-DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
-	-DCMAKE_OSX_SYSROOT="$SDK" \
-	-DCMAKE_BUILD_TYPE=Release \
-	-DVC_SRC="$SRC"
-cmake --build "${OUT}/cmake-${SDK}-${ARCH}" --target vc_mobile
-cp "${OUT}/cmake-${SDK}-${ARCH}/libvc_mobile.a" "${OUT}/libvc_mobile.a"
-echo "Wrote ${OUT}/libvc_mobile.a ($SDK $ARCH)"
+build_one "$SDK" "$ARCH" "$SRC"
