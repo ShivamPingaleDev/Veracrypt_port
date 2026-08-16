@@ -24,7 +24,7 @@ OUT="$OBJ/vcport-wrap-test"
 
 UNAME_S="$(uname -s)"
 UNAME_M="$(uname -m)"
-CFLAGS="-O1 -fno-strict-aliasing -fstack-protector-strong -DTC_UNIX -DARGON2_NO_THREADS -DCRYPTOPP_DISABLE_X86ASM -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
+CFLAGS="-O1 -fno-strict-aliasing -fstack-protector-strong -fno-common -DTC_UNIX -DARGON2_NO_THREADS -DCRYPTOPP_DISABLE_X86ASM -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
 case "$UNAME_S" in
 	Darwin) CFLAGS="$CFLAGS -DTC_MACOSX" ;;
 	*) CFLAGS="$CFLAGS -DTC_LINUX" ;;
@@ -74,8 +74,8 @@ AES_HW=""
 EXTRA_OBJS=""
 case "$UNAME_M" in
 	arm64|aarch64)
-		compile_c "$OBJ/Aes_hw.o" "$SRC/Crypto/Aes_hw_armv8.c" -march=armv8-a+crypto
-		compile_c "$OBJ/sha256_armv8.o" "$SRC/Crypto/sha256_armv8.c" -march=armv8-a+crypto
+		compile_c "$OBJ/Aes_hw.o" "$SRC/Crypto/Aes_hw_armv8.c" -march=armv8-a+crypto -mbranch-protection=standard
+		compile_c "$OBJ/sha256_armv8.o" "$SRC/Crypto/sha256_armv8.c" -march=armv8-a+crypto -mbranch-protection=standard
 		AES_HW="$OBJ/Aes_hw.o $OBJ/sha256_armv8.o"
 		;;
 	x86_64|amd64)

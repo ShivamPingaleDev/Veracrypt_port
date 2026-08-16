@@ -78,7 +78,7 @@ add_library(vc_mobile STATIC
 	${VC_COMMON}
 )
 
-target_compile_options(vc_mobile PRIVATE -fPIC -fno-strict-aliasing -fstack-protector-strong)
+target_compile_options(vc_mobile PRIVATE -fPIC -fno-strict-aliasing -fstack-protector-strong -fno-common)
 # FORTIFY needs -O1+. Host Debug stays -O0; Android arm Debug already forces -O2.
 if(CMAKE_BUILD_TYPE MATCHES "Release|RelWithDebInfo|MinSizeRel")
 	target_compile_definitions(vc_mobile PRIVATE _FORTIFY_SOURCE=2)
@@ -90,6 +90,8 @@ endif()
 # ARM: ARMv8 AES/SHA (+crypto) and NEON. Debug NDK is otherwise -O0, which
 # leaves CPU_QueryAES uninlined and skips auto-vectorized Twofish/Serpent/SHA-512.
 # HMAC-SHA-512 stays sequential; the pool parallelizes XTS and auto-detect KDF.
+# PAC/BTI stays on Aes_hw_armv8 / sha256_armv8 only — whole-library
+# -mbranch-protection aborted host volume tests (C++ PasswordIncorrect).
 if(ANDROID AND ANDROID_ABI STREQUAL "arm64-v8a")
 	target_compile_options(vc_mobile PRIVATE -ftree-vectorize -march=armv8-a+crypto)
 	if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -115,7 +117,8 @@ endif()
 if(ANDROID)
 	add_library(vcport SHARED android_jni.cpp)
 	target_link_libraries(vcport PRIVATE vc_mobile log)
-	target_compile_options(vcport PRIVATE -fstack-protector-strong)
+	target_compile_options(vcport PRIVATE -fstack-protector-strong -fno-common)
+	target_link_options(vcport PRIVATE -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack)
 	if(ANDROID_ABI MATCHES "arm")
 		target_compile_definitions(vcport PRIVATE _FORTIFY_SOURCE=2)
 	endif()
