@@ -1,7 +1,7 @@
 import Foundation
 
 enum UpdateChecker {
-    static let localVersion = "0.2.1"
+    static let localVersion = "0.2.2"
     static let manifestURL = URL(string: "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json")!
 
     struct Result {

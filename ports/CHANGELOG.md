@@ -1,5 +1,9 @@
 # VC Port changelog
 
+## 0.2.2
+
+Fix CI/NDK package builds: drop Windows-only `blake2s-ref.c`, link Argon2 SSE/AVX2 on x86_64.
+
 ## 0.2.1
 
 High-threat hardening. Not unbreakable.

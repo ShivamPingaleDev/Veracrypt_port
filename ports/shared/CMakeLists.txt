@@ -47,7 +47,6 @@ set(VC_CRYPTO
 	${VC_SRC}/Crypto/Aeskey.c
 	${VC_SRC}/Crypto/Aestab.c
 	${VC_SRC}/Crypto/blake2s.c
-	${VC_SRC}/Crypto/blake2s-ref.c
 	${VC_SRC}/Crypto/SerpentFast.c
 	${VC_SRC}/Crypto/Sha2.c
 	${VC_SRC}/Crypto/Twofish.c
@@ -73,6 +72,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
 		${VC_SRC}/Crypto/Aes_hw_armv8.c
 		${VC_SRC}/Crypto/sha256_armv8.c
 		PROPERTIES COMPILE_FLAGS "-march=armv8-a+crypto"
+	)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|i.86")
+	list(APPEND VC_CRYPTO
+		${VC_SRC}/Crypto/Argon2/src/opt_sse2.c
+		${VC_SRC}/Crypto/Argon2/src/opt_avx2.c
 	)
 endif()
 

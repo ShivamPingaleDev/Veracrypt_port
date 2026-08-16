@@ -43,11 +43,18 @@ compile_c "$OBJ/argon2core.o" "$SRC/Crypto/Argon2/src/core.c"
 compile_c "$OBJ/argon2ref.o" "$SRC/Crypto/Argon2/src/ref.c"
 
 AES_HW=""
+EXTRA_OBJS=""
 case "$UNAME_M" in
 	arm64|aarch64)
 		$CC -c $CFLAGS $INCLUDES -march=armv8-a+crypto -o "$OBJ/Aes_hw.o" "$SRC/Crypto/Aes_hw_armv8.c"
 		$CC -c $CFLAGS $INCLUDES -march=armv8-a+crypto -o "$OBJ/sha256_armv8.o" "$SRC/Crypto/sha256_armv8.c"
 		AES_HW="$OBJ/Aes_hw.o $OBJ/sha256_armv8.o"
+		;;
+	x86_64|amd64|i686|i386)
+		compile_c "$OBJ/cpu.o" "$SRC/Crypto/cpu.c"
+		compile_c "$OBJ/opt_sse2.o" "$SRC/Crypto/Argon2/src/opt_sse2.c"
+		compile_c "$OBJ/opt_avx2.o" "$SRC/Crypto/Argon2/src/opt_avx2.c"
+		EXTRA_OBJS="$OBJ/cpu.o $OBJ/opt_sse2.o $OBJ/opt_avx2.o"
 		;;
 esac
 
@@ -56,6 +63,6 @@ $CXX -std=c++14 -c $CFLAGS $INCLUDES -o "$OBJ/test_wrap.o" "$SHARED/test_wrap_ma
 
 # shellcheck disable=SC2086
 $CXX -o "$OUT" "$OBJ/test_wrap.o" "$OBJ/vc_wrap.o" "$OBJ/Aescrypt.o" "$OBJ/Aeskey.o" "$OBJ/Aestab.o" \
-	"$OBJ/Sha2.o" $AES_HW "$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o"
+	"$OBJ/Sha2.o" $AES_HW $EXTRA_OBJS "$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o"
 echo "Running $OUT"
 "$OUT"

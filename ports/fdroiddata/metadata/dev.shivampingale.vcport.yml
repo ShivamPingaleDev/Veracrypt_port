@@ -29,6 +29,19 @@ RepoType: git
 Repo: https://github.com/ShivamPingaleDev/VCPort.git
 
 Builds:
+  - versionName: 0.2.2
+    versionCode: 4
+    commit: v0.2.2
+    subdir: android
+    srclibs:
+      - VeraCryptPort@v0.2.2
+    prebuild:
+      - ln -sfn $$VeraCryptPort$$ ../veracrypt
+    gradle:
+      - fdroid
+    ndk: r26d
+    scandelete:
+      - ios
   - versionName: 0.2.1
     versionCode: 3
     commit: v0.2.1
@@ -59,5 +72,5 @@ Builds:
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
 UpdateCheckName: dev.shivampingale.vcport
-CurrentVersion: 0.2.1
-CurrentVersionCode: 3
+CurrentVersion: 0.2.2
+CurrentVersionCode: 4
