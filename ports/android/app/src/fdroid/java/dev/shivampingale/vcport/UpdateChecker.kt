@@ -1,7 +1,7 @@
 package dev.shivampingale.vcport
 
 object UpdateChecker {
-    const val LOCAL_VERSION = "0.2.0"
+    const val LOCAL_VERSION = "0.2.1"
 
     data class Result(
         val newer: Boolean,

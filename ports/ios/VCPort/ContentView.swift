@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var containerURL: URL?
     @State private var password = ""
     @State private var pim = "0"
@@ -25,6 +26,14 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("High-threat") {
+                    Text("Screenshots are treated as sensitive. Biometrics can be compelled — prefer a long password and a keyfile not stored on this phone. Panic wipe destroys Keychain leftovers. This is not unbreakable.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Panic wipe", role: .destructive) {
+                        panicWipe()
+                    }
+                }
                 if let incoming = incomingFile {
                     Section("Received from another app") {
                         Text(incoming.lastPathComponent)
@@ -91,6 +100,9 @@ struct ContentView: View {
                     Toggle("Text password", isOn: $useTextPassword)
                     if useTextPassword {
                         SecureField("Password", text: $password)
+                            .privacySensitive()
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
                     }
                     TextField("PIM (0 = default)", text: $pim)
                         .keyboardType(.numberPad)
@@ -106,7 +118,7 @@ struct ContentView: View {
                     Button("Add keyfiles…") { keyfileImporterPresented = true }
                     if BiometricStore.isAvailable {
                         Toggle("Biometric as password", isOn: $useBiometric)
-                        Text("Stored in the Keychain behind Face ID / Touch ID. Mixed as a VeraCrypt keyfile, so you can still add a text password, more keyfiles, and PIM.")
+                        Text("Do not use biometrics as the only factor in a danger-state. Face ID / Touch ID can be compelled. Mix a password and a keyfile you do not keep on this phone.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if let biometricKey {
@@ -233,6 +245,11 @@ struct ContentView: View {
                 if case .success(let url) = result {
                     _ = url.startAccessingSecurityScopedResource()
                     importBiometricKeyfile(url)
+                }
+            }
+            .onChange(of: scenePhase) { phase in
+                if phase == .background {
+                    lockSession()
                 }
             }
             .onOpenURL { url in
@@ -372,6 +389,36 @@ struct ContentView: View {
             VcMobileBridge.close(handle)
             volumeHandle = nil
         }
+    }
+
+    private func lockSession() {
+        closeVolume()
+        password = ""
+        wrapPassword = ""
+        entries = []
+        SensitivePaste.forget()
+        if !status.hasPrefix("Panic") {
+            status = "Locked. Passwords cleared. Panic wipe also destroys Keychain leftovers."
+        }
+    }
+
+    private func panicWipe() {
+        closeVolume()
+        password = ""
+        wrapPassword = ""
+        biometricKey = nil
+        rememberBiometrics = false
+        useBiometric = false
+        entries = []
+        BiometricStore.deleteAll()
+        SensitivePaste.forget()
+        let tmp = FileManager.default.temporaryDirectory
+        if let files = try? FileManager.default.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil) {
+            for url in files where url.lastPathComponent.hasPrefix("vcbio-") {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+        status = "Panic wipe complete. Keychain factors and clipboard are gone."
     }
 
     private func shareVaultFile(_ entry: VaultEntry) {

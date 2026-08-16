@@ -31,6 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import java.io.File
@@ -46,9 +49,16 @@ class MainActivity : AppCompatActivity() {
     private val containerUriState = mutableStateOf<Uri?>(null)
     private val statusState = mutableStateOf("Offline. Select a VeraCrypt container, or share an encrypted file as-is.")
     private val incomingState = mutableStateOf<File?>(null)
+    private val passwordState = mutableStateOf("")
+    private val wrapPasswordState = mutableStateOf("")
+    private val generatedPasswordState = mutableStateOf("")
+    private val handleState = mutableStateOf(0L)
+    private val entriesState = mutableStateOf(listOf<VaultEntry>())
+    private var suppressLock = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Hardening.protectWindow(this)
         val vault = BiometricVault(this)
         handleIncoming(intent)
         setContent {
@@ -56,7 +66,7 @@ class MainActivity : AppCompatActivity() {
                 Surface(Modifier.fillMaxSize()) {
                     var path by pathState
                     var containerUri by containerUriState
-                    var password by remember { mutableStateOf("") }
+                    var password by passwordState
                     var pim by remember { mutableStateOf("0") }
                     var useTextPassword by remember { mutableStateOf(true) }
                     var useBiometric by remember { mutableStateOf(false) }
@@ -64,10 +74,10 @@ class MainActivity : AppCompatActivity() {
                     var bioSecret by remember { mutableStateOf<ByteArray?>(null) }
                     var keyfileUris by remember { mutableStateOf(listOf<Uri>()) }
                     var status by statusState
-                    var entries by remember { mutableStateOf(listOf<VaultEntry>()) }
-                    var handle by remember { mutableStateOf(0L) }
-                    var wrapPassword by remember { mutableStateOf("") }
-                    var generatedPassword by remember { mutableStateOf("") }
+                    var entries by entriesState
+                    var handle by handleState
+                    var wrapPassword by wrapPasswordState
+                    var generatedPassword by generatedPasswordState
                     val incoming by incomingState
                     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                         if (uri != null) {
@@ -83,6 +93,7 @@ class MainActivity : AppCompatActivity() {
                         if (uris.isNotEmpty()) {
                             uris.forEach { ShareHelper.persistRead(this@MainActivity, it) }
                             status = "Sharing ${uris.size} encrypted file(s) as-is."
+                            suppressLock = true
                             ShareHelper.shareUris(this@MainActivity, uris, "Share encrypted file")
                         }
                     }
@@ -121,6 +132,19 @@ class MainActivity : AppCompatActivity() {
                             else
                                 "VeraCrypt-compatible Android client. F-Droid build: no network."
                         )
+                        Text(
+                            "High-threat default: screenshots blocked, recents hidden, no backups, no user CAs. Biometrics can be compelled — prefer a long password + keyfile, not Remember. Panic wipe destroys Keystore leftovers. This is not unbreakable.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        OutlinedButton(onClick = {
+                            panicWipe()
+                            password = ""
+                            wrapPassword = ""
+                            generatedPassword = ""
+                            handle = 0
+                            entries = emptyList()
+                            status = "Panic wipe complete. Keystore, cache, clipboard, and remembered factors are gone."
+                        }) { Text("Panic wipe") }
                         Spacer(Modifier.height(12.dp))
                         incoming?.let { file ->
                             Text("Received ${file.name} from another app.")
@@ -131,6 +155,7 @@ class MainActivity : AppCompatActivity() {
                                 }) { Text("Open as container") }
                                 Spacer(Modifier.padding(8.dp))
                                 OutlinedButton(onClick = {
+                                    beginShare()
                                     ShareHelper.shareFiles(this@MainActivity, listOf(file), "Share encrypted file")
                                 }) { Text("Share encrypted") }
                                 if (ShareHelper.looksLikeWrap(file.name)) {
@@ -157,13 +182,15 @@ class MainActivity : AppCompatActivity() {
                         )
                         OutlinedTextField(
                             wrapPassword,
-                            {
-                                wrapPassword = it
-                                SensitiveClipboard.setScreenshotBlocked(window, it.isNotEmpty() || generatedPassword.isNotEmpty())
-                            },
+                            { wrapPassword = it },
                             label = { Text("Wrap password (never stored)") },
                             modifier = Modifier.fillMaxWidth(),
-                            visualTransformation = PasswordVisualTransformation()
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.None,
+                                autoCorrect = false,
+                                keyboardType = KeyboardType.Password
+                            )
                         )
                         Row {
                             OutlinedButton(onClick = {
@@ -171,7 +198,6 @@ class MainActivity : AppCompatActivity() {
                                 if (generated != null) {
                                     wrapPassword = generated
                                     generatedPassword = generated
-                                    SensitiveClipboard.setScreenshotBlocked(window, true)
                                     status = "Generated a 24-character password in memory. It is not saved."
                                 } else {
                                     status = "Password generator failed."
@@ -190,7 +216,6 @@ class MainActivity : AppCompatActivity() {
                                 SensitiveClipboard.forget(this@MainActivity)
                                 wrapPassword = ""
                                 generatedPassword = ""
-                                SensitiveClipboard.setScreenshotBlocked(window, false)
                                 status = "Password forgotten. Clipboard cleared."
                             }) { Text("Forget password") }
                             Spacer(Modifier.padding(8.dp))
@@ -234,7 +259,12 @@ class MainActivity : AppCompatActivity() {
                                 { password = it },
                                 label = { Text("Password") },
                                 modifier = Modifier.fillMaxWidth(),
-                                visualTransformation = PasswordVisualTransformation()
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.None,
+                                    autoCorrect = false,
+                                    keyboardType = KeyboardType.Password
+                                )
                             )
                         }
                         OutlinedTextField(
@@ -266,7 +296,11 @@ class MainActivity : AppCompatActivity() {
                                 Text("Biometric as password")
                             }
                             Text(
-                                "Stored in the Android Keystore. Mixed as a VeraCrypt keyfile, so you can still add a text password, more keyfiles, and PIM.",
+                                "Do not use biometrics as the only factor in a danger-state. Fingerprints can be compelled. Mix a password and a keyfile you do not keep on this phone.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                "Stored in the Android Keystore (StrongBox when present). Mixed as a VeraCrypt keyfile.",
                                 style = MaterialTheme.typography.bodySmall
                             )
                             Text(
@@ -312,6 +346,7 @@ class MainActivity : AppCompatActivity() {
                                         status = "Create or import a biometric password first."
                                     } else {
                                         val file = KeyfileIo.writeSecret(this@MainActivity, secret)
+                                        beginShare()
                                         ShareHelper.shareFiles(this@MainActivity, listOf(file), "Export biometric keyfile")
                                         status = "Share this keyfile into VeraCrypt on a computer (Add keyfile). Delete it after."
                                     }
@@ -376,10 +411,7 @@ class MainActivity : AppCompatActivity() {
                         Text("About / licenses", style = MaterialTheme.typography.titleMedium)
                         Text(
                             "Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.clickable {
-                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("http://www.truecrypt.org/")))
-                            }
+                            style = MaterialTheme.typography.bodySmall
                         )
                         Text(
                             "VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt.",
@@ -426,6 +458,38 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleIncoming(intent)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (suppressLock) {
+            suppressLock = false
+            return
+        }
+        lockSession()
+    }
+
+    private fun lockSession() {
+        val handle = handleState.value
+        if (handle > 0) NativeBridge.closeVolume(handle)
+        handleState.value = 0L
+        entriesState.value = emptyList()
+        passwordState.value = ""
+        wrapPasswordState.value = ""
+        generatedPasswordState.value = ""
+        Hardening.wipeSessionFiles(this)
+        SensitiveClipboard.forget(this)
+        if (!statusState.value.startsWith("Panic")) {
+            statusState.value =
+                "Locked. Passwords and plaintext cache wiped. Panic wipe also destroys Keystore and ciphertext copies."
+        }
+    }
+
+    private fun panicWipe() {
+        val handle = handleState.value
+        if (handle > 0) NativeBridge.closeVolume(handle)
+        handleState.value = 0L
+        Hardening.panic(this)
     }
 
     private fun openVolumeWithFactors(
@@ -563,6 +627,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     val plain = File(outPath)
                     onStatus("Unwrapped ${plain.name}. Password was not saved.")
+                    beginShare()
                     ShareHelper.shareFiles(this, listOf(plain), "Share unwrapped file")
                 }
             }
@@ -593,6 +658,7 @@ class MainActivity : AppCompatActivity() {
                         onStatus("Wrap failed (code $rc).")
                     } else {
                         onStatus("Wrapped $name. Share the .vcpw file. The password was not saved.")
+                        beginShare()
                         ShareHelper.shareFiles(this, listOf(wrapped), "Share wrapped file")
                     }
                 }
@@ -628,6 +694,7 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         val file = File(outPath)
                         onStatus("Unwrapped ${file.name}. Password was not saved.")
+                        beginShare()
                         ShareHelper.shareFiles(this, listOf(file), "Share unwrapped file")
                     }
                 }
@@ -638,7 +705,12 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun beginShare() {
+        suppressLock = true
+    }
+
     private fun shareEncryptedVolume(uri: Uri?, path: String, onStatus: (String) -> Unit) {
+        beginShare()
         when {
             uri != null -> {
                 onStatus("Sharing encrypted file as-is.")
@@ -657,6 +729,7 @@ class MainActivity : AppCompatActivity() {
             onStatus("Open a volume first.")
             return
         }
+        beginShare()
         if (entry.isDir) {
             onStatus("Folders cannot be shared yet.")
             return

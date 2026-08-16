@@ -5,7 +5,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object UpdateChecker {
-    const val LOCAL_VERSION = "0.2.0"
+    const val LOCAL_VERSION = "0.2.1"
     private const val MANIFEST =
         "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json"
 

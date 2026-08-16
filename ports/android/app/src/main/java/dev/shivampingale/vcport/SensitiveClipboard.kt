@@ -33,9 +33,8 @@ object SensitiveClipboard {
     fun setScreenshotBlocked(window: Window, blocked: Boolean) {
         if (blocked) {
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        } else {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
+        // Never clear FLAG_SECURE. Recents / screenshots are a seizure risk.
     }
 
     private fun scheduleClear(clipboard: ClipboardManager) {

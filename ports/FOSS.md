@@ -18,6 +18,7 @@ That flavor has:
 - AndroidX + Kotlin + NDK only
 - backups disabled
 - Gradle Wrapper 8.7 with a published SHA-256
+- High-threat defaults documented in [THREAT-MODEL.md](THREAT-MODEL.md) (no Play Integrity, no obfuscation)
 - Fastlane text under `android/fastlane/metadata/android/`
 
 Recipe to copy into [fdroiddata](https://gitlab.com/fdroid/fdroiddata): `fdroiddata/metadata/dev.shivampingale.vcport.yml`.
@@ -25,7 +26,7 @@ Recipe to copy into [fdroiddata](https://gitlab.com/fdroid/fdroiddata): `fdroidd
 ### Still required before an inclusion merge request
 
 1. **Public git repo.** TrueCrypt License 3.0 and F-Droid both require publicly available source. `VCPort` is still private until you change visibility.
-2. **Git tag** matching `versionName`, e.g. `v0.2.0`, on the commit F-Droid should build.
+2. **Git tag** matching `versionName`, e.g. `v0.2.1`, on the commit F-Droid should build.
 3. **Screenshots** in `android/fastlane/metadata/android/en-US/images/phoneScreenshots/`.
 4. **VeraCrypt `src` as an F-Droid srclib** (`fdroiddata/srclibs/VeraCryptPort.yml`), because this repo does not vendor the whole VeraCrypt tree.
 5. **License review.** VeraCrypt is dual-licensed Apache-2.0 / TrueCrypt 3.0. TrueCrypt 3.0 is **not** OSI/FSF/Debian-free. F-Droid defers to those lists. They may accept Apache-2.0 for VeraCrypt-authored files, or they may refuse the inherited TrueCrypt files. If the main repo refuses, host your own F-Droid repo with `fdroidserver` or ask [IzzyOnDroid](https://apt.izzysoft.de/fdroid/) — still FOSS, not Google Play.

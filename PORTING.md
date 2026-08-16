@@ -78,7 +78,7 @@ cd ports/android
 ./gradlew :app:assembleFdroidRelease
 ```
 
-Biometric unlock uses Android Keystore + `BiometricPrompt` (strong biometrics). Opened containers are listed through a DocumentsProvider stub and the in-app FAT root browser.
+Biometric unlock uses Android Keystore + `BiometricPrompt` (strong biometrics, StrongBox when present). High-threat defaults: [ports/THREAT-MODEL.md](ports/THREAT-MODEL.md). There is no DocumentsProvider export (that was a seizure/SAF leak). Browse FAT from the in-app list only.
 
 The in-app file list has a **Share decrypted** action that extracts the file from a FAT volume and opens the system share sheet. **Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no unlock). **Wrap a single file** password-encrypts one file into a `.vcpw` blob (Argon2id + AES-256-CTR + HMAC-SHA256). The password generator stays in memory, is never logged, and clipboard copies expire. Other apps can also send files into VC Port (`ACTION_SEND` / `VIEW`).
 

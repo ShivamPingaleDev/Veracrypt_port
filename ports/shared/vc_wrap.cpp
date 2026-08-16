@@ -20,6 +20,10 @@
 #include <unistd.h>
 #include <vector>
 
+#if defined(_POSIX_MEMLOCK)
+#include <sys/mman.h>
+#endif
+
 #ifdef __APPLE__
 #include <sys/random.h>
 #endif
@@ -28,7 +32,7 @@ namespace {
 
 const char kMagic[4] = { 'V', 'C', 'P', 'W' };
 const uint8_t kVersion = 1;
-const uint32_t kMemKib = 16384;
+const uint32_t kMemKib = 32768;
 const uint32_t kTimeCost = 3;
 const uint32_t kLanes = 1;
 const size_t kHeaderSize = 76;
@@ -218,6 +222,39 @@ int random_u32 (uint32_t *out)
 	return fill_random (out, sizeof (*out));
 }
 
+void lock_secret (void *p, size_t n)
+{
+#if defined(_POSIX_MEMLOCK)
+	if (p && n)
+		mlock (p, n);
+#else
+	(void) p;
+	(void) n;
+#endif
+}
+
+void unlock_secret (void *p, size_t n)
+{
+#if defined(_POSIX_MEMLOCK)
+	if (p && n)
+		munlock (p, n);
+#else
+	(void) p;
+	(void) n;
+#endif
+}
+
+FILE *fopen_private_write (const char *path)
+{
+	int fd = open (path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	if (fd < 0)
+		return nullptr;
+	FILE *f = fdopen (fd, "wb");
+	if (!f)
+		close (fd);
+	return f;
+}
+
 } // namespace
 
 void vc_secure_wipe (void *p, size_t n)
@@ -323,6 +360,8 @@ int vc_wrap_file (const char *src_path, const char *dest_path,
 	int rc = derive_keys (password, password_len, salt, kMemKib, kTimeCost, kLanes, aes_key, mac_key);
 	if (rc != VC_OK)
 		return rc;
+	lock_secret (aes_key, sizeof (aes_key));
+	lock_secret (mac_key, sizeof (mac_key));
 
 	aes_init ();
 	aes_encrypt_ctx cx;
@@ -345,7 +384,7 @@ int vc_wrap_file (const char *src_path, const char *dest_path,
 	store_u64 (header + 68, payload_size);
 
 	FILE *in = fopen (src_path, "rb");
-	FILE *out = fopen (dest_path, "wb");
+	FILE *out = fopen_private_write (dest_path);
 	if (!in || !out)
 	{
 		if (in) fclose (in);
@@ -418,6 +457,8 @@ int vc_wrap_file (const char *src_path, const char *dest_path,
 
 	burn (aes_key, sizeof (aes_key));
 	burn (mac_key, sizeof (mac_key));
+	unlock_secret (aes_key, sizeof (aes_key));
+	unlock_secret (mac_key, sizeof (mac_key));
 	burn (salt, sizeof (salt));
 	burn (iv, sizeof (iv));
 	burn (counter, sizeof (counter));
@@ -490,6 +531,8 @@ int vc_unwrap_file (const char *src_path, const char *dest_dir,
 		fclose (in);
 		return rc;
 	}
+	lock_secret (aes_key, sizeof (aes_key));
+	lock_secret (mac_key, sizeof (mac_key));
 
 	HmacSha256 hmac;
 	hmac_init (&hmac, mac_key, 32);
@@ -582,7 +625,7 @@ int vc_unwrap_file (const char *src_path, const char *dest_dir,
 	}
 
 	mkdir (dest_dir, 0700);
-	FILE *out = fopen (dest, "wb");
+	FILE *out = fopen_private_write (dest);
 	if (!out)
 	{
 		fclose (in);
@@ -616,6 +659,8 @@ int vc_unwrap_file (const char *src_path, const char *dest_dir,
 
 	burn (aes_key, sizeof (aes_key));
 	burn (mac_key, sizeof (mac_key));
+	unlock_secret (aes_key, sizeof (aes_key));
+	unlock_secret (mac_key, sizeof (mac_key));
 	burn (salt, sizeof (salt));
 	burn (iv, sizeof (iv));
 	burn (counter, sizeof (counter));

@@ -70,8 +70,9 @@ object ShareHelper {
     }
 
     fun persistRead(context: Context, uri: Uri) {
+        // High-threat: do not persist URI grants across reboots (SAF leftover on seizure).
         try {
-            context.contentResolver.takePersistableUriPermission(
+            context.contentResolver.releasePersistableUriPermission(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION
             )

@@ -7,6 +7,9 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
 #include "vc_mobile.h"
 
 static std::string jni_copy_utf(JNIEnv *env, jstring s)
@@ -180,4 +183,12 @@ Java_dev_shivampingale_vcport_NativeBridge_generatePassword(JNIEnv *env, jobject
 	jstring result = env->NewStringUTF(buf);
 	vc_secure_wipe(buf, sizeof(buf));
 	return result;
+}
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *, void *)
+{
+#ifdef __linux__
+	prctl(PR_SET_DUMPABLE, 0);
+#endif
+	return JNI_VERSION_1_6;
 }

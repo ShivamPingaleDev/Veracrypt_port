@@ -102,6 +102,20 @@ class BiometricVault(private val context: Context) {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         if (store.containsAlias(keyAlias)) return
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                generator.init(keySpec(strongBox = true))
+                generator.generateKey()
+                return
+            } catch (_: Exception) {
+                // Device has no StrongBox; fall back to TEE.
+            }
+        }
+        generator.init(keySpec(strongBox = false))
+        generator.generateKey()
+    }
+
+    private fun keySpec(strongBox: Boolean): KeyGenParameterSpec {
         val spec = KeyGenParameterSpec.Builder(
             keyAlias,
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
@@ -113,8 +127,10 @@ class BiometricVault(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             spec.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
         }
-        generator.init(spec.build())
-        generator.generateKey()
+        if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            spec.setIsStrongBoxBacked(true)
+        }
+        return spec.build()
     }
 
     private fun secretKey(): SecretKey {

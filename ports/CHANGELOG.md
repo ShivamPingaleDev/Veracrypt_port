@@ -1,5 +1,16 @@
 # VC Port changelog
 
+## 0.2.1
+
+High-threat hardening. Not unbreakable.
+
+- Always-on screenshot block, recents hidden, no cloud/D2D backup
+- Panic wipe and background session lock
+- No exported DocumentsProvider; FileProvider no longer exposes all of cache
+- System TLS CAs only; StrongBox when present
+- Wrap: Argon2id 32 MiB, mode 0600, mlock keys
+- Compelled-biometrics warning; FOSS profile in THREAT-MODEL.md
+
 ## 0.2.0
 
 First tagged GitHub release.

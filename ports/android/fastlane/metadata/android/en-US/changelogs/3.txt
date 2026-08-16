@@ -1,0 +1,1 @@
+High-threat hardening: panic wipe, session lock, no SAF export, StrongBox, wrap KDF 32 MiB. Not unbreakable. Biometrics can be compelled.

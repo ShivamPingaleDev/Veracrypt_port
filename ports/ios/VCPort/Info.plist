@@ -7,9 +7,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>dev.shivampingale.vcport</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.2.0</string>
+	<string>0.2.1</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Face ID unlocks stored volume passwords on this device.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -19,7 +19,9 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>UIFileSharingEnabled</key>
-	<true/>
+	<false/>
+	<key>UISupportsDocumentBrowser</key>
+	<false/>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
