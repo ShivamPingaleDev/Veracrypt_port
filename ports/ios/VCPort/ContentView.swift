@@ -45,6 +45,9 @@ struct ContentView: View {
     @State private var useBackupHeader = false
     @State private var readOnlyOpen = false
     @State private var trueCryptMode = false
+    @State private var protectHidden = false
+    @State private var hiddenProtectPassword = ""
+    @State private var hiddenProtectPim = "0"
     @State private var newFolderPresented = false
     @State private var renamePresented = false
     @State private var namePromptValue = ""
@@ -379,6 +382,16 @@ struct ContentView: View {
                     Text("TrueCrypt 6/7 volumes have no PIM — this forces PIM 0. Creating new TrueCrypt volumes is not offered; create a VeraCrypt volume.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Toggle("Protect hidden volume against damage caused by writing to outer volume", isOn: $protectHidden)
+                    Text("Same as desktop Mount Options. Enter the nested volume password. Writes that would overwrite the nested volume are refused. Do not enable this if someone is compelling you to open the outer volume — that would show that a nested volume exists.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if protectHidden {
+                        SecureField("Password to hidden volume", text: $hiddenProtectPassword)
+                            .neverSaveHistory()
+                        TextField("Hidden volume PIM (0 = default)", text: $hiddenProtectPim)
+                            .keyboardType(.numberPad)
+                    }
                 }
                 Section("Unlock factors") {
                     Text("Combine any of: Face ID / Touch ID / passcode, text password, keyfiles, and PIM. The volume itself is a normal VeraCrypt file — same mix a computer uses. Any file name works; the header is detected only if those credentials are correct.")
@@ -497,7 +510,7 @@ struct ContentView: View {
                     Text("Security tokens: PKCS#11 smart cards are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, hidden-volume write protection while the outer is open, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
+                    Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -903,6 +916,9 @@ struct ContentView: View {
         let remember = rememberBiometrics
         let bio = useBiometric ? biometricKey : nil
         let keys = keyfileURLs
+        let protect = protectHidden
+        let hiddenPw = hiddenProtectPassword
+        let hiddenPimValue = Int32(hiddenProtectPim) ?? 0
         DispatchQueue.global(qos: .userInitiated).async {
             var temps: [URL] = []
             var keyfilePaths = keys.map(\.path)
@@ -920,6 +936,9 @@ struct ContentView: View {
                 keyfiles: keyfilePaths,
                 useBackupHeader: backup,
                 readOnly: readOnly,
+                protectHidden: protect,
+                hiddenPassword: protect ? hiddenPw : "",
+                hiddenPim: protect ? hiddenPimValue : 0,
                 error: &error
             )
             temps.forEach { try? FileManager.default.removeItem(at: $0) }
@@ -943,6 +962,7 @@ struct ContentView: View {
                     entries = listed.filter { $0.name != "!truncated!" }
                     listTruncated = truncated
                     status = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file."
+                    if protect { status = "Hidden volume is being protected against damage. " + status }
                     if truncated { status += " Listing truncated at \(VC_LIST_UI_MAX) entries. Tap Load more." }
                 }
                 if remember {
@@ -1132,7 +1152,7 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 endWork()
                 if rc != 0 {
-                    status = importErrorMessage(name, rc)
+                    status = importErrorMessage(name, rc, handle: handle)
                     return
                 }
                 if move && !deletedOriginal {
@@ -1260,7 +1280,10 @@ struct ContentView: View {
         }
     }
 
-    private func importErrorMessage(_ name: String, _ rc: Int32) -> String {
+    private func importErrorMessage(_ name: String, _ rc: Int32, handle: OpaquePointer? = nil) -> String {
+        if let handle, VcMobileBridge.protectionTriggered(handle) {
+            return "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+        }
         switch rc {
         case -6: return "Could not copy \(name). FAT only; folders are not created this way."
         case -4: return "Could not copy \(name). Bad name or path."

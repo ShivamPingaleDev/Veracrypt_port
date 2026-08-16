@@ -739,6 +739,83 @@ static void run_sim (const SimCase &c)
 		unlink (bio_reload);
 }
 
+static void test_hidden_protect (void)
+{
+	FlushOnExit flush;
+	gScope = "hidden protect";
+	banner ("hidden volume protection (desktop Mount Options)");
+	char vol[128] = "";
+	expect (make_temp (vol, sizeof (vol), "/tmp/vcport-life-hid-XXXXXX") == 0, "temp nested volume");
+	static const char kOuter[] = "vcport-outer-password";
+	static const char kHidden[] = "vcport-hidden-password";
+	VcCreateOptions create = {};
+	create.path = vol;
+	create.password = kOuter;
+	create.password_len = strlen (kOuter);
+	create.pim = 1;
+	create.size_bytes = 6ull * 1024ull * 1024ull;
+	create.cipher = "AES(Twofish(Serpent))";
+	create.kdf = "HMAC-SHA-512";
+	create.hidden_size_bytes = 2ull * 1024ull * 1024ull;
+	create.hidden_password = kHidden;
+	create.hidden_password_len = strlen (kHidden);
+	create.hidden_pim = 1;
+	expect (vc_create_volume (&create) == VC_OK, "createVolume with nested volume");
+
+	int err = 0;
+	VcOpenOptions bad = {};
+	bad.path = vol;
+	bad.password = kOuter;
+	bad.password_len = strlen (kOuter);
+	bad.pim = 1;
+	bad.protect_hidden = 1;
+	bad.hidden_password = "wrong-hidden";
+	bad.hidden_password_len = strlen ("wrong-hidden");
+	bad.hidden_pim = 1;
+	VcVolume *denied = vc_open (&bad, &err);
+	expect (denied == nullptr && err == VC_ERR_PASSWORD, "protect hidden rejects wrong nested password");
+	if (denied)
+		vc_close (denied);
+
+	err = 0;
+	VcOpenOptions ok = {};
+	ok.path = vol;
+	ok.password = kOuter;
+	ok.password_len = strlen (kOuter);
+	ok.pim = 1;
+	ok.protect_hidden = 1;
+	ok.hidden_password = kHidden;
+	ok.hidden_password_len = strlen (kHidden);
+	ok.hidden_pim = 1;
+	VcVolume *outer = vc_open (&ok, &err);
+	expect (outer != nullptr && err == VC_OK, "open outer with hidden volume protection");
+	if (!outer)
+	{
+		unlink (vol);
+		return;
+	}
+	char info[512];
+	expect (vc_volume_info (outer, info, sizeof (info)) == VC_OK
+		&& strstr (info, "Hidden Volume Protected: Yes") != nullptr
+		&& strstr (info, "Volume type: Outer") != nullptr, "volumeInfo Outer + protected");
+	uint64_t sz = vc_size (outer);
+	uint8_t buf[4096];
+	memset (buf, 0xaa, sizeof (buf));
+	int wr = VC_OK;
+	for (uint64_t frac = 2; frac <= 7 && wr == VC_OK && !vc_protection_triggered (outer); ++frac)
+	{
+		uint64_t at = (sz * frac / 8ull) & ~4095ull;
+		if (at + sizeof (buf) > sz)
+			continue;
+		wr = vc_write (outer, at, buf, sizeof (buf));
+	}
+	expect (wr != VC_OK && vc_protection_triggered (outer), "write into nested range is refused");
+	expect (vc_volume_info (outer, info, sizeof (info)) == VC_OK
+		&& strstr (info, "damage prevented") != nullptr, "Hidden Volume Protected: Yes (damage prevented!)");
+	vc_close (outer);
+	unlink (vol);
+}
+
 int main ()
 {
 	printf ("VC Port volume lifecycle simulation\n");
@@ -750,6 +827,7 @@ int main ()
 	}
 	test_vcf2_all_pim_passwords ();
 	run_phone_session ();
+	test_hidden_protect ();
 
 	static const SimCase kCases[] = {
 		{ "password-only PIM 0", "vcport-alpha", 0, 0, 0, 0, 1 },

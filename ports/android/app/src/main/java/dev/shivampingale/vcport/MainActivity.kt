@@ -141,6 +141,9 @@ class MainActivity : AppCompatActivity() {
                 var useBackupHeader by remember { mutableStateOf(false) }
                 var readOnlyOpen by remember { mutableStateOf(false) }
                 var trueCryptMode by remember { mutableStateOf(false) }
+                var protectHidden by remember { mutableStateOf(false) }
+                var hiddenProtectPassword by remember { mutableStateOf("") }
+                var hiddenProtectPim by remember { mutableStateOf("0") }
                 var namePrompt by remember { mutableStateOf<String?>(null) }
                 var namePromptValue by remember { mutableStateOf("") }
                 var pendingExportFile by remember { mutableStateOf<File?>(null) }
@@ -1179,7 +1182,7 @@ class MainActivity : AppCompatActivity() {
                                         VcCard {
                                             Text("Desktop leftovers", style = MaterialTheme.typography.titleMedium)
                                             Text(
-                                                "This is the full file-container port. These desktop items stay on a computer: mount as a drive letter (no FUSE here), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext filesystems, hidden-volume write protection while the outer is open, PKCS#11 tokens, and a DocumentsProvider / Files.app browse of an unlocked volume (that was a seizure leak). Online help is not fetched while Stay offline. English UI only.",
+                                                "This is the full file-container port. These desktop items stay on a computer: mount as a drive letter (no FUSE here), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext filesystems, PKCS#11 tokens, and a DocumentsProvider / Files.app browse of an unlocked volume (that was a seizure leak). Online help is not fetched while Stay offline. English UI only.",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colors.onSurfaceVariant
                                             )
@@ -1304,6 +1307,9 @@ class MainActivity : AppCompatActivity() {
                                                         useBackupHeader = useBackupHeader,
                                                         readOnly = readOnlyOpen,
                                                         trueCryptMode = trueCryptMode,
+                                                        protectHidden = protectHidden,
+                                                        hiddenPassword = hiddenProtectPassword,
+                                                        hiddenPimText = hiddenProtectPim,
                                                         currentHandle = handle,
                                                         onHandle = { handle = it },
                                                         onEntries = { entries = it },
@@ -1340,6 +1346,32 @@ class MainActivity : AppCompatActivity() {
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colors.onSurfaceVariant
                                             )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Checkbox(protectHidden, { protectHidden = it }, enabled = !busy)
+                                                Text("Protect hidden volume against damage caused by writing to outer volume")
+                                            }
+                                            Text(
+                                                "Same as desktop Mount Options. Enter the nested volume password. Writes that would overwrite the nested volume are refused. Do not enable this if someone is compelling you to open the outer volume — that would show that a nested volume exists. There is no open-time hidden checkbox; opening still uses whichever password you type.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = colors.onSurfaceVariant
+                                            )
+                                            if (protectHidden) {
+                                                SecretField(
+                                                    hiddenProtectPassword,
+                                                    { hiddenProtectPassword = it },
+                                                    "Password to hidden volume",
+                                                    enabled = !busy
+                                                )
+                                                OutlinedTextField(
+                                                    hiddenProtectPim,
+                                                    { hiddenProtectPim = it },
+                                                    label = { Text("Hidden volume PIM (0 = default)") },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    enabled = !busy,
+                                                    singleLine = true,
+                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                                )
+                                            }
                                             TextButton(onClick = { moreFactors = !moreFactors }) {
                                                 Text(if (moreFactors) "Hide extra factors" else "More factors (PIM, keyfiles, biometrics)")
                                             }
@@ -2136,6 +2168,9 @@ class MainActivity : AppCompatActivity() {
         useBackupHeader: Boolean,
         readOnly: Boolean,
         trueCryptMode: Boolean,
+        protectHidden: Boolean,
+        hiddenPassword: String,
+        hiddenPimText: String,
         currentHandle: Long,
         onHandle: (Long) -> Unit,
         onEntries: (List<VaultEntry>) -> Unit,
@@ -2179,7 +2214,10 @@ class MainActivity : AppCompatActivity() {
                     if (trueCryptMode) 0 else (pimText.toIntOrNull() ?: 0),
                     useBackupHeader,
                     temps.map { it.absolutePath }.toTypedArray(),
-                    readOnly
+                    readOnly,
+                    protectHidden,
+                    if (protectHidden) hiddenPassword else "",
+                    if (protectHidden) (hiddenPimText.toIntOrNull() ?: 0) else 0
                 )
                 if (!NativeBridge.isOpen(result)) {
                     runOnUiThread {
@@ -2210,6 +2248,7 @@ class MainActivity : AppCompatActivity() {
                         dirPathState.value = ""
                         listTruncatedState.value = truncated
                         var msg = "Mounted in this app. Size $volumeBytes bytes. Tap a folder to open it, or a file to share the decrypted copy."
+                        if (protectHidden) msg = "Hidden volume is being protected against damage. $msg"
                         if (truncated) msg += " Listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more."
                         onStatus(msg)
                         if (rememberBio && vault.isAvailable()) {
@@ -2573,7 +2612,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun importErrorMessage(name: String, rc: Int): String {
+    private fun importErrorMessage(name: String, rc: Int, handle: Long = 0L): String {
+        if (NativeBridge.isOpen(handle) && NativeBridge.protectionTriggered(handle)) {
+            return "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+        }
         return when (rc) {
             -6 -> "Could not copy $name. FAT only; folders are not created this way."
             -4 -> "Could not copy $name. Bad name or path."
@@ -2639,7 +2681,7 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     endWork()
                     when {
-                        rc != 0 -> onStatus(importErrorMessage(name, rc))
+                        rc != 0 -> onStatus(importErrorMessage(name, rc, handle))
                         move && !deletedOriginal -> {
                             onStatus("Copied $name into the volume. Could not delete the original; remove it in Files if you meant a move.")
                             loadDir(handle, dirPath, onEntries, onStatus)

@@ -58,13 +58,14 @@ static int jni_live_handle(jlong handle)
 extern "C" JNIEXPORT jlong JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_openVolume(
 	JNIEnv *env, jobject, jstring path, jstring password, jint pim, jboolean backup,
-	jobjectArray keyfiles, jboolean readOnly)
+	jobjectArray keyfiles, jboolean readOnly, jboolean protectHidden, jstring hiddenPassword, jint hiddenPim)
 {
 	if (!path)
 		return (jlong) VC_ERR_ARGUMENT;
 
 	std::string cPath = jni_copy_utf(env, path);
 	std::string cPassword = jni_copy_utf(env, password);
+	std::string cHidden = jni_copy_utf(env, hiddenPassword);
 	VcOpenOptions options = {};
 	options.path = cPath.c_str();
 	options.password = cPassword.c_str();
@@ -72,6 +73,10 @@ Java_dev_shivampingale_vcport_NativeBridge_openVolume(
 	options.pim = pim;
 	options.use_backup_header = backup ? 1 : 0;
 	options.read_only = readOnly ? 1 : 0;
+	options.protect_hidden = protectHidden ? 1 : 0;
+	options.hidden_password = cHidden.c_str();
+	options.hidden_password_len = cHidden.size();
+	options.hidden_pim = hiddenPim;
 
 	jsize n = keyfiles ? env->GetArrayLength(keyfiles) : 0;
 	std::vector<std::string> owned;
@@ -97,6 +102,7 @@ Java_dev_shivampingale_vcport_NativeBridge_openVolume(
 	int error = 0;
 	VcVolume *volume = vc_open(&options, &error);
 	jni_wipe_string(cPassword);
+	jni_wipe_string(cHidden);
 	if (!volume)
 		return (jlong) error;
 	return (jlong) volume;
@@ -470,6 +476,14 @@ Java_dev_shivampingale_vcport_NativeBridge_volumeInfo(JNIEnv *env, jobject, jlon
 	if (!jni_live_handle(handle) || vc_volume_info((VcVolume *) handle, buf, sizeof(buf)) != VC_OK)
 		return nullptr;
 	return env->NewStringUTF(buf);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_protectionTriggered(JNIEnv *, jobject, jlong handle)
+{
+	if (!jni_live_handle(handle))
+		return JNI_FALSE;
+	return vc_protection_triggered((VcVolume *) handle) ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT jstring JNICALL

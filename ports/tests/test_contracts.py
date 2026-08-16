@@ -627,6 +627,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
             self.assertIn("Restore from embedded backup header", blob)
             self.assertIn("TrueCrypt Mode", blob)
             self.assertIn("Read-only", blob)
+            self.assertIn("Protect hidden volume against damage", blob)
             self.assertIn("Desktop leftovers", blob)
             self.assertIn("volume expander", blob.lower())
             self.assertIn("traveler disk", blob.lower())
@@ -638,6 +639,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("vc_rename", header)
         self.assertIn("vc_wipe_free_space", header)
         self.assertIn("read_only", header)
+        self.assertIn("protect_hidden", header)
+        self.assertIn("vc_protection_triggered", header)
 
     def test_work_is_visual_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")

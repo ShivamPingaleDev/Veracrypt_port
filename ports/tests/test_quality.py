@@ -324,6 +324,9 @@ class FunctionalTests(unittest.TestCase):
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         self.assertIn("no open-time hidden checkbox", main.lower())
         self.assertNotIn("isHiddenVolume", main)
+        self.assertIn("Protect hidden volume against damage", main)
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertIn("Protect hidden volume against damage", view)
 
 
 class SmokeSanityTests(unittest.TestCase):

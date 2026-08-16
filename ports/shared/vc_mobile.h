@@ -42,6 +42,14 @@ typedef struct VcOpenOptions
 	const char *const *keyfiles;
 	size_t keyfile_count;
 	int read_only;
+	/* Protect a nested (hidden) volume while the outer is open. Same as
+	 * desktop Mount Options → Protect hidden volume against damage. */
+	int protect_hidden;
+	const char *hidden_password;
+	size_t hidden_password_len;
+	int hidden_pim;
+	const char *const *hidden_keyfiles;
+	size_t hidden_keyfile_count;
 } VcOpenOptions;
 
 typedef struct VcCreateOptions
@@ -139,6 +147,7 @@ int vc_restore_headers (const char *volume_path, const char *backup_path,
 	const char *const *keyfiles, size_t keyfile_count);
 int vc_generate_keyfile (const char *path, size_t size);
 int vc_volume_info (VcVolume *volume, char *out, size_t out_size);
+int vc_protection_triggered (VcVolume *volume);
 int vc_benchmark (char *out, size_t out_size);
 int vc_test_vectors (void);
 

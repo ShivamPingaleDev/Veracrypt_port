@@ -12,7 +12,10 @@ object NativeBridge {
         pim: Int,
         backup: Boolean,
         keyfiles: Array<String>,
-        readOnly: Boolean
+        readOnly: Boolean,
+        protectHidden: Boolean = false,
+        hiddenPassword: String = "",
+        hiddenPim: Int = 0
     ): Long
     external fun closeVolume(handle: Long)
     external fun volumeSize(handle: Long): Long
@@ -73,6 +76,7 @@ object NativeBridge {
     ): Int
     external fun generateKeyfile(path: String, size: Int): Int
     external fun volumeInfo(handle: Long): String?
+    external fun protectionTriggered(handle: Long): Boolean
     external fun benchmark(): String?
     external fun testVectors(): Int
     external fun resetProgress()

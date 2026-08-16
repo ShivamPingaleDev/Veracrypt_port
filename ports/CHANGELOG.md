@@ -17,7 +17,7 @@
 - After Open volume, the FAT folder is shown in the app as Mounted in this app. Not a system drive.
 - Work overlay names the live step and percent on a visible meter. Entropy scribble draws the finger path. Nothing runs out of sight.
 - Dropped the unused Share tab and the duplicate USB/OTG picker button. Share encrypted stays on Volume and the bar in front of you.
-- File-container VeraCrypt menu items are in the apps (create, open, dismount, password/KDF/keyfiles, header backup/restore, keyfile generator, benchmark, test vectors, properties, wipe cache, FAT folders). System encryption, devices, favorites, Quick Format, and the rest stay on a computer.
+- File-container VeraCrypt menu items are in the apps (create, open, dismount, password/KDF/keyfiles, header backup/restore, keyfile generator, benchmark, test vectors, properties, wipe cache, FAT folders, hidden-volume write protection). System encryption, devices, favorites, Quick Format, and the rest stay on a computer.
 - About quotes Eric Hughes: we must defend our own privacy if we expect to have any.
 - Android x86/x86_64 NDK slices link: software AES (no AES-NI asm), Argon2 AVX2 object on i686 so emulator ABIs package.
 - iOS compiles on Xcode 26: listDir uses an Error wrapper; biometric keyfile byte count is not inlined in SwiftUI Text.

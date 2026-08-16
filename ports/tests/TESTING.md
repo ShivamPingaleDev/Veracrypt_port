@@ -16,7 +16,7 @@ python3 ports/tests/test_quality.py
 | **White-box** | Do we look at the code paths? | Wrap wrong password / tamper MAC, F-Droid `check()` throws |
 | **Black-box** | Does it behave from the outside? | Wrap in → unwrap out; create → open → list → export; create → store → close → reopen |
 | **Integration** | Do two layers talk? | JNI/C API; Kotlin/Swift VCF2; version.json → PortVersion.h / Info.plist |
-| **Functional** | Can a user finish a job? | Copy, wipe, panic, keyfiles, progress overlay — no open-time hidden checkbox. Lifecycle: password + PIM + biometric keyfile, Remember VCF2, files survive dismount |
+| **Functional** | Can a user finish a job? | Copy, wipe, panic, keyfiles, progress overlay — no open-time hidden checkbox. Lifecycle: password + PIM + biometric keyfile, Remember VCF2, files survive dismount, hidden-volume write protection |
 | **System** | Whole tree on a laptop | `run-phases.sh` |
 | **Smoke** | Does the pin parse? | `check_veracrypt_release.py --pin-only` |
 | **Regression** | Frozen pin / FOSS rule | Honesty freeze; app is still VC Port |

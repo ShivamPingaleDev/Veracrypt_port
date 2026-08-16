@@ -14,9 +14,10 @@ struct VcStatusCode: Error {
 }
 
 enum VcMobileBridge {
-    static func open(path: String, password: String, pim: Int32, keyfiles: [String], useBackupHeader: Bool = false, readOnly: Bool = false, error: UnsafeMutablePointer<Int32>) -> OpaquePointer? {
+    static func open(path: String, password: String, pim: Int32, keyfiles: [String], useBackupHeader: Bool = false, readOnly: Bool = false, protectHidden: Bool = false, hiddenPassword: String = "", hiddenPim: Int32 = 0, error: UnsafeMutablePointer<Int32>) -> OpaquePointer? {
         path.withCString { cPath in
             password.withCString { cPassword in
+                hiddenPassword.withCString { cHidden in
                 withCStringArray(keyfiles) { pointer, count in
                     var options = VcOpenOptions()
                     options.path = cPath
@@ -27,7 +28,12 @@ enum VcMobileBridge {
                     options.keyfiles = pointer
                     options.keyfile_count = count
                     options.read_only = readOnly ? 1 : 0
+                    options.protect_hidden = protectHidden ? 1 : 0
+                    options.hidden_password = cHidden
+                    options.hidden_password_len = hiddenPassword.utf8.count
+                    options.hidden_pim = hiddenPim
                     return vc_open(&options, error)
+                }
                 }
             }
         }
@@ -340,6 +346,10 @@ enum VcMobileBridge {
         var buf = [CChar](repeating: 0, count: 512)
         guard vc_volume_info(handle, &buf, 512) == 0 else { return nil }
         return String(cString: buf)
+    }
+
+    static func protectionTriggered(_ handle: OpaquePointer) -> Bool {
+        vc_protection_triggered(handle) != 0
     }
 
     static func benchmark() -> String {
