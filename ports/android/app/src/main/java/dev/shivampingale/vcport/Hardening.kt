@@ -32,6 +32,7 @@ object Hardening {
                 // API 31+ requires HIDE_OVERLAY_WINDOWS; never crash the vault UI.
             }
         }
+        // Deny Autofill/IME password history for every descendant field.
         activity.window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
     }
 

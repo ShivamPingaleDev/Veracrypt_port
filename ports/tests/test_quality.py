@@ -146,6 +146,8 @@ class AirgapTests(unittest.TestCase):
                 text = path.read_text(encoding="utf-8", errors="replace")
                 for word in banned:
                     self.assertNotIn(word, text, f"{path} {word}")
+                for word in ("key_escrow", "lawfulIntercept", "goldenKey", "dual_ec"):
+                    self.assertNotIn(word, text, f"{path} {word}")
 
 
 class WhiteBoxTests(unittest.TestCase):

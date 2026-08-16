@@ -10,7 +10,7 @@ VC Port opens VeraCrypt-compatible encrypted containers on Android. It is a deri
 
 <b>Privacy</b>
 
-The F-Droid build has no INTERNET permission, no ads, no analytics, and no crash reporters. Volume passwords stay on the device. Backups of app data are disabled.
+The F-Droid build has no INTERNET permission, no ads, no analytics, and no crash reporters. Volume passwords stay on the device. Backups of app data are disabled. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.
 
 <b>License</b>
 

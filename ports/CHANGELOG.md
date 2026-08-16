@@ -8,6 +8,8 @@
 - Host tests: wrap/volume object cache, `test_quality.py` taxonomy + property/fuzz, fail-closed VCF2 decode. See `ports/tests/TESTING.md`.
 - Fastlane changelog for versionCode 5; F-Droid recipe clones public `Veracrypt_port`; SECURITY.md and CI path filters match a public tree.
 - FAT list cap 1024; `vc_list_dir_from` + Load more; iOS wrap uses `arc4random_buf`; iOS native defines `TC_IOS`.
+- Nation-state APTs (Unit 8200, TAO, Lazarus, and the rest) are documented as out of scope: no key escrow, no intelligence backdoor, and no foolproof claim.
+- Remember / biometric save stays off unless the user opts in. Password fields skip IME, Autofill, and iOS Keychain history.
 
 ## 0.3.0
 

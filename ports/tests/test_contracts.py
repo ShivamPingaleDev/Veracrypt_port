@@ -263,6 +263,28 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("shivampingaledev@gmail.com", sec)
         self.assertIn("not unbreakable", sec.lower())
         self.assertIn("TrueCrypt License 3.0", sec)
+        self.assertIn("no key escrow", sec.lower())
+        self.assertIn("nation-state implant", sec.lower())
+
+    def test_nation_state_apts_are_out_of_scope(self) -> None:
+        threat = read("ports/THREAT-MODEL.md")
+        self.assertIn("They still win", threat)
+        self.assertIn("no key escrow", threat.lower())
+        self.assertIn("Unit 8200", threat)
+        self.assertIn("foolproof build against", threat.lower())
+        self.assertIn("claiming that would be a lie", threat.lower())
+        blob = (
+            read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+            + read("ports/ios/VCPort/ContentView.swift")
+            + read("ports/android/fastlane/metadata/android/en-US/full_description.txt")
+        )
+        for claim in (
+            "blocks unit 8200",
+            "stops lazarus",
+            "foolproof against cia",
+            "absolutely foolproof",
+        ):
+            self.assertNotIn(claim, blob.lower())
 
     def test_android_readme_has_no_documents_provider(self) -> None:
         readme = read("ports/android/README.md")
@@ -379,6 +401,18 @@ class AndroidHighThreatTests(unittest.TestCase):
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         self.assertIn("compelled", main.lower())
         self.assertIn("not unbreakable", main.lower())
+        self.assertIn("no key escrow", main.lower())
+        self.assertIn("nation-state implant still wins", main.lower())
+
+    def test_never_save_history_is_default(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        theme = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
+        hardening = read("ports/android/app/src/main/java/dev/shivampingale/vcport/Hardening.kt")
+        self.assertIn("var rememberBio by remember { mutableStateOf(false) }", main)
+        self.assertIn("Off by default. Never saved unless you check this", main)
+        self.assertIn("KeyboardType.Password", theme)
+        self.assertIn("autoCorrect = false", theme)
+        self.assertIn("IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS", hardening)
 
     def test_create_defaults_match_desktop_wizard(self) -> None:
         bridge = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
@@ -433,7 +467,18 @@ class IosHighThreatTests(unittest.TestCase):
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("compelled", view.lower())
         self.assertIn("not unbreakable", view.lower())
+        self.assertIn("no key escrow", view.lower())
+        self.assertIn("nation-state implant still wins", view.lower())
         self.assertIn("Panic", view)
+
+    def test_never_save_history_is_default(self) -> None:
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertIn("rememberBiometrics = false", view)
+        self.assertIn("neverSaveHistory()", view)
+        self.assertGreaterEqual(view.count("SecureField("), 5)
+        self.assertGreaterEqual(view.count(".neverSaveHistory()"), 5)
+        self.assertIn("textContentType(.oneTimeCode)", view)
+        self.assertIn("Off by default. Never saved unless you turn this on", view)
 
 
 class MacosDesktopTests(unittest.TestCase):

@@ -1461,6 +1461,11 @@ class MainActivity : AppCompatActivity() {
                                                         Checkbox(rememberBio, { rememberBio = it }, enabled = !busy)
                                                         Text("Remember this combination")
                                                     }
+                                                    Text(
+                                                        "Off by default. Never saved unless you check this. Compelled biometrics can still open a remembered set.",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = colors.onSurfaceVariant
+                                                    )
                                                     if (path.isNotEmpty() && vault.hasFactors(path)) {
                                                         OutlinedButton(
                                                             onClick = {
@@ -1481,7 +1486,7 @@ class MainActivity : AppCompatActivity() {
                                                 color = colors.onSurfaceVariant
                                             )
                                             Text(
-                                                "VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. Not unbreakable.",
+                                                "VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colors.onSurfaceVariant
                                             )

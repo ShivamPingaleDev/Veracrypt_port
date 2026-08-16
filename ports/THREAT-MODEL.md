@@ -12,13 +12,33 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 | Malware with root / MDM | Read RAM, keylog, screenshots | Wipe on background; no dumps (`PR_SET_DUMPABLE`); mlock wrap keys | Rooted implant while unlocked |
 | Forensic leftovers | Cache, clipboard, URI grants | Wipe session files; 30s clipboard; no persistable SAF grants; 0600 wrap files | Unmount delay; other apps you shared *to* |
 | Store / update supply chain | Trojan APK | F-Droid from source; no GMS; no obfuscation (reviewable) | A malicious F-Droid mirror you did not verify |
+| Nation-state APT / intel service | Implant, compiler/OS compromise, 0-days, compelled password, TEMPEST, supply chain | No key escrow; no LEA/intel backdoor; F-Droid has no INTERNET; public source | **They still win.** Unit 8200, TAO, Office 121 / Lazarus, GRU/SVR, MSS, CIA/FBI with a warrant or implant — this app does not stop them |
+
+## Nation-state (out of scope)
+
+There is **no** foolproof build against Unit 8200, Tailored Access Operations, Office 121 / Lazarus, or any other government shop. Claiming that would be a lie.
+
+What this tree **does** refuse:
+
+- Key escrow, golden keys, or a silent decrypt path for police or intelligence
+- Telemetry, crash reporters, or a listening socket they could ride
+- Fetching and running remote code
+
+What still wins against those groups, every time:
+
+- A password they compel, or a keyfile they seize
+- An implant on the phone or the compiler that built the APK
+- RAM while a volume is open
+- A 0-day in Android, iOS, or the VeraCrypt core we did not write
+
+Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and the F-Droid flavor. That raises the cost of a *casual* seizure. It does not make you invisible to a determined service.
 
 ## FOSS-compatible high-threat profile (do this)
 
 1. Build and install the **F-Droid flavor** (`assembleFdroidRelease`) — no `INTERNET`.
 2. Run it on **GrapheneOS** (or equivalent) with a locked bootloader, no Google services, and a strong OS passphrase.
 3. Keep the **volume password in your head**. Put the keyfile on a *different* token, not on the phone.
-4. Do **not** tap Remember / biometrics if fingerprints can be compelled in your jurisdiction.
+4. Do **not** tap Remember / biometrics if fingerprints can be compelled in your jurisdiction. Remember is **off by default** and is never written to IME, Autofill, or iOS Keychain history.
 5. A **VeraCrypt hidden / nested volume** can be created here or on a computer. This client **opens whichever password you type** — there is no open-time “hidden” checkbox. Filling the outer volume overwrites the nested one.
 6. Prefer **F-Droid** or a self-built APK over GitHub debug-signed previews.
 7. Make the git repo **public** before you distribute binaries (TrueCrypt License 3.0).
@@ -27,9 +47,10 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 
 - Google Play Integrity / SafetyNet / SafetyNet-like root detection (breaks GrapheneOS and F-Droid)
 - Code obfuscation or packed native libs (unverifiable)
-- “Unbreakable” marketing
+- “Unbreakable” / “foolproof against Unit 8200 / CIA / Lazarus” marketing
 - An open-time hidden-volume checkbox (deniability leak; opening already follows the password you type)
 - Pinning GitHub’s TLS keys (they rotate; pinning would brick updates)
+- Root/Play Integrity theatre that pretends to detect nation-state implants
 
 ## Industry mappings
 

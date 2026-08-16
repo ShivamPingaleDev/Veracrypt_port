@@ -30,6 +30,7 @@ class Phase1HonestyFreezeTests(unittest.TestCase):
         self.assertIn("shivampingaledev@gmail.com", sec)
         self.assertIn("TrueCrypt License 3.0", sec)
         self.assertIn("not unbreakable", sec.lower())
+        self.assertIn("no key escrow", sec.lower())
         self.assertIn("Do not make the tree private again", sec)
         self.assertIn("debug-signed previews", sec)
 

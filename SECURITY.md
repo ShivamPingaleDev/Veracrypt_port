@@ -22,9 +22,10 @@ Please report:
 - StayOffline / update-check network mistakes
 - Attribution or license-text errors that would mislead a user
 
-Out of scope: “please make this unbreakable,” Play Integrity / SafetyNet ideas,
+Out of scope: “please make this unbreakable,” “foolproof against Unit 8200 / TAO / Lazarus / CIA,” Play Integrity / SafetyNet ideas,
 obfuscation, open-time hidden-volume checkboxes, and anything that needs a compromised OS
-or compelled biometrics to matter.
+or compelled biometrics to matter. There is no key escrow in this tree. There is also no
+defence that stops a nation-state implant.
 
 ## Source and binaries
 

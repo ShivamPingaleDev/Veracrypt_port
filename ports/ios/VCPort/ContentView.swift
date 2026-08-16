@@ -95,9 +95,7 @@ struct ContentView: View {
                     TextField("Size (MiB)", text: $createSizeMb)
                         .keyboardType(.numberPad)
                     SecureField("Volume password (never stored)", text: $createPassword)
-                        .privacySensitive()
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+                        .neverSaveHistory()
                     TextField("PIM (0 = default)", text: $createPim)
                         .keyboardType(.numberPad)
                     Button("Generate strong password") {
@@ -173,7 +171,7 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         SecureField("Nested volume password", text: $createHiddenPassword)
-                            .privacySensitive()
+                            .neverSaveHistory()
                         TextField("Nested PIM (0 = default)", text: $createHiddenPim)
                             .keyboardType(.numberPad)
                         TextField("Nested size (MiB)", text: $createHiddenSizeMb)
@@ -213,9 +211,7 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     SecureField("Wrap password (never stored)", text: $wrapPassword)
-                        .privacySensitive()
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+                        .neverSaveHistory()
                     Button("Generate strong password") {
                         if let generated = VcMobileBridge.generatePassword() {
                             wrapPassword = generated
@@ -264,9 +260,7 @@ struct ContentView: View {
                     Toggle("Text password", isOn: $useTextPassword)
                     if useTextPassword {
                         SecureField("Password", text: $password)
-                            .privacySensitive()
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
+                            .neverSaveHistory()
                     }
                     TextField("PIM (0 = default)", text: $pim)
                         .keyboardType(.numberPad)
@@ -300,6 +294,9 @@ struct ContentView: View {
                         Button("Export biometric keyfile") { exportBiometricKeyfile() }
                         Button("Unlock with Face ID, Touch ID, or passcode") { loadBiometricFactors() }
                         Toggle("Remember this combination", isOn: $rememberBiometrics)
+                        Text("Off by default. Never saved unless you turn this on. Compelled Face ID / Touch ID can still open a remembered set.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     Button("Open volume") { openVolume() }
                 }
@@ -334,9 +331,7 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     SecureField("New password (empty = keep current)", text: $newPassword)
-                        .privacySensitive()
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+                        .neverSaveHistory()
                     TextField("New PIM (0 = VeraCrypt default)", text: $newPim)
                         .keyboardType(.numberPad)
                     Button("Change volume password") { changeVolumePassword() }
@@ -371,7 +366,7 @@ struct ContentView: View {
                 Section("About / licenses") {
                     Text("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
                     Link("http://www.truecrypt.org/", destination: URL(string: "http://www.truecrypt.org/")!)
-                    Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. Not unbreakable.")
+                    Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.")
                         .font(.caption)
                     Text(SourcePin.describeBuild())
                         .font(.caption)
@@ -1619,6 +1614,17 @@ private struct WorkOverlay: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
         .allowsHitTesting(true)
+    }
+}
+
+private extension View {
+    /// OTP content-type is the supported way to skip iOS Keychain / AutoFill save.
+    func neverSaveHistory() -> some View {
+        self
+            .textContentType(.oneTimeCode)
+            .privacySensitive(true)
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
     }
 }
 

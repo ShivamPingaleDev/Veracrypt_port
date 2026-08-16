@@ -253,6 +253,7 @@ fun VcCard(
     }
 }
 
+/** Password field that never writes IME or Autofill history. */
 @Composable
 fun SecretField(
     value: String,
