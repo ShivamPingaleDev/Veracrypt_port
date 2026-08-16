@@ -1,5 +1,6 @@
 #!/bin/sh
 # Host test for vc_open / FAT list / export. Builds libvc_mobile via CMake.
+# Reuses $VC_VOL_BUILD (default /tmp) so cmake is incremental after the first run.
 set -e
 SHARED="$(cd "$(dirname "$0")" && pwd)"
 if [ -d "$SHARED/../../src/Volume" ]; then
@@ -13,8 +14,7 @@ else
 	exit 1
 fi
 
-BUILD="$(mktemp -d "${TMPDIR:-/tmp}/vcport-vol-build.XXXXXX")"
-trap 'rm -rf "$BUILD"' EXIT
+BUILD="${VC_VOL_BUILD:-${TMPDIR:-/tmp}/vcport-vol-build}"
 cmake -S "$SHARED" -B "$BUILD" -DVC_SRC="$SRC" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$BUILD" --target vc_volume_test
 "$BUILD/vc_volume_test"

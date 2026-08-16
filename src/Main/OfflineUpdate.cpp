@@ -13,11 +13,21 @@
 #include "Platform/Exception.h"
 
 #include <cctype>
+#include <cstring>
 #include <sstream>
 #include <vector>
 
 namespace VeraCrypt
 {
+	static const char *kGithubStatus = "https://www.githubstatus.com/api/v2/status.json";
+
+	static bool UrlAllowed (const string &url)
+	{
+		return url == VC_PORT_UPDATE_MANIFEST_URL
+			|| url == VC_PORT_UPSTREAM_RELEASES
+			|| url == kGithubStatus;
+	}
+
 	static string JsonStringField (const string &json, const string &key)
 	{
 		string needle = "\"" + key + "\"";
@@ -38,7 +48,7 @@ namespace VeraCrypt
 
 	string OfflineUpdate::FetchHttps (const string &url)
 	{
-		if (url.compare (0, 8, "https://") != 0)
+		if (!UrlAllowed (url))
 			throw ParameterIncorrect (SRC_POS);
 
 		std::string errorMsg;
@@ -47,12 +57,16 @@ namespace VeraCrypt
 			throw SystemException (SRC_POS, "curl is required for a one-shot update check");
 
 		list <string> args;
-		args.push_back ("-fsSL");
+		args.push_back ("-fsS");
 		args.push_back ("--proto");
 		args.push_back ("=https");
 		args.push_back ("--tlsv1.2");
 		args.push_back ("--max-time");
-		args.push_back ("20");
+		args.push_back ("8");
+		args.push_back ("--max-redirs");
+		args.push_back ("0");
+		args.push_back ("--max-filesize");
+		args.push_back ("65536");
 		args.push_back ("--retry");
 		args.push_back ("0");
 		args.push_back ("--no-sessionid");
@@ -61,7 +75,7 @@ namespace VeraCrypt
 		args.push_back (url);
 
 		// curl exits after the response. No keep-alive session is retained.
-		return Process::Execute (curlPath, args, 25000);
+		return Process::Execute (curlPath, args, 20000);
 	}
 
 	static bool ValidSha256 (const string &hex)
@@ -90,6 +104,7 @@ namespace VeraCrypt
 		m.Parsed = false;
 		m.PortVersion = JsonStringField (json, "port_version");
 		m.UpstreamVersion = JsonStringField (json, "upstream_version");
+		m.UpstreamCommit = JsonStringField (json, "upstream_commit");
 		m.Notes = JsonStringField (json, "notes");
 		m.DownloadUrl = JsonStringField (json, "download_url");
 		if (m.DownloadUrl.empty())
@@ -104,6 +119,32 @@ namespace VeraCrypt
 			return m;
 		m.Parsed = true;
 		return m;
+	}
+
+	string OfflineUpdate::VersionFromVeraCryptTag (const string &tag)
+	{
+		string t = tag;
+		const char *prefixes[] = { "VeraCrypt_", "VeraCrypt-", "VeraCrypt ", nullptr };
+		for (int i = 0; prefixes[i]; ++i)
+		{
+			size_t n = strlen (prefixes[i]);
+			if (t.size() >= n && t.compare (0, n, prefixes[i]) == 0)
+			{
+				t = t.substr (n);
+				break;
+			}
+		}
+		while (!t.empty() && isspace ((unsigned char) t[0]))
+			t.erase (t.begin());
+		size_t sp = t.find (' ');
+		if (sp != string::npos)
+			t = t.substr (0, sp);
+		return t;
+	}
+
+	string OfflineUpdate::ParseGithubReleaseTag (const string &json)
+	{
+		return JsonStringField (json, "tag_name");
 	}
 
 	int OfflineUpdate::CompareVersion (const string &a, const string &b)

@@ -1,5 +1,7 @@
 #!/bin/sh
 # Host test for wrap/unwrap. Works on macOS and Linux (CI).
+# Object files stay in $VC_WRAP_OBJ (default /tmp) so a second run only
+# recompiles what changed.
 set -e
 SHARED="$(cd "$(dirname "$0")" && pwd)"
 if [ -d "$SHARED/../../src/Volume" ]; then
@@ -16,9 +18,9 @@ fi
 
 CC="${CC:-cc}"
 CXX="${CXX:-c++}"
-OBJ="$(mktemp -d "${TMPDIR:-/tmp}/vcport-wrap-obj.XXXXXX")"
-OUT="${OBJ}/vcport-wrap-test"
-trap 'rm -rf "$OBJ"' EXIT
+OBJ="${VC_WRAP_OBJ:-${TMPDIR:-/tmp}/vcport-wrap-obj}"
+mkdir -p "$OBJ"
+OUT="$OBJ/vcport-wrap-test"
 
 UNAME_S="$(uname -s)"
 UNAME_M="$(uname -m)"
@@ -29,8 +31,29 @@ case "$UNAME_S" in
 esac
 INCLUDES="-I$SRC -I$SRC/Crypto -I$SRC/Crypto/Argon2/include -I$SHARED"
 
+printf '%s\n' "$CC $CXX $CFLAGS $UNAME_M $SRC" > "$OBJ/flags.new"
+if [ ! -f "$OBJ/flags" ] || ! cmp -s "$OBJ/flags" "$OBJ/flags.new"; then
+	rm -f "$OBJ"/*.o "$OUT"
+	mv "$OBJ/flags.new" "$OBJ/flags"
+else
+	rm -f "$OBJ/flags.new"
+fi
+
 compile_c() {
-	$CC -c $CFLAGS $INCLUDES -o "$1" "$2"
+	dest=$1
+	src=$2
+	shift 2
+	if [ ! -f "$dest" ] || [ "$src" -nt "$dest" ]; then
+		$CC -c $CFLAGS $INCLUDES "$@" -o "$dest" "$src"
+	fi
+}
+
+compile_cxx() {
+	dest=$1
+	src=$2
+	if [ ! -f "$dest" ] || [ "$src" -nt "$dest" ]; then
+		$CXX -std=c++14 -c $CFLAGS $INCLUDES -o "$dest" "$src"
+	fi
 }
 
 compile_c "$OBJ/Aescrypt.o" "$SRC/Crypto/Aescrypt.c"
@@ -46,8 +69,8 @@ AES_HW=""
 EXTRA_OBJS=""
 case "$UNAME_M" in
 	arm64|aarch64)
-		$CC -c $CFLAGS $INCLUDES -march=armv8-a+crypto -o "$OBJ/Aes_hw.o" "$SRC/Crypto/Aes_hw_armv8.c"
-		$CC -c $CFLAGS $INCLUDES -march=armv8-a+crypto -o "$OBJ/sha256_armv8.o" "$SRC/Crypto/sha256_armv8.c"
+		compile_c "$OBJ/Aes_hw.o" "$SRC/Crypto/Aes_hw_armv8.c" -march=armv8-a+crypto
+		compile_c "$OBJ/sha256_armv8.o" "$SRC/Crypto/sha256_armv8.c" -march=armv8-a+crypto
 		AES_HW="$OBJ/Aes_hw.o $OBJ/sha256_armv8.o"
 		;;
 	x86_64|amd64)
@@ -63,11 +86,25 @@ case "$UNAME_M" in
 		;;
 esac
 
-$CXX -std=c++14 -c $CFLAGS $INCLUDES -o "$OBJ/vc_wrap.o" "$SHARED/vc_wrap.cpp"
-$CXX -std=c++14 -c $CFLAGS $INCLUDES -o "$OBJ/test_wrap.o" "$SHARED/test_wrap_main.cpp"
+compile_cxx "$OBJ/vc_wrap.o" "$SHARED/vc_wrap.cpp"
+compile_cxx "$OBJ/vc_progress.o" "$SHARED/vc_progress.cpp"
+compile_cxx "$OBJ/test_wrap.o" "$SHARED/test_wrap_main.cpp"
 
-# shellcheck disable=SC2086
-$CXX -o "$OUT" "$OBJ/test_wrap.o" "$OBJ/vc_wrap.o" "$OBJ/Aescrypt.o" "$OBJ/Aeskey.o" "$OBJ/Aestab.o" \
-	"$OBJ/Sha2.o" $AES_HW $EXTRA_OBJS "$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o"
+need_link=0
+if [ ! -x "$OUT" ]; then
+	need_link=1
+else
+	for o in "$OBJ"/*.o; do
+		if [ "$o" -nt "$OUT" ]; then
+			need_link=1
+			break
+		fi
+	done
+fi
+if [ "$need_link" -eq 1 ]; then
+	# shellcheck disable=SC2086
+	$CXX -o "$OUT" "$OBJ/test_wrap.o" "$OBJ/vc_wrap.o" "$OBJ/vc_progress.o" "$OBJ/Aescrypt.o" "$OBJ/Aeskey.o" "$OBJ/Aestab.o" \
+		"$OBJ/Sha2.o" $AES_HW $EXTRA_OBJS "$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o"
+fi
 echo "Running $OUT"
 "$OUT"

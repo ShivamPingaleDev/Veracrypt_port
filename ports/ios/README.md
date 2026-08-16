@@ -38,9 +38,9 @@ Not required for FOSS. If you submit:
 
 Unlock with any combination of **biometric password** (Face ID / Touch ID), **text password**, **keyfiles**, and **PIM**. Create or import the biometric secret and export it as a keyfile when you create the volume in VeraCrypt.
 
-Tap **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no password). **Wrap a single file** encrypts one file to `.vcpw`; the password generator never writes history. Tap **Share decrypted** on a listed file to extract it from an opened FAT volume and present the system share sheet.
+Tap **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no password). **Wrap a single file** encrypts one file to `.vcpw`; the password generator never writes history. Tap **Share decrypted** on a listed file to extract it from an opened FAT folder and present the system share sheet. **Copy from device** / **Copy to device** (and Move) transfer one file through the system Files picker; Move from the device says so if the original cannot be deleted. **New folder**, **Rename**, **Delete**, **Properties**, and **Wipe free space** work inside the open FAT volume.
 
-The File Provider extension should use the same `vc_mobile` library so Files.app can browse an unlocked container. The first release lists the FAT root from the in-app browser.
+There is **no** File Provider extension. Files.app cannot browse an unlocked volume. Listing stays in the VC Port in-app browser.
 
 License: this derived work is not named VeraCrypt. See `License.txt` in the repository root.
 

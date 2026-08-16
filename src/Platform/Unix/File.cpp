@@ -20,7 +20,9 @@
 #endif
 
 #ifdef TC_MACOSX
+#ifndef TC_IOS
 #include <sys/disk.h>
+#endif
 #endif
 
 #ifdef TC_BSD
@@ -117,7 +119,7 @@ namespace VeraCrypt
 			throw_sys_sub_if (ioctl (FileHandle, BLKSSZGET, &blockSize) == -1, wstring (Path));
 			return blockSize;
 
-#elif defined (TC_MACOSX)
+#elif defined (TC_MACOSX) && !defined (TC_IOS)
 			uint32 blockSize;
 			throw_sys_sub_if (ioctl (FileHandle, DKIOCGETBLOCKSIZE, &blockSize) == -1, wstring (Path));
 			return blockSize;
@@ -141,6 +143,9 @@ namespace VeraCrypt
 			throw_sys_sub_if (ioctl (FileHandle, DKIOCGMEDIAINFO, &mediaInfo) == -1, wstring (Path));
 			return mediaInfo.dki_lbsize;
 
+#elif defined (TC_IOS)
+			throw ParameterIncorrect (SRC_POS);
+
 #else
 #	error GetDeviceSectorSize()
 #endif
@@ -160,7 +165,7 @@ namespace VeraCrypt
 		tr.ReadLine (line);
 		return StringConverter::ToUInt64 (line) * GetDeviceSectorSize();
 
-#elif defined (TC_MACOSX)
+#elif defined (TC_MACOSX) && !defined (TC_IOS)
 
 #ifndef DKIOCGETBASE
 #	define DKIOCGETBASE _IOR('d', 73, uint64)
@@ -213,7 +218,7 @@ namespace VeraCrypt
 #ifdef TC_BSD
 		if (Path.IsBlockDevice() || Path.IsCharacterDevice())
 		{
-#	ifdef TC_MACOSX
+#	if defined (TC_MACOSX) && !defined (TC_IOS)
 			uint32 blockSize;
 			uint64 blockCount;
 			throw_sys_sub_if (ioctl (FileHandle, DKIOCGETBLOCKSIZE, &blockSize) == -1, wstring (Path));

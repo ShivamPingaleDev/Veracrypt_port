@@ -2,7 +2,7 @@ VC Port opens VeraCrypt-compatible encrypted containers on Android. It is a deri
 
 <b>What you can do</b>
 
-* Open a container and list the FAT root
+* Open a container and browse FAT folders (exFAT is unsupported)
 * Unlock a stored volume password with strong biometrics (Android Keystore)
 * Share encrypted .hc / .tc / .vera files as-is (no password)
 * Wrap or unwrap a single file (.vcpw)

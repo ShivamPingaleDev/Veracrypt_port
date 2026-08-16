@@ -1,35 +1,41 @@
 import Foundation
 
+/// Opt-in HTTPS. ≤20s window to allowlisted hosts, then offline. No IPA/src fetch.
 enum UpdateChecker {
-    static let localVersion = "0.3.0"
-    static let manifestURL = URL(string: "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json")!
+    static var localVersion: String { SourcePin.localVersion }
+    static var manifestURL: URL { SourcePin.manifestURL }
 
-    struct Result {
-        var newer: Bool
-        var remoteVersion: String
-        var notes: String
-        var downloadURL: String
+    typealias Result = SourcePin.CheckResult
+
+    private final class NoRedirect: NSObject, URLSessionTaskDelegate {
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest,
+            completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            completionHandler(nil)
+        }
     }
 
-    static func check() throws -> Result {
-        var request = URLRequest(url: manifestURL, timeoutInterval: 20)
-        request.setValue("VCPort-OfflineUpdate/\(localVersion)", forHTTPHeaderField: "User-Agent")
-        request.setValue("close", forHTTPHeaderField: "Connection")
-        request.cachePolicy = .reloadIgnoringLocalCacheData
-        let session = URLSession(configuration: .ephemeral)
+    static func check() throws -> SourcePin.CheckResult {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = SourcePin.TrustedNet.windowSeconds
+        config.httpMaximumConnectionsPerHost = 1
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        let delegate = NoRedirect()
+        let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
-        let semaphore = DispatchSemaphore(value: 0)
-        var body: Data?
-        var fetchError: Error?
-        session.dataTask(with: request) { data, _, error in
-            body = data
-            fetchError = error
-            semaphore.signal()
-        }.resume()
-        _ = semaphore.wait(timeout: .now() + 25)
-        if let fetchError { throw fetchError }
-        guard let body,
-              let json = try JSONSerialization.jsonObject(with: body) as? [String: Any],
+
+        var warnings: [String] = []
+        if let statusWarn = githubStatus(session: session) {
+            warnings.append(statusWarn)
+        }
+        let body = try fetch(SourcePin.manifestURL.absoluteString, session: session)
+        guard let json = try JSONSerialization.jsonObject(with: body) as? [String: Any],
               let remote = json["port_version"] as? String, !remote.isEmpty else {
             throw URLError(.cannotParseResponse)
         }
@@ -39,24 +45,91 @@ enum UpdateChecker {
                 throw URLError(.cannotParseResponse)
             }
         }
+        let sha = json["android_apk_sha256"] as? String ?? ""
         let notes = json["notes"] as? String ?? ""
         let url = (json["ios_url"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             ?? (json["download_url"] as? String ?? "")
         if !url.isEmpty, !url.hasPrefix("https://") {
             throw URLError(.cannotParseResponse)
         }
-        return Result(newer: compare(remote, localVersion) > 0, remoteVersion: remote, notes: notes, downloadURL: url)
+        let remoteCommit = json["upstream_commit"] as? String ?? ""
+        let newer = SourcePin.compare(remote, localVersion) > 0
+        let (officialNewer, officialVersion, officialWarn) = officialRelease(session: session)
+        if !officialWarn.isEmpty { warnings.append(officialWarn) }
+        return SourcePin.CheckResult(
+            newer: newer,
+            remoteVersion: remote,
+            notes: notes,
+            downloadURL: url,
+            apkSha256: sha,
+            remoteUpstreamCommit: remoteCommit,
+            sourceMoved: !newer && !remoteCommit.isEmpty && remoteCommit != SourcePin.upstreamCommit,
+            officialNewer: officialNewer,
+            officialVersion: officialVersion,
+            sourceDegraded: !warnings.isEmpty,
+            sourceWarning: warnings.joined(separator: " ")
+        )
     }
 
-    private static func compare(_ a: String, _ b: String) -> Int {
-        let pa = a.split { $0 == "." || $0 == "-" }.compactMap { Int($0) }
-        let pb = b.split { $0 == "." || $0 == "-" }.compactMap { Int($0) }
-        let n = max(pa.count, pb.count)
-        for i in 0..<n {
-            let x = i < pa.count ? pa[i] : 0
-            let y = i < pb.count ? pb[i] : 0
-            if x != y { return x < y ? -1 : 1 }
+    private static func fetch(_ raw: String, session: URLSession) throws -> Data {
+        guard SourcePin.TrustedNet.allow(raw), let url = URL(string: raw) else {
+            throw URLError(.badURL)
         }
-        return 0
+        var request = URLRequest(url: url, timeoutInterval: 8)
+        request.setValue("VCPort-OfflineUpdate/\(localVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("close", forHTTPHeaderField: "Connection")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        let semaphore = DispatchSemaphore(value: 0)
+        var body: Data?
+        var fetchError: Error?
+        var status = 0
+        session.dataTask(with: request) { data, response, error in
+            body = data
+            fetchError = error
+            status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            semaphore.signal()
+        }.resume()
+        _ = semaphore.wait(timeout: .now() + SourcePin.TrustedNet.windowSeconds)
+        if let fetchError { throw fetchError }
+        if (300..<400).contains(status) { throw URLError(.httpTooManyRedirects) }
+        guard status == 200, let body else { throw URLError(.cannotParseResponse) }
+        if body.count > SourcePin.TrustedNet.maxBody { throw URLError(.dataLengthExceedsMaximum) }
+        return body
+    }
+
+    private static func githubStatus(session: URLSession) -> String? {
+        do {
+            let body = try fetch(SourcePin.TrustedNet.githubStatus.absoluteString, session: session)
+            guard let json = try JSONSerialization.jsonObject(with: body) as? [String: Any],
+                  let status = json["status"] as? [String: Any] else {
+                return "Could not confirm GitHub status. Stay cautious."
+            }
+            let indicator = status["indicator"] as? String ?? ""
+            let description = status["description"] as? String ?? ""
+            if indicator == "major" || indicator == "critical" {
+                return "GitHub status is \(indicator) (\(description)). Treat this check as unverified."
+            }
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    private static func officialRelease(session: URLSession) -> (Bool, String, String) {
+        do {
+            let body = try fetch(SourcePin.upstreamReleases.absoluteString, session: session)
+            guard let json = try JSONSerialization.jsonObject(with: body) as? [String: Any],
+                  let tag = json["tag_name"] as? String else {
+                return (false, "", "Official VeraCrypt GitHub was unreachable. Do not trust a missing pin.")
+            }
+            let ver = SourcePin.versionFromVeraCryptTag(tag)
+            if ver.isEmpty {
+                return (false, "", "Official VeraCrypt tag was empty or unexpected.")
+            }
+            return (SourcePin.compare(ver, SourcePin.upstreamVersion) > 0, ver, "")
+        } catch {
+            return (false, "", "Official VeraCrypt GitHub was unreachable. Do not trust a missing pin.")
+        }
     }
 }

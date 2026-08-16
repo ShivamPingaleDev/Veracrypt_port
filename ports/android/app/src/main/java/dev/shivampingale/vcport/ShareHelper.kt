@@ -96,6 +96,25 @@ object ShareHelper {
         return dest
     }
 
+    fun sanitizeDisguiseName(raw: String): String {
+        var name = safeName(raw.trim()).substringAfterLast('/').substringAfterLast('\\')
+        if (name.isEmpty() || name == "." || name == "..") return "volume.hc"
+        if (name.lowercase().endsWith(".vcpw")) name = name.dropLast(5)
+        if (name.isEmpty()) return "volume.hc"
+        return name.take(120)
+    }
+
+    val DISGUISE_NAMES = listOf(
+        "volume.hc",
+        "photo.jpg",
+        "image.png",
+        "clip.mp4",
+        "notes.pdf",
+        "model.safetensors",
+        "adapter.lora",
+        "weights.bin"
+    )
+
     fun looksLikeContainer(name: String): Boolean {
         val lower = name.lowercase()
         return lower.endsWith(".hc") || lower.endsWith(".tc") || lower.endsWith(".vera")

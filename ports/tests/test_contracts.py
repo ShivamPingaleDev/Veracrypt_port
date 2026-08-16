@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -42,14 +44,22 @@ class VersionMatrixTests(unittest.TestCase):
         cls.port = cls.v["port_version"]
         cls.upstream = cls.v["upstream_version"]
         cls.commit = cls.v["upstream_commit"]
-        cls.code = gradle_field("versionCode")
+        cls.code = str(cls.v["android_version_code"])
+        cls.repo = cls.v["source_repo"]
+        cls.manifest = cls.v["update_manifest"]
 
     def test_version_json_shape(self) -> None:
         for key in (
             "port_version",
+            "android_version_code",
             "upstream_name",
+            "upstream_git",
+            "upstream_releases",
+            "upstream_tag",
             "upstream_version",
             "upstream_commit",
+            "source_repo",
+            "update_manifest",
             "notes",
             "download_url",
             "android_url",
@@ -58,14 +68,30 @@ class VersionMatrixTests(unittest.TestCase):
         ):
             self.assertIn(key, self.v)
         self.assertEqual(self.v["upstream_name"], "VeraCrypt")
+        self.assertEqual(self.v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
+        self.assertEqual(
+            self.v["upstream_releases"],
+            "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest",
+        )
+        self.assertTrue(str(self.v["upstream_tag"]).startswith("VeraCrypt_"))
         self.assertRegex(self.port, r"^\d+\.\d+\.\d+$")
         self.assertEqual(len(self.commit), 40)
+        self.assertEqual(int(self.v["android_version_code"]), int(self.code))
+        self.assertTrue(self.repo.startswith("https://"))
+        self.assertTrue(self.manifest.startswith("https://"))
+        self.assertIn("Veracrypt_port", self.repo)
+        self.assertIn("ports/version.json", self.manifest)
 
     def test_port_version_h(self) -> None:
         h = read("src/Main/PortVersion.h")
         self.assertRegex(h, rf'#define VC_PORT_VERSION\s+"{re.escape(self.port)}"')
         self.assertRegex(h, rf'#define VC_PORT_UPSTREAM_VERSION\s+"{re.escape(self.upstream)}"')
         self.assertRegex(h, rf'#define VC_PORT_UPSTREAM_COMMIT\s+"{re.escape(self.commit)}"')
+        self.assertIn("VC_PORT_UPSTREAM_GIT", h)
+        self.assertIn("https://github.com/veracrypt/VeraCrypt.git", h)
+        self.assertIn("VC_PORT_UPSTREAM_RELEASES", h)
+        self.assertRegex(h, rf'#define VC_PORT_SOURCE_REPO\s+"{re.escape(self.repo)}"')
+        self.assertRegex(h, rf'#define VC_PORT_UPDATE_MANIFEST_URL\s+"{re.escape(self.manifest)}"')
         self.assertIn("ShivamPingaleDev/Veracrypt_port", h)
         self.assertIn("ports/version.json", h)
 
@@ -74,16 +100,21 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertEqual(pin, self.commit)
 
     def test_android_gradle(self) -> None:
-        self.assertEqual(gradle_field("versionName"), self.port)
         self.assertEqual(gradle_field("applicationId"), "dev.shivampingale.vcport")
         self.assertEqual(gradle_field("minSdk"), "28")
         self.assertEqual(gradle_field("targetSdk"), "35")
         gradle = read("ports/android/app/build.gradle")
+        self.assertIn("versionJson.port_version", gradle)
+        self.assertIn("android_version_code", gradle)
+        self.assertIn("SOURCE_MANIFEST", gradle)
+        self.assertIn("version.json", gradle)
         self.assertIn("armeabi-v7a", gradle)
         self.assertIn("arm64-v8a", gradle)
         self.assertIn("'x86'", gradle)
         self.assertIn("x86_64", gradle)
         self.assertIn("ENABLE_UPDATE_CHECK", gradle)
+        self.assertIn("UPSTREAM_GIT", gradle)
+        self.assertIn("UPSTREAM_RELEASES", gradle)
         self.assertIn("minifyEnabled false", gradle)
         self.assertIn("abortOnError true", gradle)
         self.assertIn("VC_PORT_RELEASE_STORE_FILE", gradle)
@@ -91,15 +122,36 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertNotIn("firebase", gradle.lower())
 
     def test_android_update_checkers(self) -> None:
+        pin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/SourcePin.kt")
         fdroid = read("ports/android/app/src/fdroid/java/dev/shivampingale/vcport/UpdateChecker.kt")
         github = read("ports/android/app/src/github/java/dev/shivampingale/vcport/UpdateChecker.kt")
-        self.assertIn(f'LOCAL_VERSION = "{self.port}"', fdroid)
-        self.assertIn(f'LOCAL_VERSION = "{self.port}"', github)
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        self.assertIn("BuildConfig.PORT_VERSION", pin)
+        self.assertIn("BuildConfig.SOURCE_MANIFEST", pin)
+        self.assertIn("never downloads or installs", pin)
+        self.assertIn("SourcePin.localVersion", fdroid)
+        self.assertIn("SourcePin.localVersion", github)
+        self.assertIn("SourcePin.manifest", github)
         self.assertIn('error("F-Droid build has no network")', fdroid)
-        self.assertIn("raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port", github)
         self.assertIn("android_apk_sha256", github)
-        self.assertIn("https://", github)
+        self.assertIn("upstream_commit", github)
+        self.assertIn("upstreamReleases", github)
+        self.assertIn("officialNewer", github)
+        self.assertIn("sourceMoved", github)
+        self.assertIn("sourceDegraded", github)
+        self.assertIn("instanceFollowRedirects = false", github)
+        self.assertIn("TrustedNet.allow", github)
+        self.assertIn("WINDOW_MS", github)
+        self.assertIn("does not install itself", main)
+        self.assertIn("sync-upstream.sh", main)
+        self.assertIn("SourcePin.describeBuild", main)
         self.assertNotIn("INTERNET", fdroid)
+        net = read("ports/android/app/src/main/java/dev/shivampingale/vcport/TrustedNet.kt")
+        self.assertIn("www.githubstatus.com", net)
+        self.assertIn("api.github.com", net)
+        self.assertIn("raw.githubusercontent.com", net)
+        self.assertNotIn("ServerSocket", main)
+        self.assertNotIn("ServerSocket", github)
 
     def test_ios_plist_and_xcodegen(self) -> None:
         plist = read("ports/ios/VCPort/Info.plist")
@@ -109,9 +161,19 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("CFBundleDisplayName", plist)
         self.assertIn("<string>VC Port</string>", plist)
         self.assertIn("<string>dev.shivampingale.vcport</string>", plist)
-        self.assertIn("<key>UIFileSharingEnabled</key>", plist)
+        self.assertIn("<key>NSAppTransportSecurity</key>", plist)
+        self.assertIn("<key>NSAllowsArbitraryLoads</key>", plist)
         self.assertIn("<false/>", plist)
         self.assertIn("<key>VCPortEnableUpdateCheck</key>", plist)
+        self.assertIn("<key>VCPortSourceRepo</key>", plist)
+        self.assertIn("<key>VCPortUpdateManifest</key>", plist)
+        self.assertIn(f"<string>{self.repo}</string>", plist)
+        self.assertIn(f"<string>{self.manifest}</string>", plist)
+        self.assertIn(f"<string>{self.upstream}</string>", plist)
+        self.assertIn(f"<string>{self.commit}</string>", plist)
+        self.assertIn("VCPortUpstreamGit", plist)
+        self.assertIn("https://github.com/veracrypt/VeraCrypt.git", plist)
+        self.assertIn("VCPortUpstreamReleases", plist)
         self.assertIn("MARKETING_VERSION: " + self.port, yml)
         self.assertIn(f"CURRENT_PROJECT_VERSION: {self.code}", yml)
         self.assertIn("PRODUCT_BUNDLE_IDENTIFIER: dev.shivampingale.vcport", yml)
@@ -119,8 +181,44 @@ class VersionMatrixTests(unittest.TestCase):
 
     def test_ios_update_checker(self) -> None:
         swift = read("ports/ios/VCPort/UpdateChecker.swift")
-        self.assertIn(f'static let localVersion = "{self.port}"', swift)
-        self.assertIn("ShivamPingaleDev/Veracrypt_port", swift)
+        pin = read("ports/ios/VCPort/SourcePin.swift")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertIn("SourcePin.localVersion", swift)
+        self.assertIn("SourcePin.manifestURL", swift)
+        self.assertIn("sourceMoved", swift)
+        self.assertIn("officialNewer", swift)
+        self.assertIn("sourceDegraded", swift)
+        self.assertIn("TrustedNet", pin)
+        self.assertIn("NoRedirect", swift)
+        self.assertIn("completionHandler(nil)", swift)
+        self.assertIn("upstreamReleases", swift)
+        self.assertIn("never downloads or installs", pin)
+        self.assertIn("SourcePin.describeBuild", view)
+        self.assertIn("does not install itself", view)
+        self.assertIn("sync-upstream.sh", view)
+
+    def test_official_veracrypt_pin_script(self) -> None:
+        import subprocess
+
+        rc = subprocess.run(
+            [sys.executable, str(ROOT / "ports/scripts/check_veracrypt_release.py"), "--pin-only"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(rc.returncode, 0, rc.stderr)
+        self.assertIn("VeraCrypt_1.26.29", rc.stdout)
+
+    def test_source_pin_script_matches(self) -> None:
+        import subprocess
+
+        rc = subprocess.run(
+            [sys.executable, str(ROOT / "ports/scripts/sync_source_pin.py"), "--check"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(rc.returncode, 0, rc.stderr)
 
     def test_fdroiddata_current(self) -> None:
         yml = read("ports/fdroiddata/metadata/dev.shivampingale.vcport.yml")
@@ -133,10 +231,15 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("TrueCrypt License 3.0", yml)
         self.assertIn("not OSI", yml)
         self.assertNotIn("Name: VeraCrypt", yml)
+        self.assertIn("Veracrypt_port.git", yml)
+        self.assertIn("subdir: ports/android", yml)
+        self.assertNotIn("VCPort.git", yml)
 
     def test_changelog_mentions_current(self) -> None:
         log = read("ports/CHANGELOG.md")
         self.assertIn(f"## {self.port}", log)
+        notes = ROOT / f"ports/android/fastlane/metadata/android/en-US/changelogs/{self.code}.txt"
+        self.assertTrue(notes.is_file(), notes)
 
 
 class NamingAndAttributionTests(unittest.TestCase):
@@ -170,6 +273,7 @@ class NamingAndAttributionTests(unittest.TestCase):
         text = read("ports/CONTRIBUTING.md")
         self.assertIn("5. Report security issues", text)
         self.assertIn("SECURITY.md", text)
+        self.assertIn("9. Do not open drive-by pull requests on official VeraCrypt", text)
 
     def test_mobile_sources_do_not_brand_as_veracrypt(self) -> None:
         for rel in (
@@ -238,18 +342,24 @@ class AndroidHighThreatTests(unittest.TestCase):
 
     def test_hardening_source_contracts(self) -> None:
         hard = read("ports/android/app/src/main/java/dev/shivampingale/vcport/Hardening.kt")
+        vault = read("ports/android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt")
         self.assertIn("FLAG_SECURE", hard)
         self.assertIn("wipeSessionFiles", hard)
         self.assertIn("fun panic", hard)
-        self.assertIn("vc_port_volume_key", hard)
+        self.assertIn("vc_port_volume_key", vault)
+        self.assertIn("BiometricVault.KEY_ALIAS", hard)
         self.assertNotIn("takePersistableUriPermission", hard)
 
     def test_biometric_strong_only(self) -> None:
         vault = read("ports/android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt")
+        ios = read("ports/ios/VCPort/BiometricStore.swift")
         self.assertIn("BIOMETRIC_STRONG", vault)
-        self.assertNotIn("DEVICE_CREDENTIAL", vault)
+        self.assertNotIn("BIOMETRIC_WEAK", vault)
+        self.assertIn("DEVICE_CREDENTIAL", vault)
         self.assertIn("AES/GCM/NoPadding", vault)
         self.assertIn("setIsStrongBoxBacked", vault)
+        self.assertIn("userPresence", ios)
+        self.assertIn("deviceOwnerAuthentication", ios)
 
     def test_no_gms_firebase_play_integrity(self) -> None:
         blob = ""
@@ -269,6 +379,35 @@ class AndroidHighThreatTests(unittest.TestCase):
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         self.assertIn("compelled", main.lower())
         self.assertIn("not unbreakable", main.lower())
+
+    def test_create_defaults_match_desktop_wizard(self) -> None:
+        bridge = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        ios = read("ports/ios/VCPort/VcMobileBridge.swift")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        blob = bridge + main + ios + view
+        self.assertIn("AES(Twofish(Serpent))", blob)
+        self.assertIn("HMAC-SHA-512", blob)
+        self.assertIn("HMAC-BLAKE2s-256", blob)
+        self.assertIn("HMAC-Whirlpool", blob)
+        self.assertIn("HMAC-Streebog", blob)
+        self.assertIn("Argon2", blob)
+        self.assertIn("Kuznyechik(Serpent(Camellia))", blob)
+        self.assertIn("Serpent(Twofish(AES))", blob)
+        self.assertIn("DEFAULT_CIPHER", bridge)
+        self.assertIn("defaultCipher", ios)
+        native = read("ports/shared/vc_mobile.cpp")
+        self.assertIn("AES(Twofish(Serpent))", native)
+        self.assertIn("HMAC-SHA-512", native)
+        self.assertIn("standard VeraCrypt", main)
+        self.assertIn("writeSecret", main)
+        self.assertIn("standard VeraCrypt", view)
+        self.assertIn("vc_entropy_add", native)
+        self.assertIn("hidden_size_bytes", native)
+        self.assertIn("Move your finger", main)
+        self.assertIn("Nested volume", main)
+        self.assertIn("Move your finger", view)
+        self.assertIn("Nested volume", view)
 
 
 class IosHighThreatTests(unittest.TestCase):
@@ -301,9 +440,14 @@ class MacosDesktopTests(unittest.TestCase):
     def test_stay_offline_default(self) -> None:
         prefs = read("src/Main/UserPreferences.h")
         self.assertIn("StayOffline (true)", prefs)
+        filecpp = read("src/Platform/Unix/File.cpp")
+        self.assertIn("TC_IOS", filecpp)
+        keyfile = read("src/Volume/Keyfile.cpp")
+        self.assertIn("TC_IOS", keyfile)
 
     def test_fuse_t_does_not_force_smb(self) -> None:
         fuse = read("src/Driver/Fuse/FuseService.cpp")
+        self.assertIn("fuseTHasBackend", fuse)
         self.assertIn("fuseTHasBackend", fuse)
         self.assertIn("backend=smb", fuse)
         self.assertIn("go-smb2", fuse)
@@ -362,6 +506,99 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("Stay offline", view)
         self.assertIn("compelled", view.lower())
 
+    def test_volume_tools_on_android_and_ios(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
+        header = read("ports/shared/vc_mobile.h")
+        for blob in (main, view):
+            self.assertIn("Change volume password", blob)
+            self.assertIn("Backup volume header", blob)
+            self.assertIn("Restore volume header", blob)
+            self.assertIn("Wipe cached passwords", blob)
+            self.assertIn("USB/OTG", blob)
+            self.assertIn("Device encryption", blob)
+            self.assertIn("Security tokens", blob)
+            self.assertIn("Keyfile generator", blob)
+            self.assertIn("Volume properties", blob)
+            self.assertIn("Set header key derivation algorithm", blob)
+            self.assertIn("Remove all keyfiles from volume", blob)
+        self.assertIn("cannot encrypt the phone", main.lower())
+        self.assertIn("cannot encrypt the iphone", view.lower())
+        self.assertIn("changeHeader", native)
+        self.assertIn("vc_change_header", header)
+        self.assertIn("vc_backup_headers", header)
+        self.assertIn("vc_generate_keyfile", header)
+
+    def test_copy_move_device_files_on_android_and_ios(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
+        header = read("ports/shared/vc_mobile.h")
+        for blob in (main, view):
+            self.assertIn("Copy from device", blob)
+            self.assertIn("Copy to device", blob)
+            self.assertIn("Move to device", blob)
+            self.assertIn("Move from device", blob)
+            self.assertIn("Could not delete the original", blob)
+        self.assertIn("importFile", native)
+        self.assertIn("deleteFile", native)
+        self.assertIn("vc_import_file", header)
+        self.assertIn("vc_delete_file", header)
+
+    def test_desktop_file_ops_on_android_and_ios(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
+        header = read("ports/shared/vc_mobile.h")
+        for blob in (main, view):
+            self.assertIn("New folder", blob)
+            self.assertIn("Rename", blob)
+            self.assertIn("Wipe free space", blob)
+            self.assertIn("Restore from embedded backup header", blob)
+            self.assertIn("TrueCrypt Mode", blob)
+            self.assertIn("Read-only", blob)
+            self.assertIn("Desktop leftovers", blob)
+            self.assertIn("volume expander", blob.lower())
+            self.assertIn("traveler disk", blob.lower())
+            self.assertIn("rescue disk", blob.lower())
+        self.assertIn("mkdir", native)
+        self.assertIn("wipeFreeSpace", native)
+        self.assertIn("vc_mkdir", header)
+        self.assertIn("vc_rmdir", header)
+        self.assertIn("vc_rename", header)
+        self.assertIn("vc_wipe_free_space", header)
+        self.assertIn("read_only", header)
+
+    def test_work_is_visual_on_android_and_ios(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        theme = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
+        header = read("ports/shared/vc_mobile.h")
+        self.assertIn("WorkOverlay", theme)
+        self.assertIn("WorkOverlay", main)
+        self.assertIn("WorkOverlay", view)
+        self.assertIn("progressPercent", native)
+        self.assertIn("vc_progress_percent", header)
+        self.assertIn("beginWork", main)
+        self.assertIn("beginWork", view)
+
+    def test_disguise_filenames_on_android_and_ios(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        helper = read("ports/android/app/src/main/java/dev/shivampingale/vcport/ShareHelper.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        desktop = read("src/Main/GraphicUserInterface.cpp")
+        for blob in (main, helper, view):
+            self.assertIn("photo.jpg", blob)
+            self.assertIn("model.safetensors", blob)
+            self.assertIn("adapter.lora", blob)
+        self.assertIn("Opening ignores the extension", main)
+        self.assertIn("Opening ignores the extension", view)
+        self.assertIn("sanitizeDisguiseName", helper)
+        self.assertIn("safetensors", desktop)
+        self.assertIn("jpg", desktop)
+
     def test_desktop_tools_menu_wired(self) -> None:
         frame = read("src/Main/Forms/MainFrame.cpp")
         self.assertIn('LangString["IDM_WRAP_FILE"]', frame)
@@ -376,7 +613,12 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("opt_avx2.c", cmake)
         self.assertIn("opt_sse2.c", cmake)
         self.assertIn("Aes_hw_armv8.c", cmake)
+        lists = read("ports/shared/CMakeLists.txt")
+        self.assertIn("TC_IOS", lists)
+        self.assertIn('CMAKE_SYSTEM_NAME STREQUAL "iOS"', lists)
+        self.assertIn("vc_progress.cpp", lists)
         wrap = read("ports/shared/run_wrap_test.sh")
+        self.assertIn("vc_progress.cpp", wrap)
         self.assertIn("arm64|aarch64", wrap)
         self.assertIn("x86_64|amd64", wrap)
         self.assertIn("i686|i386", wrap)
@@ -393,9 +635,16 @@ class CrossPortGuiParityTests(unittest.TestCase):
 class SharedNativeContractsTests(unittest.TestCase):
     def test_wrap_kdf_is_32mib_argon2id(self) -> None:
         wrap = read("ports/shared/vc_wrap.cpp")
+        self.assertIn("arc4random_buf", wrap)
+        self.assertNotIn("sys/random.h", wrap)
         self.assertIn("const uint32_t kMemKib = 32768", wrap)
         header = read("ports/shared/vc_mobile.h")
         self.assertIn("vc_list_dir", header)
+        self.assertIn("vc_list_dir_from", header)
+        self.assertIn("VC_LIST_UI_MAX", header)
+        self.assertIn("vc_change_header", header)
+        self.assertIn("vc_backup_headers", header)
+        self.assertIn("vc_restore_headers", header)
         mobile = read("ports/shared/vc_mobile.cpp")
         self.assertIn("fat_find_path", mobile)
         self.assertIn("EXFAT   ", mobile)
@@ -427,7 +676,9 @@ class SharedNativeContractsTests(unittest.TestCase):
         self.assertNotIn("__android_log_print", jni)
         self.assertIn("vc_secure_wipe", jni)
         self.assertIn("listDir", jni)
-        self.assertIn("vc_list_dir", jni)
+        self.assertIn("vc_list_dir_from", jni)
+        self.assertIn("VC_LIST_UI_MAX", jni)
+        self.assertIn("!truncated!", jni)
 
 
 class OverlayInventoryTests(unittest.TestCase):

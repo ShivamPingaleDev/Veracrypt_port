@@ -25,7 +25,7 @@
 #endif
 
 #ifdef __APPLE__
-#include <sys/random.h>
+#include <stdlib.h>
 #endif
 
 namespace {
@@ -128,19 +128,14 @@ uint64_t load_u64 (const uint8_t *p)
 
 int fill_random (void *buf, size_t n)
 {
+	if (!buf || n == 0)
+		return -1;
+#ifdef __APPLE__
+	arc4random_buf (buf, n);
+	return 0;
+#else
 	uint8_t *p = (uint8_t *) buf;
 	size_t got = 0;
-#if defined(__APPLE__)
-	while (got < n)
-	{
-		size_t chunk = n - got > 256 ? 256 : n - got;
-		if (getentropy (p + got, chunk) != 0)
-			break;
-		got += chunk;
-	}
-	if (got == n)
-		return 0;
-#endif
 	int fd = open ("/dev/urandom", O_RDONLY);
 	if (fd < 0)
 		return -1;
@@ -156,6 +151,7 @@ int fill_random (void *buf, size_t n)
 	}
 	close (fd);
 	return 0;
+#endif
 }
 
 void ctr_inc (uint8_t counter[16])
@@ -357,6 +353,7 @@ int vc_wrap_file (const char *src_path, const char *dest_path,
 
 	uint8_t aes_key[32];
 	uint8_t mac_key[32];
+	vc_progress_set (-1, "Encrypting file");
 	int rc = derive_keys (password, password_len, salt, kMemKib, kTimeCost, kLanes, aes_key, mac_key);
 	if (rc != VC_OK)
 		return rc;
@@ -430,6 +427,9 @@ int vc_wrap_file (const char *src_path, const char *dest_path,
 	}
 
 	std::vector<uint8_t> chunk (kChunk);
+	uint64_t copied = 0;
+	if (file_size == 0)
+		vc_progress_set (100, "Encrypting file");
 	while (rc == VC_OK)
 	{
 		size_t n = fread (&chunk[0], 1, kChunk, in);
@@ -442,6 +442,9 @@ int vc_wrap_file (const char *src_path, const char *dest_path,
 			break;
 		}
 		hmac_update (&hmac, &chunk[0], n);
+		copied += n;
+		if (file_size)
+			vc_progress_tick ((int) ((copied * 100ull) / file_size), "Encrypting file");
 	}
 	if (rc == VC_OK && ferror (in))
 		rc = VC_ERR_IO;
@@ -525,6 +528,7 @@ int vc_unwrap_file (const char *src_path, const char *dest_dir,
 
 	uint8_t aes_key[32];
 	uint8_t mac_key[32];
+	vc_progress_set (-1, "Decrypting wrap");
 	int rc = derive_keys (password, password_len, salt, m_kib, t_cost, lanes, aes_key, mac_key);
 	if (rc != VC_OK)
 	{
@@ -633,7 +637,10 @@ int vc_unwrap_file (const char *src_path, const char *dest_dir,
 	}
 
 	uint64_t left = payload_size - 2 - name_len;
+	const uint64_t plain_size = left;
 	rc = VC_OK;
+	if (plain_size == 0)
+		vc_progress_set (100, "Decrypting wrap");
 	while (left)
 	{
 		size_t n = left < kChunk ? (size_t) left : kChunk;
@@ -649,6 +656,8 @@ int vc_unwrap_file (const char *src_path, const char *dest_dir,
 			break;
 		}
 		left -= n;
+		if (plain_size)
+			vc_progress_tick ((int) (((plain_size - left) * 100ull) / plain_size), "Decrypting wrap");
 	}
 
 	fclose (in);

@@ -13,6 +13,10 @@ import java.security.KeyStore
  * Nothing here makes the app "unbreakable": a rooted implant, a compelled
  * password, or a hidden-volume tell still wins. These controls raise the cost
  * of a casual seizure and of forensic leftovers.
+ *
+ * No backdoor: this object never opens a socket, never listens, and never
+ * phones home. Network exists only in the GitHub flavor UpdateChecker, on a
+ * user tap, for ≤20s, to hardcoded hosts.
  */
 object Hardening {
     fun protectWindow(activity: Activity) {
@@ -22,7 +26,11 @@ object Hardening {
         )
         activity.window.decorView.filterTouchesWhenObscured = true
         if (Build.VERSION.SDK_INT >= 31) {
-            activity.window.setHideOverlayWindows(true)
+            try {
+                activity.window.setHideOverlayWindows(true)
+            } catch (_: SecurityException) {
+                // API 31+ requires HIDE_OVERLAY_WINDOWS; never crash the vault UI.
+            }
         }
         activity.window.decorView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
     }
@@ -66,8 +74,10 @@ object Hardening {
         context.getSharedPreferences("vc_port_bio", Context.MODE_PRIVATE).edit().clear().apply()
         try {
             val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            if (store.containsAlias("vc_port_volume_key")) {
-                store.deleteEntry("vc_port_volume_key")
+            for (alias in listOf(BiometricVault.KEY_ALIAS, BiometricVault.LEGACY_KEY_ALIAS)) {
+                if (store.containsAlias(alias)) {
+                    store.deleteEntry(alias)
+                }
             }
         } catch (_: Exception) {
         }

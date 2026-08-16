@@ -6,10 +6,10 @@ Categories:
 License: Apache-2.0
 AuthorName: Shivam Mangesh Pingale
 AuthorEmail: shivampingaledev@proton.me
-WebSite: https://github.com/ShivamPingaleDev/VCPort
-SourceCode: https://github.com/ShivamPingaleDev/VCPort
-IssueTracker: https://github.com/ShivamPingaleDev/VCPort/issues
-Changelog: https://github.com/ShivamPingaleDev/VCPort/releases
+WebSite: https://github.com/ShivamPingaleDev/Veracrypt_port
+SourceCode: https://github.com/ShivamPingaleDev/Veracrypt_port
+IssueTracker: https://github.com/ShivamPingaleDev/Veracrypt_port/issues
+Changelog: https://github.com/ShivamPingaleDev/Veracrypt_port/blob/master/ports/CHANGELOG.md
 
 Name: VC Port
 AutoName: VC Port
@@ -32,62 +32,50 @@ Description: |-
     License 3.0 is not OSI-listed. Reviewers should treat the inherited
     TrueCrypt files under that dual-license statement.
 
+    Builds from the public Veracrypt_port tree (subdir ports/android). The
+    VeraCrypt src/ directory is in the same git commit; no extra srclib is
+    required. The mobile-only VCPort mirror is not the F-Droid source.
+
 RepoType: git
-Repo: https://github.com/ShivamPingaleDev/VCPort.git
+Repo: https://github.com/ShivamPingaleDev/Veracrypt_port.git
 
 Builds:
   - versionName: 0.3.0
     versionCode: 5
     commit: v0.3.0
-    subdir: android
-    srclibs:
-      - VeraCryptPort@v0.3.0
-    prebuild:
-      - ln -sfn $$VeraCryptPort$$ ../veracrypt
+    subdir: ports/android
     gradle:
       - fdroid
     ndk: r26d
     scandelete:
-      - ios
+      - ../ios
   - versionName: 0.2.2
     versionCode: 4
     commit: v0.2.2
-    subdir: android
-    srclibs:
-      - VeraCryptPort@v0.2.2
-    prebuild:
-      - ln -sfn $$VeraCryptPort$$ ../veracrypt
+    subdir: ports/android
     gradle:
       - fdroid
     ndk: r26d
     scandelete:
-      - ios
+      - ../ios
   - versionName: 0.2.1
     versionCode: 3
     commit: v0.2.1
-    subdir: android
-    srclibs:
-      - VeraCryptPort@v0.2.1
-    prebuild:
-      - ln -sfn $$VeraCryptPort$$ ../veracrypt
+    subdir: ports/android
     gradle:
       - fdroid
     ndk: r26d
     scandelete:
-      - ios
+      - ../ios
   - versionName: 0.2.0
     versionCode: 2
     commit: v0.2.0
-    subdir: android
-    srclibs:
-      - VeraCryptPort@v0.2.0
-    prebuild:
-      - ln -sfn $$VeraCryptPort$$ ../veracrypt
+    subdir: ports/android
     gradle:
       - fdroid
     ndk: r26d
     scandelete:
-      - ios
+      - ../ios
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags

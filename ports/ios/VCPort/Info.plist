@@ -16,6 +16,27 @@
 	<true/>
 	<key>VCPortEnableUpdateCheck</key>
 	<false/>
+	<key>VCPortSourceRepo</key>
+	<string>https://github.com/ShivamPingaleDev/Veracrypt_port</string>
+	<key>VCPortUpdateManifest</key>
+	<string>https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json</string>
+	<key>VCPortUpstreamVersion</key>
+	<string>1.26.29</string>
+	<key>VCPortUpstreamCommit</key>
+	<string>b48e31f5b47da7d41025e3f0e02751675e15005a</string>
+	<key>VCPortUpstreamTag</key>
+	<string>VeraCrypt_1.26.29</string>
+	<key>VCPortUpstreamGit</key>
+	<string>https://github.com/veracrypt/VeraCrypt.git</string>
+	<key>VCPortUpstreamReleases</key>
+	<string>https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<false/>
+	</dict>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	<key>UIFileSharingEnabled</key>

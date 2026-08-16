@@ -28,6 +28,8 @@ add_definitions(
 )
 if(ANDROID)
 	add_definitions(-DTC_LINUX -DTC_ANDROID)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	add_definitions(-DTC_MACOSX -DTC_IOS)
 elseif(APPLE)
 	add_definitions(-DTC_MACOSX)
 else()
@@ -47,6 +49,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/upstream-sources.cmake")
 add_library(vc_mobile STATIC
 	vc_mobile.cpp
 	vc_wrap.cpp
+	vc_progress.cpp
 	token_stubs.cpp
 	${VC_CRYPTO}
 	${VC_VOLUME}

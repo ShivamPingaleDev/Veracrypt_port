@@ -1955,6 +1955,10 @@ namespace VeraCrypt
 	{
 		list < pair <wstring, wstring> > extensions;
 		extensions.push_back (make_pair (L"hc", LangString["TC_VOLUMES"].ToStdWstring()));
+		extensions.push_back (make_pair (L"jpg", L"JPEG"));
+		extensions.push_back (make_pair (L"png", L"PNG"));
+		extensions.push_back (make_pair (L"safetensors", L"SafeTensors"));
+		extensions.push_back (make_pair (L"lora", L"LoRA"));
 
 		FilePathList selFiles = Gui->SelectFiles (parent, LangString[saveMode ? "OPEN_NEW_VOLUME" : "OPEN_VOL_TITLE"], saveMode, false, extensions, directory);
 

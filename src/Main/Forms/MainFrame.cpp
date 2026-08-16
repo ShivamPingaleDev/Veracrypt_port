@@ -794,6 +794,16 @@ namespace VeraCrypt
 		wxBusyCursor busy;
 		try
 		{
+			try
+			{
+				string st = OfflineUpdate::FetchHttps ("https://www.githubstatus.com/api/v2/status.json");
+				if (st.find ("\"indicator\":\"major\"") != string::npos
+					|| st.find ("\"indicator\":\"critical\"") != string::npos)
+					Gui->ShowWarning (L"GitHub reports a major incident. Treat this check as unverified.");
+			}
+			catch (...)
+			{
+			}
 			string body = OfflineUpdate::FetchHttps (VC_PORT_UPDATE_MANIFEST_URL);
 			UpdateManifest manifest = OfflineUpdate::ParseManifest (body);
 			if (!manifest.Parsed)
@@ -819,7 +829,32 @@ namespace VeraCrypt
 			}
 			else
 			{
-				Gui->ShowInfo (LangString["UPDATE_UP_TO_DATE"]);
+				msg = LangString["UPDATE_UP_TO_DATE"];
+			}
+
+			// Optional second GET: official VeraCrypt GitHub latest release.
+			// Failure is ignored — the phone/desktop must not depend on GitHub.
+			try
+			{
+				string rel = OfflineUpdate::FetchHttps (VC_PORT_UPSTREAM_RELEASES);
+				string tag = OfflineUpdate::ParseGithubReleaseTag (rel);
+				string official = OfflineUpdate::VersionFromVeraCryptTag (tag);
+				if (!official.empty() && OfflineUpdate::IsNewer (official, VC_PORT_UPSTREAM_VERSION))
+				{
+					wxString extra = L"Official VeraCrypt ";
+					extra += wxString::FromUTF8 (official.c_str());
+					extra += L" is published. This build still compiles ";
+					extra += wxString::FromUTF8 (VC_PORT_UPSTREAM_VERSION);
+					extra += L". Merge with scripts/sync-upstream.sh and rebuild. This app does not fetch their source.";
+					Gui->ShowInfo (extra);
+				}
+				else if (msg == LangString["UPDATE_UP_TO_DATE"])
+					Gui->ShowInfo (msg);
+			}
+			catch (...)
+			{
+				if (msg == LangString["UPDATE_UP_TO_DATE"])
+					Gui->ShowInfo (msg);
 			}
 		}
 		catch (exception &e)

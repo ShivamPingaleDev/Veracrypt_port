@@ -8,7 +8,7 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 | --- | --- | --- | --- |
 | Border / police seizure (device off or locked) | Image flash, cloud backup, recents screenshots | No backups, FLAG_SECURE, recents hidden, panic wipe, no SAF export | Compelled password; hardware implants |
 | Compelled biometrics | Finger on the sensor | Biometrics optional; warned; not the default “Remember” | A remembered factor set still opens if they get the finger |
-| Network MITM (user CA / captive portal) | Fake TLS | System CAs only, no cleartext; F-Droid flavor has no INTERNET | A compromised system CA store |
+| Network MITM (user CA / captive portal) | Fake TLS | System CAs only, no cleartext, no redirects, host allowlist, F-Droid flavor has no INTERNET | A compromised system CA store |
 | Malware with root / MDM | Read RAM, keylog, screenshots | Wipe on background; no dumps (`PR_SET_DUMPABLE`); mlock wrap keys | Rooted implant while unlocked |
 | Forensic leftovers | Cache, clipboard, URI grants | Wipe session files; 30s clipboard; no persistable SAF grants; 0600 wrap files | Unmount delay; other apps you shared *to* |
 | Store / update supply chain | Trojan APK | F-Droid from source; no GMS; no obfuscation (reviewable) | A malicious F-Droid mirror you did not verify |
@@ -19,7 +19,7 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 2. Run it on **GrapheneOS** (or equivalent) with a locked bootloader, no Google services, and a strong OS passphrase.
 3. Keep the **volume password in your head**. Put the keyfile on a *different* token, not on the phone.
 4. Do **not** tap Remember / biometrics if fingerprints can be compelled in your jurisdiction.
-5. Use a **VeraCrypt hidden volume** created on a computer (this client opens whichever password you type; there is no “hidden” checkbox, which would be evidence).
+5. A **VeraCrypt hidden / nested volume** can be created here or on a computer. This client **opens whichever password you type** — there is no open-time “hidden” checkbox. Filling the outer volume overwrites the nested one.
 6. Prefer **F-Droid** or a self-built APK over GitHub debug-signed previews.
 7. Make the git repo **public** before you distribute binaries (TrueCrypt License 3.0).
 
@@ -28,14 +28,14 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 - Google Play Integrity / SafetyNet / SafetyNet-like root detection (breaks GrapheneOS and F-Droid)
 - Code obfuscation or packed native libs (unverifiable)
 - “Unbreakable” marketing
-- A hidden-volume *toggle* in the UI (deniability leak)
+- An open-time hidden-volume checkbox (deniability leak; opening already follows the password you type)
 - Pinning GitHub’s TLS keys (they rotate; pinning would brick updates)
 
 ## Industry mappings
 
 - **OWASP MASVS-STORAGE**: no backups, wipe session files, Keystore/StrongBox, no exported DocumentsProvider
 - **OWASP MASVS-CRYPTO**: Argon2id wrap KDF 32 MiB, AES-256, HMAC-SHA256, constant-time MAC compare, CSPRNG passwords
-- **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only
+- **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only, no incoming sockets, no background traffic. GitHub flavor: user tap opens a ≤20s HTTPS window to three hardcoded hosts (our version.json, official VeraCrypt latest release, GitHub status), no redirects, 64 KiB cap, then disconnect. F-Droid has no INTERNET. Fetched JSON is never executed. This does not detect unknown bugs in VeraCrypt itself.
 - **OWASP MASVS-PRIVACY**: no telemetry, no crash reporters, StayOffline default
 - **NIST SP 800-63**: biometrics are not a knowledge factor
 - **F-Droid Inclusion Policy**: no GMS, no trackers, Gradle wrapper with published SHA-256

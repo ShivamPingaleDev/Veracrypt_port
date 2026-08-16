@@ -17,20 +17,25 @@ namespace VeraCrypt
 	{
 		string PortVersion;
 		string UpstreamVersion;
+		string UpstreamCommit;
 		string Notes;
 		string DownloadUrl;
 		string AndroidApkSha256;
 		string SourceSha256;
 		bool Parsed;
+		string OfficialVersion;
+		bool OfficialNewer;
 	};
 
 	class OfflineUpdate
 	{
 	public:
-		// One-shot HTTPS GET. The session is created, used, and destroyed in
-		// this call. Nothing is kept open afterwards.
+	// One-shot HTTPS GET. Used for our version.json and for the official
+	// VeraCrypt GitHub latest-release JSON. Nothing is kept open afterwards.
 		static string FetchHttps (const string &url);
 		static UpdateManifest ParseManifest (const string &json);
+		static string VersionFromVeraCryptTag (const string &tag);
+		static string ParseGithubReleaseTag (const string &json);
 		static int CompareVersion (const string &a, const string &b);
 		static bool IsNewer (const string &remote, const string &local);
 

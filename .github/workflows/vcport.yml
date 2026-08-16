@@ -9,10 +9,10 @@ on:
       - 'src/Volume/**'
       - 'src/Platform/**'
       - 'src/Common/**'
-      - 'src/Main/PortVersion.h'
-      - 'src/Main/UserPreferences.h'
-      - 'src/Driver/Fuse/FuseService.cpp'
+      - 'src/Main/**'
+      - 'src/Driver/**'
       - 'scripts/**'
+      - 'SECURITY.md'
       - '.github/workflows/vcport.yml'
     tags:
       - 'v*'
@@ -24,10 +24,10 @@ on:
       - 'src/Volume/**'
       - 'src/Platform/**'
       - 'src/Common/**'
-      - 'src/Main/PortVersion.h'
-      - 'src/Main/UserPreferences.h'
-      - 'src/Driver/Fuse/FuseService.cpp'
+      - 'src/Main/**'
+      - 'src/Driver/**'
       - 'scripts/**'
+      - 'SECURITY.md'
       - '.github/workflows/vcport.yml'
 
 concurrency:
@@ -76,6 +76,13 @@ jobs:
           path: ports/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
-  # No GitHub Release APK attach while the tree is private (TrueCrypt 3.0).
-  # After a public relaunch, artifacts may be attached only if they are clearly
-  # labeled debug-signed previews.
+  ios-native:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: iOS simulator native lib (no IPA, no signing)
+        run: IOS_SDK=iphonesimulator IOS_ARCH=$(uname -m) ports/ios/build-native.sh
+
+  # No GitHub Release APK attach. CI APKs are debug-signed previews.
+  # TrueCrypt 3.0 still requires public source if a binary is ever shipped.

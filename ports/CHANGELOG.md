@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Named 10-phase host test runner (`ports/tests/run-phases.sh`) covering the pre-public cycle
+- Official VeraCrypt git + latest-release URLs in `ports/version.json`. Check for updates is a ≤20s HTTPS window to those hosts plus GitHub status; no redirects; the app never listens and never fetches `src/` or installs itself.
+- Progress overlay on long jobs. Copy/move, New folder / Rename / Delete / Properties / Wipe free space, Read-only and TrueCrypt Mode, restore from the embedded backup header.
+- Aligned FAT copy/wipe/export skip an extra sector buffer. Overlay polls at 10 Hz only while a job runs.
+- Host tests: wrap/volume object cache, `test_quality.py` taxonomy + property/fuzz, fail-closed VCF2 decode. See `ports/tests/TESTING.md`.
+- Fastlane changelog for versionCode 5; F-Droid recipe clones public `Veracrypt_port`; SECURITY.md and CI path filters match a public tree.
+- FAT list cap 1024; `vc_list_dir_from` + Load more; iOS wrap uses `arc4random_buf`; iOS native defines `TC_IOS`.
 
 ## 0.3.0
 

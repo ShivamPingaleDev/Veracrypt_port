@@ -18,7 +18,9 @@
 
 #include <cstdio>
 #include <cstring>
+#include <strings.h>
 #include <string>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
 
@@ -115,6 +117,8 @@ static std::vector<uint8_t> make_fat16 ()
 	std::vector<uint8_t> root (rootEnt * 32, 0);
 	dirent (root, 0, "HELLO   TXT", 0x20, 2, helloLen);
 	dirent (root, 1, "DOCS       ", 0x10, 3, 0);
+	dirent (root, 2, "AAA     TXT", 0x20, 2, helloLen);
+	dirent (root, 3, "BBB     TXT", 0x20, 2, helloLen);
 	memcpy (&img[reserved * bps + fats * fatSecs * bps], &root[0], root.size ());
 
 	std::vector<uint8_t> sub (bps, 0);
@@ -232,10 +236,23 @@ int main ()
 	expect (vc_write (vol, 0, &fat[0], fat.size ()) == VC_OK, "write FAT");
 
 	VcDirEntry entries[32];
-	int n = vc_list_root (vol, entries, 32);
-	expect (n >= 2, "list root count");
+	int 	n = vc_list_root (vol, entries, 32);
+	expect (n >= 4, "list root count");
 	expect (has_name (entries, n, "HELLO.TXT", 0), "HELLO.TXT at root");
 	expect (has_name (entries, n, "DOCS", 1), "DOCS folder at root");
+
+	VcDirEntry page[2];
+	n = vc_list_dir_from (vol, "/", page, 1, 0);
+	expect (n == 1 && has_name (page, n, "HELLO.TXT", 0), "page 0 is HELLO.TXT");
+	n = vc_list_dir_from (vol, "/", page, 1, 1);
+	expect (n == 1 && has_name (page, n, "DOCS", 1), "page 1 is DOCS");
+	n = vc_list_dir_from (vol, "/", page, 1, 2);
+	expect (n == 1 && has_name (page, n, "AAA.TXT", 0), "page 2 is AAA.TXT");
+	n = vc_list_dir_from (vol, "/", page, 2, 2);
+	expect (n == 2 && has_name (page, n, "AAA.TXT", 0) && has_name (page, n, "BBB.TXT", 0), "skip 2 takes AAA+BBB");
+	expect (vc_list_dir_from (vol, "/", page, 1, -1) == VC_ERR_ARGUMENT, "negative skip");
+	n = vc_list_dir_from (vol, "/", page, 1, 999);
+	expect (n == 0, "skip past end");
 
 	char tmpout[] = "/tmp/vcport-export-XXXXXX";
 	int ofd = mkstemp (tmpout);
@@ -268,6 +285,181 @@ int main ()
 	vc_close (vol);
 	unlink (path);
 	unlink (tmpout);
+
+	for (int i = 0; i < 80; ++i)
+		vc_entropy_add ("0123456789abcdef0123456789abcdef", 32);
+	expect (vc_entropy_percent () == 100, "entropy bar fills");
+
+	char created[] = "/tmp/vcport-create-XXXXXX";
+	int cfd = mkstemp (created);
+	if (cfd >= 0)
+		close (cfd);
+	VcCreateOptions copts = {};
+	copts.path = created;
+	copts.password = kPassword;
+	copts.password_len = strlen (kPassword);
+	copts.pim = kPim;
+	copts.size_bytes = 2ull * 1024ull * 1024ull;
+	copts.cipher = "AES(Twofish(Serpent))";
+	copts.kdf = "HMAC-SHA-512";
+	expect (vc_create_volume (&copts) == VC_OK, "create AES(Twofish(Serpent))/HMAC-SHA-512");
+	err = 0;
+	VcOpenOptions createdOpt = opt;
+	createdOpt.path = created;
+	VcVolume *createdVol = vc_open (&createdOpt, &err);
+	expect (createdVol != nullptr && err == VC_OK, "open created cascade volume");
+	if (createdVol)
+	{
+		n = vc_list_root (createdVol, entries, 32);
+		expect (n >= 0, "list created FAT");
+
+		char srcin[] = "/tmp/vcport-fromdev-XXXXXX";
+		int ifd = mkstemp (srcin);
+		expect (ifd >= 0, "temp import source");
+		if (ifd >= 0)
+		{
+			expect (write (ifd, "from-device\n", 12) == 12, "write import payload");
+			close (ifd);
+		}
+		expect (vc_import_file (createdVol, "/", srcin, "FROMDEV.TXT") == VC_OK, "import FROMDEV.TXT");
+		n = vc_list_root (createdVol, entries, 32);
+		expect (n >= 1 && has_name (entries, n, "FROMDEV.TXT", 0), "FROMDEV.TXT after import");
+		expect (vc_export_file (createdVol, "FROMDEV.TXT", tmpout) == VC_OK, "export imported file");
+		f = fopen (tmpout, "rb");
+		got = f ? fread (buf, 1, sizeof (buf), f) : 0;
+		if (f)
+			fclose (f);
+		expect (got == 12 && memcmp (buf, "from-device\n", 12) == 0, "imported contents match");
+		expect (vc_import_file (createdVol, "/", srcin, "FROMDEV.TXT") == VC_ERR_FORMAT, "reject duplicate name");
+		expect (vc_delete_file (createdVol, "FROMDEV.TXT") == VC_OK, "delete FROMDEV.TXT");
+		n = vc_list_root (createdVol, entries, 32);
+		expect (!has_name (entries, n, "FROMDEV.TXT", 0), "FROMDEV.TXT gone after delete");
+		expect (vc_delete_file (createdVol, "FROMDEV.TXT") != VC_OK, "delete missing file fails");
+
+		expect (vc_mkdir (createdVol, "/", "INBOX") == VC_OK, "mkdir INBOX");
+		n = vc_list_root (createdVol, entries, 32);
+		expect (n >= 1 && has_name (entries, n, "INBOX", 1), "INBOX folder after mkdir");
+		expect (vc_import_file (createdVol, "INBOX", srcin, "NOTE.TXT") == VC_OK, "import into INBOX");
+		expect (vc_rename (createdVol, "INBOX/NOTE.TXT", "MEMO.TXT") == VC_OK, "rename NOTE to MEMO");
+		n = vc_list_dir (createdVol, "INBOX", entries, 32);
+		expect (has_name (entries, n, "MEMO.TXT", 0), "MEMO.TXT after rename");
+		expect (vc_rmdir (createdVol, "INBOX") == VC_ERR_FORMAT, "rmdir non-empty");
+		expect (vc_delete_file (createdVol, "INBOX/MEMO.TXT") == VC_OK, "delete MEMO.TXT");
+		expect (vc_rmdir (createdVol, "INBOX") == VC_OK, "rmdir empty INBOX");
+		expect (vc_wipe_free_space (createdVol) == VC_OK, "wipe free space");
+		unlink (srcin);
+
+		vc_close (createdVol);
+	}
+	unlink (created);
+
+	char nested[] = "/tmp/vcport-hidden-XXXXXX";
+	int nfd = mkstemp (nested);
+	if (nfd >= 0)
+		close (nfd);
+	static const char *kHidden = "vcport-hidden-volume";
+	VcCreateOptions hopts = copts;
+	hopts.path = nested;
+	hopts.size_bytes = 8ull * 1024ull * 1024ull;
+	hopts.hidden_size_bytes = 2ull * 1024ull * 1024ull;
+	hopts.hidden_password = kHidden;
+	hopts.hidden_password_len = strlen (kHidden);
+	hopts.hidden_pim = kPim;
+	expect (vc_create_volume (&hopts) == VC_OK, "create nested hidden volume");
+	err = 0;
+	VcOpenOptions outerOpt = opt;
+	outerOpt.path = nested;
+	VcVolume *outerVol = vc_open (&outerOpt, &err);
+	expect (outerVol != nullptr && err == VC_OK, "open outer of nested container");
+	if (outerVol)
+	{
+		expect (vc_list_root (outerVol, entries, 32) >= 0, "list outer FAT");
+		vc_close (outerVol);
+	}
+	err = 0;
+	VcOpenOptions innerOpt = opt;
+	innerOpt.path = nested;
+	innerOpt.password = kHidden;
+	innerOpt.password_len = strlen (kHidden);
+	VcVolume *innerVol = vc_open (&innerOpt, &err);
+	expect (innerVol != nullptr && err == VC_OK, "open nested hidden volume");
+	if (innerVol)
+	{
+		expect (vc_list_root (innerVol, entries, 32) >= 0, "list nested FAT");
+		vc_close (innerVol);
+	}
+	unlink (nested);
+
+	char tools[] = "/tmp/vcport-tools-XXXXXX";
+	int tfd = mkstemp (tools);
+	if (tfd >= 0)
+		close (tfd);
+	VcCreateOptions topts = copts;
+	topts.path = tools;
+	topts.size_bytes = 2ull * 1024ull * 1024ull;
+	expect (vc_create_volume (&topts) == VC_OK, "create for header tools");
+
+	char bak[] = "/tmp/vcport-header-XXXXXX";
+	int bfd = mkstemp (bak);
+	if (bfd >= 0)
+		close (bfd);
+	expect (vc_backup_headers (tools, bak, kPassword, strlen (kPassword), kPim, nullptr, 0) == VC_OK,
+		"backup volume header");
+
+	static const char *kNew = "vcport-test-volume-2";
+	VcChangeHeaderOptions ch = {};
+	ch.path = tools;
+	ch.password = kPassword;
+	ch.password_len = strlen (kPassword);
+	ch.pim = kPim;
+	ch.new_password = kNew;
+	ch.new_password_len = strlen (kNew);
+	ch.new_pim = kPim;
+	expect (vc_change_header (&ch) == VC_OK, "change volume password");
+
+	err = 0;
+	VcOpenOptions oldOpt = opt;
+	oldOpt.path = tools;
+	VcVolume *oldVol = vc_open (&oldOpt, &err);
+	expect (oldVol == nullptr && err == VC_ERR_PASSWORD, "old password rejected after change");
+	if (oldVol)
+		vc_close (oldVol);
+
+	err = 0;
+	VcOpenOptions newOpt = opt;
+	newOpt.path = tools;
+	newOpt.password = kNew;
+	newOpt.password_len = strlen (kNew);
+	VcVolume *newVol = vc_open (&newOpt, &err);
+	expect (newVol != nullptr && err == VC_OK, "open with new password");
+	if (newVol)
+	{
+		char info[256];
+		expect (vc_volume_info (newVol, info, sizeof (info)) == VC_OK, "volume properties");
+		expect (strstr (info, "HMAC-SHA-512") != nullptr, "info names HMAC-SHA-512");
+		vc_close (newVol);
+	}
+
+	expect (vc_restore_headers (tools, bak, kPassword, strlen (kPassword), kPim, nullptr, 0) == VC_OK,
+		"restore volume header");
+	err = 0;
+	VcVolume *restored = vc_open (&oldOpt, &err);
+	expect (restored != nullptr && err == VC_OK, "open original password after restore");
+	if (restored)
+		vc_close (restored);
+
+	char kf[] = "/tmp/vcport-keyfile-XXXXXX";
+	int kfd = mkstemp (kf);
+	if (kfd >= 0)
+		close (kfd);
+	expect (vc_generate_keyfile (kf, 128) == VC_OK, "keyfile generator");
+	struct stat st;
+	expect (stat (kf, &st) == 0 && st.st_size == 128, "generated keyfile is 128 bytes");
+	expect (vc_test_vectors () == VC_OK, "test vectors");
+	unlink (tools);
+	unlink (bak);
+	unlink (kf);
+
 	if (gFail)
 	{
 		printf ("VOLUME TESTS FAILED\n");

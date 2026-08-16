@@ -46,22 +46,26 @@ object FactorCodec {
     }
 
     fun decode(bytes: ByteArray): FactorBundle {
-        val text = String(bytes, Charsets.UTF_8)
-        if (!text.startsWith("VCF2\n")) {
-            val parts = text.split("\n", limit = 2)
-            val pim = parts.getOrNull(0)?.toIntOrNull() ?: 0
-            return FactorBundle(pim = pim, password = parts.getOrNull(1) ?: "")
+        return try {
+            val text = String(bytes, Charsets.UTF_8)
+            if (!text.startsWith("VCF2\n")) {
+                val parts = text.split("\n", limit = 2)
+                val pim = parts.getOrNull(0)?.toIntOrNull() ?: 0
+                return FactorBundle(pim = pim, password = parts.getOrNull(1) ?: "")
+            }
+            val lines = text.split('\n')
+            val pim = lines.getOrNull(1)?.toIntOrNull() ?: 0
+            val password = lines.getOrNull(2)?.let { encoded ->
+                if (encoded.isEmpty()) "" else String(Base64.decode(encoded, Base64.NO_WRAP), Charsets.UTF_8)
+            } ?: ""
+            val bio = lines.getOrNull(3)?.let { encoded ->
+                if (encoded.isEmpty()) null else Base64.decode(encoded, Base64.NO_WRAP)
+            }
+            val uris = if (lines.size > 4) lines.drop(4).filter { it.isNotEmpty() } else emptyList()
+            FactorBundle(pim = pim, password = password, biometricKey = bio, keyfileUris = uris)
+        } catch (_: Exception) {
+            FactorBundle()
         }
-        val lines = text.split('\n')
-        val pim = lines.getOrNull(1)?.toIntOrNull() ?: 0
-        val password = lines.getOrNull(2)?.let { encoded ->
-            if (encoded.isEmpty()) "" else String(Base64.decode(encoded, Base64.NO_WRAP), Charsets.UTF_8)
-        } ?: ""
-        val bio = lines.getOrNull(3)?.let { encoded ->
-            if (encoded.isEmpty()) null else Base64.decode(encoded, Base64.NO_WRAP)
-        }
-        val uris = if (lines.size > 4) lines.drop(4).filter { it.isNotEmpty() } else emptyList()
-        return FactorBundle(pim = pim, password = password, biometricKey = bio, keyfileUris = uris)
     }
 
     fun randomBiometricKey(): ByteArray {

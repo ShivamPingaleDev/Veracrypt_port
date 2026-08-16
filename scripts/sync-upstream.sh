@@ -1,6 +1,14 @@
 #!/bin/sh
 # Merge a new VeraCrypt release without throwing away VC Port work.
 #
+# Official source (hardcoded in ports/version.json):
+#   https://github.com/veracrypt/VeraCrypt.git
+# Published releases:
+#   https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest
+#
+# The Android/iOS apps never run this script. They can only *report* that a
+# newer official tag exists. A maintainer merges, then rebuilds VC Port.
+#
 # Owned files (ports/overlay/owned.txt) are restored after the merge.
 # Patched upstream files (ports/overlay/patched.txt) are left to git's
 # 3-way merge. Restoring those from a pre-merge copy would drop VeraCrypt

@@ -23,11 +23,17 @@ Please report:
 - Attribution or license-text errors that would mislead a user
 
 Out of scope: “please make this unbreakable,” Play Integrity / SafetyNet ideas,
-obfuscation, hidden-volume UI toggles, and anything that needs a compromised OS
+obfuscation, open-time hidden-volume checkboxes, and anything that needs a compromised OS
 or compelled biometrics to matter.
 
-## Source while private
+## Source and binaries
 
-TrueCrypt License 3.0 requires publicly available source when binaries are
-distributed. Do not ship new APKs, IPAs, or GitHub Release attachments while
-this repository is private.
+This repository is public: https://github.com/ShivamPingaleDev/Veracrypt_port
+
+TrueCrypt License 3.0 still requires publicly available source whenever
+binaries are distributed. Do not make the tree private again and then ship
+APKs, IPAs, or GitHub Release attachments.
+
+GitHub Actions APKs are **debug-signed previews**. Do not attach them to a
+GitHub Release, and do not copy their SHA-256 into `ports/version.json`.
+F-Droid (or `VC_PORT_RELEASE_STORE_FILE`) must sign anything called production.

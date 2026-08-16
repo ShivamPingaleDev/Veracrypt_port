@@ -17,10 +17,12 @@ import javax.crypto.spec.GCMParameterSpec
 
 class BiometricVault(private val context: Context) {
     private val prefs = context.getSharedPreferences("vc_port_bio", Context.MODE_PRIVATE)
-    private val keyAlias = "vc_port_volume_key"
 
     fun isAvailable(): Boolean {
         val manager = BiometricManager.from(context)
+        if (manager.canAuthenticate(authenticators()) == BiometricManager.BIOMETRIC_SUCCESS) {
+            return true
+        }
         return manager.canAuthenticate(
             BiometricManager.Authenticators.BIOMETRIC_STRONG
         ) == BiometricManager.BIOMETRIC_SUCCESS
@@ -57,19 +59,36 @@ class BiometricVault(private val context: Context) {
     fun load(activity: FragmentActivity, volumePath: String, onDone: (FactorBundle?) -> Unit) {
         val blob = prefs.getString(keyFor(volumePath), null) ?: return onDone(null)
         val iv = prefs.getString(ivFor(volumePath), null) ?: return onDone(null)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            secretKey(),
-            GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP))
-        )
-        prompt(activity, cipher, "Unlock with biometrics") { unlocked ->
-            if (unlocked == null) {
-                onDone(null)
-                return@prompt
+        try {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                secretKey(),
+                GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP))
+            )
+            prompt(activity, cipher, "Unlock with fingerprint, face, or screen lock") { unlocked ->
+                if (unlocked == null) {
+                    onDone(null)
+                    return@prompt
+                }
+                try {
+                    val plain = unlocked.doFinal(Base64.decode(blob, Base64.NO_WRAP))
+                    onDone(FactorCodec.decode(plain))
+                } catch (_: Exception) {
+                    onDone(null)
+                }
             }
-            val plain = unlocked.doFinal(Base64.decode(blob, Base64.NO_WRAP))
-            onDone(FactorCodec.decode(plain))
+        } catch (_: Exception) {
+            onDone(null)
+        }
+    }
+
+    private fun authenticators(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG
         }
     }
 
@@ -87,20 +106,19 @@ class BiometricVault(private val context: Context) {
                 }
             }
         )
-        prompt.authenticate(
-            BiometricPrompt.PromptInfo.Builder()
-                .setTitle(title)
-                .setSubtitle("VC Port")
-                .setNegativeButtonText("Cancel")
-                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-                .build(),
-            BiometricPrompt.CryptoObject(cipher)
-        )
+        val builder = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(title)
+            .setSubtitle("VC Port")
+            .setAllowedAuthenticators(authenticators())
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            builder.setNegativeButtonText("Cancel")
+        }
+        prompt.authenticate(builder.build(), BiometricPrompt.CryptoObject(cipher))
     }
 
     private fun ensureKey() {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        if (store.containsAlias(keyAlias)) return
+        if (store.containsAlias(KEY_ALIAS)) return
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             try {
@@ -117,15 +135,20 @@ class BiometricVault(private val context: Context) {
 
     private fun keySpec(strongBox: Boolean): KeyGenParameterSpec {
         val spec = KeyGenParameterSpec.Builder(
-            keyAlias,
+            KEY_ALIAS,
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setUserAuthenticationRequired(true)
-            .setInvalidatedByBiometricEnrollment(true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            spec.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG)
+            spec.setUserAuthenticationParameters(
+                0,
+                KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+            )
+            spec.setInvalidatedByBiometricEnrollment(false)
+        } else {
+            spec.setInvalidatedByBiometricEnrollment(true)
         }
         if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             spec.setIsStrongBoxBacked(true)
@@ -135,9 +158,14 @@ class BiometricVault(private val context: Context) {
 
     private fun secretKey(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        return store.getKey(keyAlias, null) as SecretKey
+        return store.getKey(KEY_ALIAS, null) as SecretKey
     }
 
     private fun keyFor(path: String) = "pw:$path"
     private fun ivFor(path: String) = "iv:$path"
+
+    companion object {
+        const val KEY_ALIAS = "vc_port_volume_key_v2"
+        const val LEGACY_KEY_ALIAS = "vc_port_volume_key"
+    }
 }

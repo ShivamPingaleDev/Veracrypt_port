@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.VCPort" parent="Theme.AppCompat.DayNight.NoActionBar" />
+    <style name="Theme.VCPort" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:statusBarColor">#0A6CCE</item>
+        <item name="android:navigationBarColor">#E8EEF4</item>
+        <item name="android:windowBackground">#E8EEF4</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorPrimary">#0A6CCE</item>
+        <item name="colorAccent">#0A6CCE</item>
+    </style>
 </resources>

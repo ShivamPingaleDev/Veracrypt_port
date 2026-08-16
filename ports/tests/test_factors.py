@@ -9,6 +9,7 @@ cannot drift without CI noticing. No Keystore / Keychain / biometric hardware.
 from __future__ import annotations
 
 import base64
+import random
 import unittest
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,20 +37,33 @@ def encode(bundle: FactorBundle) -> bytes:
 
 
 def decode(raw: bytes) -> FactorBundle:
-    text = raw.decode("utf-8")
+    """Must not throw: Kotlin/Swift treat a corrupted vault as empty factors."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return FactorBundle()
     if not text.startswith("VCF2\n"):
         parts = text.split("\n", 1)
         pim = int(parts[0]) if parts and parts[0].isdigit() else 0
         password = parts[1] if len(parts) > 1 else ""
         return FactorBundle(pim=pim, password=password)
     lines = text.split("\n")
-    pim = int(lines[1]) if len(lines) > 1 and lines[1] else 0
+    try:
+        pim = int(lines[1]) if len(lines) > 1 and lines[1] else 0
+    except ValueError:
+        pim = 0
     password = ""
     if len(lines) > 2 and lines[2]:
-        password = base64.b64decode(lines[2]).decode("utf-8")
+        try:
+            password = base64.b64decode(lines[2], validate=True).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            password = ""
     bio = None
     if len(lines) > 3 and lines[3]:
-        bio = base64.b64decode(lines[3])
+        try:
+            bio = base64.b64decode(lines[3], validate=True)
+        except ValueError:
+            bio = None
     uris = [line for line in lines[4:] if line]
     return FactorBundle(pim=pim, password=password, biometric_key=bio, keyfiles=uris)
 
@@ -107,6 +121,39 @@ class FactorCodecTests(unittest.TestCase):
         blob = b"VCF2\n0\n" + base64.b64encode(b"pw") + b"\n\n\nfile-a\n\nfile-b\n"
         got = decode(blob)
         self.assertEqual(got.keyfiles, ["file-a", "file-b"])
+
+    def test_corrupt_vcf2_does_not_raise(self) -> None:
+        for blob in (
+            b"\xff\xfe not utf-8",
+            b"VCF2\nnot-an-int\n%%%%\n",
+            b"VCF2\n1\n@@@\n@@@\n",
+            b"",
+        ):
+            with self.subTest(blob=blob[:20]):
+                got = decode(blob)
+                self.assertIsInstance(got, FactorBundle)
+
+    def test_property_seeded_roundtrip(self) -> None:
+        rng = random.Random(20260816)
+        for i in range(48):
+            src = FactorBundle(
+                pim=rng.randint(0, 1_000_000),
+                password="".join(chr(rng.randint(32, 126)) for _ in range(rng.randint(0, 40))),
+                biometric_key=bytes(rng.getrandbits(8) for _ in range(64)) if rng.random() < 0.5 else None,
+                keyfiles=[f"kf-{rng.randint(0, 99)}" for _ in range(rng.randint(0, 3))],
+            )
+            with self.subTest(i=i):
+                got = decode(encode(src))
+                self.assertEqual(got.pim, src.pim)
+                self.assertEqual(got.password, src.password)
+                self.assertEqual(got.biometric_key, src.biometric_key)
+                self.assertEqual(got.keyfiles, src.keyfiles)
+
+    def test_metamorphic_encode_decode_encode(self) -> None:
+        src = FactorBundle(pim=9, password="abc", biometric_key=b"\x00\x01", keyfiles=["a"])
+        once = decode(encode(src))
+        twice = decode(encode(once))
+        self.assertEqual(once, twice)
 
 
 class MobileSourceLockTests(unittest.TestCase):

@@ -19,12 +19,42 @@ struct ContentView: View {
     @State private var shareEncImporterPresented = false
     @State private var volumeHandle: OpaquePointer?
     @State private var dirPath = ""
+    @State private var listTruncated = false
     @State private var incomingFile: URL?
     @State private var wrapPassword = ""
     @State private var wrapImporterPresented = false
     @State private var unwrapImporterPresented = false
+    @State private var lastPlain: [URL] = []
+    @State private var selectedNames: Set<String> = []
+    @State private var createCipher = VcMobileBridge.defaultCipher
+    @State private var createKdf = VcMobileBridge.defaultKdf
+    @State private var createSizeMb = "16"
+    @State private var createPassword = ""
+    @State private var createPim = "0"
+    @State private var createHidden = false
+    @State private var createHiddenPassword = ""
+    @State private var createHiddenPim = "0"
+    @State private var createHiddenSizeMb = "4"
+    @State private var createFileName = "volume.hc"
+    @State private var entropyPercent = 0
+    @State private var newPassword = ""
+    @State private var newPim = "0"
+    @State private var headerKdf = "(keep current)"
+    @State private var useBackupHeader = false
+    @State private var readOnlyOpen = false
+    @State private var trueCryptMode = false
+    @State private var newFolderPresented = false
+    @State private var renamePresented = false
+    @State private var namePromptValue = ""
+    @State private var restoreHeaderPresented = false
+    @State private var copyFromDevicePresented = false
+    @State private var moveFromDevice = false
+    @State private var busy = false
+    @State private var workTitle = ""
+    @State private var workPercent = -1
 
     var body: some View {
+        ZStack {
         NavigationStack {
             Form {
                 Section("High-threat") {
@@ -34,6 +64,123 @@ struct ContentView: View {
                     Button("Panic wipe", role: .destructive) {
                         panicWipe()
                     }
+                }
+                Section("In front of you") {
+                    Text(inFrontLabel)
+                        .font(.caption)
+                    Button("Share encrypted") { shareInFrontEncrypted() }
+                    Button("Share decrypted") { shareInFrontDecrypted() }
+                        .disabled(!canShareDecrypted)
+                }
+                Section("Encryption Options") {
+                    Text("Creates a standard VeraCrypt container. The file name can be anything — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora. That name is only a disguise: a .jpg volume is not a photo. Open that same file in VeraCrypt on Windows, macOS, Linux, or another phone with the same password, PIM, and keyfiles. Face ID, Touch ID, or the device passcode only unlock those factors on THIS phone — they are not stored in the volume header.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Same cipher and KDF list as the desktop volume wizard. Default is AES(Twofish(Serpent)) with HMAC-SHA-512. Opening uses whichever password you type (outer or nested).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("Encryption Algorithm", selection: $createCipher) {
+                        ForEach(VcMobileBridge.ciphers, id: \.self) { Text($0).tag($0) }
+                    }
+                    Picker("KDF", selection: $createKdf) {
+                        ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
+                    }
+                    Picker("File name / disguise", selection: $createFileName) {
+                        ForEach(disguiseChoices, id: \.self) { Text($0).tag($0) }
+                    }
+                    TextField("File name (any extension)", text: $createFileName)
+                    Text("Opening ignores the extension. The volume is detected only if the password, PIM, and keyfiles decrypt the header.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("Size (MiB)", text: $createSizeMb)
+                        .keyboardType(.numberPad)
+                    SecureField("Volume password (never stored)", text: $createPassword)
+                        .privacySensitive()
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    TextField("PIM (0 = default)", text: $createPim)
+                        .keyboardType(.numberPad)
+                    Button("Generate strong password") {
+                        if let generated = VcMobileBridge.generatePassword() {
+                            createPassword = generated
+                            status = "Generated a 24-character password in memory. It is not saved."
+                        }
+                    }
+                    ForEach(keyfileURLs, id: \.self) { url in
+                        HStack {
+                            Text(url.lastPathComponent)
+                            Spacer()
+                            Button("Remove") {
+                                keyfileURLs.removeAll { $0 == url }
+                            }
+                        }
+                    }
+                    Button("Add keyfiles…") { keyfileImporterPresented = true }
+                    if BiometricStore.isAvailable {
+                        Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
+                        Text("Mixed as a VeraCrypt keyfile. Export it to open this volume on a PC, Mac, or another phone. Do not use phone unlock as the only factor in a danger-state — Face ID / Touch ID can be compelled.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let biometricKey {
+                            Text("Phone-unlock keyfile ready (\(biometricKey.count) bytes).")
+                                .font(.caption)
+                        }
+                        Button("Import keyfile as biometric password…") { importBioPresented = true }
+                        Button("Export biometric keyfile") { exportBiometricKeyfile() }
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Randomness (move your finger)")
+                        Text("Same idea as moving the mouse in the VeraCrypt volume wizard. Scribble in the blank area until the bar is full.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ProgressView(value: Double(entropyPercent), total: 100)
+                        Text("\(entropyPercent)%")
+                            .font(.caption)
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color(white: 0.97))
+                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.4)))
+                            Text(entropyPercent >= 100 ? "Entropy ready" : "Move your finger randomly here")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 168)
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    var bytes = [UInt8](repeating: 0, count: 24)
+                                    func put(_ offset: Int, _ v: UInt32) {
+                                        bytes[offset] = UInt8(v & 0xff)
+                                        bytes[offset + 1] = UInt8((v >> 8) & 0xff)
+                                        bytes[offset + 2] = UInt8((v >> 16) & 0xff)
+                                        bytes[offset + 3] = UInt8((v >> 24) & 0xff)
+                                    }
+                                    put(0, Float(value.location.x).bitPattern)
+                                    put(4, Float(value.location.y).bitPattern)
+                                    let t = DispatchTime.now().uptimeNanoseconds
+                                    put(8, UInt32(truncatingIfNeeded: t))
+                                    put(12, UInt32(truncatingIfNeeded: t >> 32))
+                                    put(16, Float(value.translation.x).bitPattern)
+                                    put(20, Float(value.translation.y).bitPattern)
+                                    VcMobileBridge.addEntropy(Data(bytes))
+                                    entropyPercent = Int(VcMobileBridge.entropyPercent())
+                                }
+                        )
+                    }
+                    Toggle("Nested volume (VeraCrypt hidden volume)", isOn: $createHidden)
+                    if createHidden {
+                        Text("Creates a second volume inside this container. Use a different password. Do not fill the outer volume or you will overwrite the nested one. A computer opens outer or nested depending only on which password you type.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        SecureField("Nested volume password", text: $createHiddenPassword)
+                            .privacySensitive()
+                        TextField("Nested PIM (0 = default)", text: $createHiddenPim)
+                            .keyboardType(.numberPad)
+                        TextField("Nested size (MiB)", text: $createHiddenSizeMb)
+                            .keyboardType(.numberPad)
+                    }
+                    Button("Create volume") { createVolume() }
+                        .disabled(entropyPercent < 100)
                 }
                 if let incoming = incomingFile {
                     Section("Received from another app") {
@@ -52,7 +199,7 @@ struct ContentView: View {
                 }
                 Section("Share encrypted file") {
                     Button("Share encrypted file…") { shareEncImporterPresented = true }
-                    Text("Sends .hc / .tc / .vera as-is. No password, no decrypt. WhatsApp, Mail, Drive, AirDrop, and the rest of the share sheet.")
+                    Text("Sends the encrypted file as-is, including disguised names (.jpg, .png, .safetensors). No password, no decrypt. WhatsApp, Mail, Drive, AirDrop, and the rest of the share sheet.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if let url = containerURL {
@@ -92,10 +239,26 @@ struct ContentView: View {
                 }
                 Section("Container") {
                     Button("Choose container") { importerPresented = true }
+                    Button("USB/OTG container") {
+                        status = "Pick any file from Files, including a USB drive — .hc, .jpg, .png, .safetensors, or no extension. iOS cannot talk to a raw USB disk."
+                        importerPresented = true
+                    }
                     Text(containerURL?.lastPathComponent ?? "No file selected")
+                    Toggle("Use backup header", isOn: $useBackupHeader)
+                    Text("If the first header is damaged, open using the copy stored at the end of the container.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Toggle("Read-only", isOn: $readOnlyOpen)
+                    Text("Same as desktop Mount Options → Read-only. Import, delete, rename, and wipe free space are refused.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Toggle("TrueCrypt Mode", isOn: $trueCryptMode)
+                    Text("TrueCrypt 6/7 volumes have no PIM — this forces PIM 0. Creating new TrueCrypt volumes is not offered; create a VeraCrypt volume.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Section("Unlock factors") {
-                    Text("Combine any of: biometric password, text password, keyfiles, and PIM. Same mix VeraCrypt uses on a computer.")
+                    Text("Combine any of: Face ID / Touch ID / passcode, text password, keyfiles, and PIM. The volume itself is a normal VeraCrypt file — same mix a computer uses. Any file name works; the header is detected only if those credentials are correct.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Toggle("Text password", isOn: $useTextPassword)
@@ -118,7 +281,7 @@ struct ContentView: View {
                     }
                     Button("Add keyfiles…") { keyfileImporterPresented = true }
                     if BiometricStore.isAvailable {
-                        Toggle("Biometric as password", isOn: $useBiometric)
+                        Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
                         Text("Do not use biometrics as the only factor in a danger-state. Face ID / Touch ID can be compelled. Mix a password and a keyfile you do not keep on this phone.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -135,7 +298,7 @@ struct ContentView: View {
                         Button("Create biometric password") { createBiometricPassword() }
                         Button("Import keyfile as biometric password…") { importBioPresented = true }
                         Button("Export biometric keyfile") { exportBiometricKeyfile() }
-                        Button("Unlock with biometrics") { loadBiometricFactors() }
+                        Button("Unlock with Face ID, Touch ID, or passcode") { loadBiometricFactors() }
                         Toggle("Remember this combination", isOn: $rememberBiometrics)
                     }
                     Button("Open volume") { openVolume() }
@@ -143,34 +306,79 @@ struct ContentView: View {
                 Section("Updates") {
                     if FossConfig.enableUpdateCheck {
                         Button("Check for updates") {
-                            status = "Checking for updates (one HTTPS request)..."
+                            beginWork("Checking for updates (≤20s HTTPS window)...")
                             DispatchQueue.global(qos: .userInitiated).async {
                                 do {
                                     let result = try UpdateChecker.check()
                                     DispatchQueue.main.async {
-                                        status = result.newer
-                                            ? "Update \(result.remoteVersion) available. \(result.notes) Offline again."
-                                            : "Already up to date (\(UpdateChecker.localVersion)). Offline again."
+                                        endWork()
+                                        status = Self.formatUpdateStatus(result)
                                     }
                                 } catch {
                                     DispatchQueue.main.async {
+                                        endWork()
                                         status = "Update check failed. Offline again."
                                     }
                                 }
                             }
                         }
-                        Text("The app stays offline until you tap this.")
+                        Text("The app never listens and stays offline until you tap this. Check for updates opens a 20-second HTTPS window to our version.json, official VeraCrypt on GitHub, and GitHub status — then disconnects. It does not install an IPA.")
                     } else {
                         Text("This build does not contact the network. Install updates from AltStore, SideStore, or a new source build.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
+                Section("Tools") {
+                    Text("Uses the container and unlock factors above. These rewrite the volume header — the volume is closed first. Keyfiles and Face ID are mixed into the password; they are not stored in the header.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    SecureField("New password (empty = keep current)", text: $newPassword)
+                        .privacySensitive()
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                    TextField("New PIM (0 = VeraCrypt default)", text: $newPim)
+                        .keyboardType(.numberPad)
+                    Button("Change volume password") { changeVolumePassword() }
+                    Picker("Header KDF", selection: $headerKdf) {
+                        Text("(keep current)").tag("(keep current)")
+                        ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
+                    }
+                    Button("Set header key derivation algorithm") { setHeaderKdf() }
+                    Button("Add/Remove keyfiles to/from volume") { applyKeyfilesToVolume() }
+                    Button("Remove all keyfiles from volume") { removeAllKeyfiles() }
+                    Button("Backup volume header") { backupVolumeHeader() }
+                    Button("Restore volume header") { restoreHeaderPresented = true }
+                    Button("Restore from embedded backup header") { restoreEmbeddedHeader() }
+                    Button("Volume properties") { showVolumeProperties() }
+                    Button("Keyfile generator") { generateKeyfile() }
+                    Button("Benchmark") { runBenchmark() }
+                    Button("Test vectors") { runTestVectors() }
+                    Button("Wipe cached passwords") {
+                        lockSession()
+                        status = "Wipe cached passwords complete. Volume closed."
+                    }
+                    Text("Device encryption: this app encrypts VeraCrypt container files (any file name). It cannot encrypt the iPhone operating system. iOS already encrypts the device with your passcode.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Security tokens: PKCS#11 smart cards are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, hidden-volume write protection while the outer is open, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Section("About / licenses") {
                     Text("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
                     Link("http://www.truecrypt.org/", destination: URL(string: "http://www.truecrypt.org/")!)
                     Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. Not unbreakable.")
                         .font(.caption)
+                    Text(SourcePin.describeBuild())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Tap Check for updates only if this build allows it; that reads ports/version.json from the public source. The app does not install itself. AltStore or a rebuild from that source is how a new IPA arrives.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Text("Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -179,11 +387,16 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                 }
                 Section("Status") {
-                    Text(status)
+                    HStack(alignment: .top, spacing: 10) {
+                        Capsule()
+                            .fill(statusTone)
+                            .frame(width: 4, height: 36)
+                        Text(status)
+                    }
                 }
                 Section("Files") {
                     if entries.isEmpty {
-                        Text("Open a volume to list files. Share decrypted copies from here, or share the encrypted volume from the section above. FAT folders are browsable; exFAT is not.")
+                        Text("Open a volume to list files. Copy or move a file from or to this device, share decrypted copies, or share the encrypted volume from the section above. FAT folders are browsable; exFAT is not.")
                     }
                     if volumeHandle != nil {
                         HStack {
@@ -197,12 +410,59 @@ struct ContentView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        HStack {
+                            Button("Copy from device") {
+                                moveFromDevice = false
+                                copyFromDevicePresented = true
+                            }
+                            Button("Move from device") {
+                                moveFromDevice = true
+                                copyFromDevicePresented = true
+                            }
+                        }
+                        HStack {
+                            Button("Copy to device") { copySelectedToDevice(move: false) }
+                            Button("Move to device") { copySelectedToDevice(move: true) }
+                        }
+                        HStack {
+                            Button("New folder") {
+                                namePromptValue = ""
+                                newFolderPresented = true
+                            }
+                            Button("Rename") {
+                                guard let name = selectedNames.first else {
+                                    status = "Tap a file or folder, then Rename."
+                                    return
+                                }
+                                namePromptValue = name
+                                renamePresented = true
+                            }
+                        }
+                        HStack {
+                            Button("Delete") { deleteSelected() }
+                            Button("Properties") { showEntryProperties() }
+                        }
+                        Button("Wipe free space") { wipeFreeSpace() }
                     }
                     ForEach(entries) { entry in
                         HStack {
+                            ZStack {
+                                Circle()
+                                    .fill(selectedNames.contains(entry.name) ? Color.accentColor : Color.secondary.opacity(0.18))
+                                    .frame(width: 28, height: 28)
+                                if selectedNames.contains(entry.name) {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.white)
+                                } else {
+                                    Image(systemName: entry.isDir ? "folder" : "doc")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                             VStack(alignment: .leading) {
                                 Text(entry.name)
-                                Text(entry.isDir ? "Folder" : byteCount(entry.size))
+                                Text(entry.isDir ? "Folder — tap Open" : byteCount(entry.size))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -210,17 +470,33 @@ struct ContentView: View {
                             if entry.isDir {
                                 Button("Open") {
                                     dirPath = joinDir(dirPath, entry.name)
+                                    selectedNames = []
                                     reloadDir()
                                 }
                             } else {
+                                Button(selectedNames.contains(entry.name) ? "Selected" : "Select") {
+                                    if selectedNames.contains(entry.name) {
+                                        selectedNames.remove(entry.name)
+                                    } else {
+                                        selectedNames.insert(entry.name)
+                                    }
+                                }
                                 Button("Share decrypted") { shareVaultFile(entry) }
                             }
                         }
                     }
+                    if volumeHandle != nil && listTruncated {
+                        Button("Load more") { reloadDir(append: true) }
+                    }
                 }
             }
+            .disabled(busy)
             .navigationTitle("VC Port")
-            .fileImporter(isPresented: $importerPresented, allowedContentTypes: Self.containerTypes) { result in
+            .tint(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
+            .toolbarBackground(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .fileImporter(isPresented: $importerPresented, allowedContentTypes: [.item, .data]) { result in
                 if case .success(let url) = result {
                     _ = url.startAccessingSecurityScopedResource()
                     containerURL = url
@@ -229,7 +505,7 @@ struct ContentView: View {
             }
             .fileImporter(
                 isPresented: $shareEncImporterPresented,
-                allowedContentTypes: Self.containerTypes,
+                allowedContentTypes: [.item, .data],
                 allowsMultipleSelection: true
             ) { result in
                 if case .success(let urls) = result {
@@ -269,6 +545,28 @@ struct ContentView: View {
                     importBiometricKeyfile(url)
                 }
             }
+            .fileImporter(isPresented: $restoreHeaderPresented, allowedContentTypes: [.data]) { result in
+                if case .success(let url) = result {
+                    _ = url.startAccessingSecurityScopedResource()
+                    restoreVolumeHeader(url)
+                }
+            }
+            .fileImporter(isPresented: $copyFromDevicePresented, allowedContentTypes: [.item, .data]) { result in
+                if case .success(let url) = result {
+                    _ = url.startAccessingSecurityScopedResource()
+                    importFromDevice(url, move: moveFromDevice)
+                }
+            }
+            .alert("New folder", isPresented: $newFolderPresented) {
+                TextField("Name", text: $namePromptValue)
+                Button("Create") { mkdirInVolume(namePromptValue) }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Rename", isPresented: $renamePresented) {
+                TextField("Name", text: $namePromptValue)
+                Button("Rename") { renameSelected(namePromptValue) }
+                Button("Cancel", role: .cancel) {}
+            }
             .onChange(of: scenePhase) { phase in
                 if phase == .background {
                     lockSession()
@@ -277,14 +575,221 @@ struct ContentView: View {
             .onOpenURL { url in
                 _ = url.startAccessingSecurityScopedResource()
                 incomingFile = url
-                if looksLikeContainer(url) {
-                    containerURL = url
-                    status = "Received container \(url.lastPathComponent)."
-                } else if url.pathExtension.lowercased() == "vcpw" {
+                if url.pathExtension.lowercased() == "vcpw" {
                     status = "Received wrapped file \(url.lastPathComponent). Enter the wrap password and decrypt it."
                 } else {
-                    status = "Received \(url.lastPathComponent). Wrap it, share it, or open as a container."
+                    containerURL = url
+                    status = "Received \(url.lastPathComponent). Any extension can be a volume. Open with the correct password, PIM, and keyfiles."
                 }
+            }
+        }
+        if busy {
+            WorkOverlay(title: workTitle.isEmpty ? status : workTitle, percent: workPercent)
+        }
+        }
+        .task(id: busy) {
+            guard busy else { return }
+            while !Task.isCancelled {
+                workPercent = VcMobileBridge.progressPercent()
+                let phase = VcMobileBridge.progressPhase()
+                if !phase.isEmpty {
+                    workTitle = phase
+                }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+        }
+    }
+
+    private var disguiseChoices: [String] {
+        if Self.disguiseNames.contains(createFileName) {
+            return Self.disguiseNames
+        }
+        return Self.disguiseNames + [createFileName]
+    }
+
+    private var inFrontLabel: String {
+        let selected = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
+        if !selected.isEmpty {
+            return selected.map(\.name).joined(separator: ", ") + " — decrypted from the open volume"
+        }
+        if let live = lastPlain.first, FileManager.default.fileExists(atPath: live.path) {
+            return live.lastPathComponent + " — decrypted copy"
+        }
+        if let incoming = incomingFile, incoming.pathExtension.lowercased() == "vcpw" {
+            return "\(incoming.lastPathComponent) — encrypted wrap in front"
+        }
+        if let incoming = incomingFile {
+            return "\(incoming.lastPathComponent) — encrypted file in front"
+        }
+        if let containerURL {
+            return "\(containerURL.lastPathComponent) — encrypted file in front"
+        }
+        return "Nothing in front. Select a container or file, then share from here."
+    }
+
+    private var canShareDecrypted: Bool {
+        entries.contains { selectedNames.contains($0.name) && !$0.isDir }
+            || lastPlain.contains { FileManager.default.fileExists(atPath: $0.path) }
+            || (incomingFile?.pathExtension.lowercased() == "vcpw" && !wrapPassword.isEmpty)
+    }
+
+    private var statusTone: Color {
+        let lower = status.lowercased()
+        if ["fail", "could not", "wrong", "empty"].contains(where: { lower.contains($0) }) {
+            return .red
+        }
+        if ["opened", "copied", "created", "moved", "wiped", "complete", "saved", "unwrapped", "wrapped", "renamed", "deleted"].contains(where: { lower.contains($0) }) {
+            return Color(red: 0.15, green: 0.48, blue: 0.25)
+        }
+        return Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255)
+    }
+
+    private func beginWork(_ title: String) {
+        VcMobileBridge.resetProgress()
+        workTitle = title
+        workPercent = -1
+        busy = true
+        status = title
+    }
+
+    private func endWork() {
+        busy = false
+        workTitle = ""
+        workPercent = -1
+        VcMobileBridge.resetProgress()
+    }
+
+    private func shareInFrontEncrypted() {
+        if let incoming = incomingFile {
+            status = "Sharing \(incoming.lastPathComponent) encrypted as-is."
+            SystemShare.present(items: [incoming])
+            return
+        }
+        if let containerURL {
+            status = "Sharing encrypted file as-is."
+            SystemShare.present(items: [containerURL])
+            return
+        }
+        shareEncImporterPresented = true
+    }
+
+    private func shareInFrontDecrypted() {
+        let selected = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
+        if volumeHandle != nil, let first = selected.first {
+            shareVaultFile(first)
+            return
+        }
+        if let live = lastPlain.first, FileManager.default.fileExists(atPath: live.path) {
+            status = "Sharing decrypted \(live.lastPathComponent)."
+            SystemShare.present(items: lastPlain.filter { FileManager.default.fileExists(atPath: $0.path) })
+            return
+        }
+        if let incoming = incomingFile, incoming.pathExtension.lowercased() == "vcpw" {
+            unwrapURL(incoming)
+            return
+        }
+        status = "Tap files in an open volume, or decrypt a wrap, then Share decrypted."
+    }
+
+    private func createVolume() {
+        if useBiometric && (biometricKey == nil || biometricKey?.isEmpty == true) {
+            biometricKey = FactorCodec.randomBiometricKey()
+        }
+        let hasBio = useBiometric && biometricKey != nil && !(biometricKey?.isEmpty ?? true)
+        if createPassword.isEmpty && !hasBio && keyfileURLs.isEmpty {
+            status = "Choose at least one factor: text password, phone unlock keyfile, or a keyfile."
+            return
+        }
+        if !createPassword.isEmpty && createPassword.count < 16 && !hasBio && keyfileURLs.isEmpty {
+            status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
+            return
+        }
+        guard let mb = Int(createSizeMb), mb >= 2, mb <= 512 else {
+            status = "Size must be 2–512 MiB."
+            return
+        }
+        if entropyPercent < 100 {
+            status = "Move your finger in the blank area until the randomness bar is full."
+            return
+        }
+        var hiddenBytes: UInt64 = 0
+        if createHidden {
+            guard mb >= 8 else {
+                status = "Nested volume needs an outer size of at least 8 MiB."
+                return
+            }
+            guard createHiddenPassword.count >= 16 else {
+                status = "Nested volume password must be at least 16 characters, and different from the outer password."
+                return
+            }
+            guard createHiddenPassword != createPassword else {
+                status = "Use a different password for the nested volume."
+                return
+            }
+            guard let hiddenMb = Int(createHiddenSizeMb), hiddenMb >= 2, hiddenMb * 2 < mb else {
+                status = "Nested size must be at least 2 MiB and less than half the outer size, so the outer volume has room."
+                return
+            }
+            hiddenBytes = UInt64(hiddenMb) * 1024 * 1024
+        }
+        let dest = FileManager.default.temporaryDirectory.appendingPathComponent(Self.sanitizeDisguiseName(createFileName))
+        beginWork("Creating \(mb) MiB \(createCipher) / \(createKdf) volume…")
+        let password = createPassword
+        let pim = Int32(createPim) ?? 0
+        let cipher = createCipher
+        let kdf = createKdf
+        var temps: [URL] = []
+        var keys = keyfileURLs.map(\.path)
+        if hasBio, let biometricKey {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("vcbio-\(UUID().uuidString).key")
+            try? biometricKey.write(to: url, options: .completeFileProtection)
+            temps.append(url)
+            keys.insert(url.path, at: 0)
+        }
+        let storedBio = hasBio ? biometricKey : nil
+        let hiddenPw = createHidden ? createHiddenPassword : ""
+        let hiddenPimVal = Int32(createHiddenPim) ?? 0
+        let nested = createHidden
+        DispatchQueue.global(qos: .userInitiated).async {
+            let rc = VcMobileBridge.createVolume(
+                path: dest.path,
+                password: password,
+                pim: pim,
+                sizeBytes: UInt64(mb) * 1024 * 1024,
+                cipher: cipher,
+                kdf: kdf,
+                keyfiles: keys,
+                hiddenPassword: hiddenPw,
+                hiddenPim: hiddenPimVal,
+                hiddenSizeBytes: hiddenBytes
+            )
+            temps.forEach { try? FileManager.default.removeItem(at: $0) }
+            DispatchQueue.main.async {
+                endWork()
+                if rc != 0 {
+                    status = "Create failed (code \(rc))."
+                    return
+                }
+                containerURL = dest
+                self.password = password
+                self.pim = createPim
+                var msg = "Created \(mb) MiB \(cipher) / \(kdf) FAT volume as \(dest.lastPathComponent) (standard VeraCrypt file; the name is only a disguise). Open volume, or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
+                if nested {
+                    msg += " Nested volume is inside; open it with the nested password. Do not fill the outer volume."
+                }
+                if hasBio {
+                    msg += " Export the phone-unlock keyfile for those other devices."
+                    _ = BiometricStore.store(
+                        path: dest.path,
+                        bundle: FactorBundle(
+                            pim: Int(createPim) ?? 0,
+                            password: password,
+                            biometricKey: storedBio,
+                            keyfilePaths: keyfileURLs.map(\.path)
+                        )
+                    )
+                }
+                status = msg
             }
         }
     }
@@ -304,60 +809,79 @@ struct ContentView: View {
             return
         }
         closeVolume()
-        var temps: [URL] = []
-        var keyfilePaths = keyfileURLs.map(\.path)
-        if useBiometric, let biometricKey {
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("vcbio-\(UUID().uuidString).key")
-            try? biometricKey.write(to: url, options: .completeFileProtection)
-            temps.append(url)
-            keyfilePaths.insert(url.path, at: 0)
-        }
-        var error: Int32 = 0
-        let handle = VcMobileBridge.open(
-            path: path,
-            password: text,
-            pim: Int32(pim) ?? 0,
-            keyfiles: keyfilePaths,
-            error: &error
-        )
-        temps.forEach { try? FileManager.default.removeItem(at: $0) }
-        guard let handle else {
-            status = openErrorMessage(error)
-            return
-        }
-        volumeHandle = handle
-        dirPath = ""
-        switch VcMobileBridge.listDir(handle, path: "/") {
-        case .failure(let code):
-            VcMobileBridge.close(handle)
-            volumeHandle = nil
-            status = listErrorMessage(code)
-            entries = []
-        case .success(let listed):
-            entries = listed
-            status = "Opened. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file."
-        }
-        if rememberBiometrics {
-            _ = BiometricStore.store(
+        beginWork("Opening volume…")
+        let backup = useBackupHeader
+        let readOnly = readOnlyOpen
+        let tcMode = trueCryptMode
+        let pimValue = Int32(pim) ?? 0
+        let remember = rememberBiometrics
+        let bio = useBiometric ? biometricKey : nil
+        let keys = keyfileURLs
+        DispatchQueue.global(qos: .userInitiated).async {
+            var temps: [URL] = []
+            var keyfilePaths = keys.map(\.path)
+            if let bio {
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent("vcbio-\(UUID().uuidString).key")
+                try? bio.write(to: url, options: .completeFileProtection)
+                temps.append(url)
+                keyfilePaths.insert(url.path, at: 0)
+            }
+            var error: Int32 = 0
+            let handle = VcMobileBridge.open(
                 path: path,
-                bundle: FactorBundle(
-                    pim: Int(pim) ?? 0,
-                    password: text,
-                    biometricKey: useBiometric ? biometricKey : nil,
-                    keyfilePaths: keyfileURLs.map(\.path)
-                )
+                password: text,
+                pim: tcMode ? 0 : pimValue,
+                keyfiles: keyfilePaths,
+                useBackupHeader: backup,
+                readOnly: readOnly,
+                error: &error
             )
+            temps.forEach { try? FileManager.default.removeItem(at: $0) }
+            DispatchQueue.main.async {
+                endWork()
+                guard let handle else {
+                    status = openErrorMessage(error)
+                    return
+                }
+                volumeHandle = handle
+                dirPath = ""
+                switch VcMobileBridge.listDir(handle, path: "/") {
+                case .failure(let code):
+                    VcMobileBridge.close(handle)
+                    volumeHandle = nil
+                    status = listErrorMessage(code)
+                    entries = []
+                    listTruncated = false
+                case .success(let listed):
+                    let truncated = listed.contains { $0.name == "!truncated!" }
+                    entries = listed.filter { $0.name != "!truncated!" }
+                    listTruncated = truncated
+                    status = "Opened. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file."
+                    if truncated { status += " Listing truncated at \(VC_LIST_UI_MAX) entries. Tap Load more." }
+                }
+                if remember {
+                    _ = BiometricStore.store(
+                        path: path,
+                        bundle: FactorBundle(
+                            pim: Int(pim) ?? 0,
+                            password: text,
+                            biometricKey: bio,
+                            keyfilePaths: keys.map(\.path)
+                        )
+                    )
+                }
+            }
         }
     }
 
     private func createBiometricPassword() {
-        guard let path = containerURL?.path else {
-            status = "Choose a container first."
-            return
-        }
         let secret = FactorCodec.randomBiometricKey()
         biometricKey = secret
         useBiometric = true
+        guard let path = containerURL?.path else {
+            status = "Created a 64-byte phone-unlock keyfile in memory. Create the volume with it checked, then export the keyfile for a computer."
+            return
+        }
         let ok = BiometricStore.store(
             path: path,
             bundle: FactorBundle(
@@ -428,7 +952,11 @@ struct ContentView: View {
         wrapPassword = ""
         entries = []
         dirPath = ""
+        listTruncated = false
+        lastPlain = []
+        selectedNames = []
         SensitivePaste.forget()
+        endWork()
         if !status.hasPrefix("Panic") {
             status = "Locked. Passwords cleared. Panic wipe also destroys Keychain leftovers."
         }
@@ -460,30 +988,142 @@ struct ContentView: View {
             return
         }
         let volumePath = joinDir(dirPath, entry.name)
-        status = "Preparing \(entry.name)…"
+        beginWork("Preparing \(entry.name)…")
         DispatchQueue.global(qos: .userInitiated).async {
             let dest = FileManager.default.temporaryDirectory
                 .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
             let rc = VcMobileBridge.exportFile(handle, name: volumePath, dest: dest.path)
             DispatchQueue.main.async {
+                endWork()
                 if rc != 0 {
                     status = extractErrorMessage(entry.name, rc)
                     return
                 }
                 status = "Share \(entry.name) with WhatsApp, Mail, Drive, or any app."
+                lastPlain = [dest]
                 SystemShare.present(items: [dest])
             }
         }
     }
 
-    private func reloadDir() {
+    private func importFromDevice(_ url: URL, move: Bool) {
+        guard let handle = volumeHandle else {
+            status = "Open a volume first."
+            return
+        }
+        beginWork(move ? "Moving from device…" : "Copying from device…")
+        let destDir = dirPath.isEmpty ? "/" : dirPath
+        DispatchQueue.global(qos: .userInitiated).async {
+            let name = url.lastPathComponent
+            let dest = FileManager.default.temporaryDirectory
+                .appendingPathComponent("from-device-\(Int(Date().timeIntervalSince1970))-\(name)")
+            do {
+                try? FileManager.default.removeItem(at: dest)
+                try FileManager.default.copyItem(at: url, to: dest)
+            } catch {
+                DispatchQueue.main.async {
+                    endWork()
+                    status = "Could not read that file from the device."
+                }
+                return
+            }
+            let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: dest.path, destName: name)
+            var deletedOriginal = false
+            if rc == 0 && move {
+                do {
+                    try FileManager.default.removeItem(at: url)
+                    deletedOriginal = true
+                } catch {
+                    deletedOriginal = false
+                }
+            }
+            try? FileManager.default.removeItem(at: dest)
+            DispatchQueue.main.async {
+                endWork()
+                if rc != 0 {
+                    status = importErrorMessage(name, rc)
+                    return
+                }
+                if move && !deletedOriginal {
+                    status = "Copied \(name) into the volume. Could not delete the original; remove it in Files if you meant a move."
+                } else if move {
+                    status = "Moved \(name) into the volume."
+                } else {
+                    status = "Copied \(name) from the device into this folder."
+                }
+                reloadDir()
+            }
+        }
+    }
+
+    private func copySelectedToDevice(move: Bool) {
+        guard volumeHandle != nil else {
+            status = "Open a volume first."
+            return
+        }
+        guard let name = selectedNames.first,
+              let entry = entries.first(where: { $0.name == name && !$0.isDir }) else {
+            status = move
+                ? "Tap a file in the volume, then Move to device."
+                : "Tap a file in the volume, then Copy to device."
+            return
+        }
+        exportToDevice(entry, move: move)
+    }
+
+    private func exportToDevice(_ entry: VaultEntry, move: Bool) {
+        guard let handle = volumeHandle else {
+            status = "Open a volume first."
+            return
+        }
+        let volumePath = joinDir(dirPath, entry.name)
+        beginWork(move ? "Moving \(entry.name) to device…" : "Copying \(entry.name) to device…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dest = FileManager.default.temporaryDirectory
+                .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
+            try? FileManager.default.removeItem(at: dest)
+            let rc = VcMobileBridge.exportFile(handle, name: volumePath, dest: dest.path)
+            DispatchQueue.main.async {
+                endWork()
+                if rc != 0 {
+                    status = extractErrorMessage(entry.name, rc)
+                    return
+                }
+                SystemFiles.exportCopy(url: dest) { ok in
+                    if !ok {
+                        status = "Cancelled saving \(entry.name)."
+                        return
+                    }
+                    if move {
+                        let dlt = VcMobileBridge.deleteFile(handle, path: volumePath)
+                        if dlt == 0 {
+                            status = "Moved \(entry.name) to the device."
+                            selectedNames.remove(entry.name)
+                            reloadDir()
+                        } else {
+                            status = "Copied \(entry.name) to the device, but could not remove it from the volume."
+                        }
+                    } else {
+                        status = "Copied \(entry.name) to the device."
+                    }
+                }
+            }
+        }
+    }
+
+    private func reloadDir(append: Bool = false) {
         guard let handle = volumeHandle else { return }
         let path = dirPath.isEmpty ? "/" : dirPath
-        switch VcMobileBridge.listDir(handle, path: path) {
+        let offset = append ? Int32(entries.count) : 0
+        switch VcMobileBridge.listDir(handle, path: path, offset: offset) {
         case .failure(let code):
             status = listErrorMessage(code)
         case .success(let listed):
-            entries = listed
+            let truncated = listed.contains { $0.name == "!truncated!" }
+            let files = listed.filter { $0.name != "!truncated!" }
+            entries = append ? entries + files : files
+            listTruncated = truncated
+            if truncated { status = "Folder listing truncated at \(VC_LIST_UI_MAX) entries. Tap Load more." }
         }
     }
 
@@ -502,22 +1142,368 @@ struct ContentView: View {
         case -6: return "This container uses exFAT or another filesystem VC Port does not open. FAT only."
         case -1: return "Could not read the container file."
         case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
+        case -4: return "Missing path or password argument."
+        case -5: return "Not enough memory to open the volume."
         default: return "Open failed (code \(code))."
         }
     }
 
     private func listErrorMessage(_ code: Int32) -> String {
-        if code == -6 {
-            return "Opened the volume, but the filesystem is exFAT or otherwise unsupported. FAT only."
+        switch code {
+        case -6: return "Opened the volume, but the filesystem is exFAT or otherwise unsupported. FAT only."
+        case -4: return "Could not list that folder path."
+        case -5: return "Not enough memory to list the folder."
+        case -1: return "Could not read the folder from the volume."
+        default: return "Could not list files (code \(code))."
         }
-        return "Could not list files (code \(code))."
     }
 
     private func extractErrorMessage(_ name: String, _ rc: Int32) -> String {
-        if rc == -6 {
-            return "Could not extract \(name). FAT only; exFAT is unsupported."
+        switch rc {
+        case -6: return "Could not extract \(name). FAT only; exFAT is unsupported."
+        case -4: return "Could not extract \(name). Bad path."
+        case -5: return "Could not extract \(name). Not enough memory."
+        case -1: return "Could not extract \(name). Read failed."
+        case -2: return "Could not extract \(name). Wrong password or header."
+        default: return "Could not extract \(name) (code \(rc))."
         }
-        return "Could not extract \(name) (code \(rc))."
+    }
+
+    private func importErrorMessage(_ name: String, _ rc: Int32) -> String {
+        switch rc {
+        case -6: return "Could not copy \(name). FAT only; folders are not created this way."
+        case -4: return "Could not copy \(name). Bad name or path."
+        case -5: return "Could not copy \(name). Volume is full, or the file is larger than 256 MiB."
+        case -3: return "A file named \(name) already exists in this folder."
+        case -1: return "Could not copy \(name) into the volume."
+        default: return "Could not copy \(name) (code \(rc))."
+        }
+    }
+
+    private static func formatUpdateStatus(_ result: SourcePin.CheckResult) -> String {
+        var bits: [String] = [
+            result.newer
+                ? "Update \(result.remoteVersion) available from source. \(result.notes)"
+                : result.sourceMoved
+                    ? "Same VC Port \(SourcePin.localVersion), VeraCrypt pin moved to \(result.remoteUpstreamCommit.prefix(12)). Rebuild from source."
+                    : "Already up to date (\(SourcePin.localVersion))."
+        ]
+        if result.officialNewer && !result.officialVersion.isEmpty {
+            bits.append(
+                "Official VeraCrypt \(result.officialVersion) is published. This build still compiles \(SourcePin.upstreamVersion). Merge with scripts/sync-upstream.sh and rebuild. This app does not fetch their source."
+            )
+        }
+        if result.sourceDegraded && !result.sourceWarning.isEmpty {
+            bits.append(result.sourceWarning)
+        }
+        if !result.downloadURL.isEmpty { bits.append(result.downloadURL) }
+        if !result.apkSha256.isEmpty {
+            bits.append("SHA-256 \(result.apkSha256)")
+        } else if result.newer {
+            bits.append("No APK hash in the manifest yet; GitHub APKs are debug-signed previews.")
+        }
+        bits.append("This app does not install itself. Offline again.")
+        return bits.joined(separator: " ")
+    }
+
+    private func headerErrorMessage(_ rc: Int32) -> String {
+        switch rc {
+        case -4: return "Need a container path and at least a password or keyfile."
+        case -2: return "Wrong password, PIM, or keyfile mix."
+        case -1: return "Could not read or write the container. Close it first if it is open."
+        case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
+        case -6: return "That KDF is not available in this build."
+        case -5: return "Not enough memory."
+        default: return "Header operation failed (code \(rc))."
+        }
+    }
+
+    private func currentUnlockPaths() -> (password: String, keyfiles: [String], temps: [URL])? {
+        guard containerURL != nil else {
+            status = "Choose a container first."
+            return nil
+        }
+        let text = useTextPassword ? password : ""
+        let hasBio = useBiometric && biometricKey != nil && !(biometricKey?.isEmpty ?? true)
+        if text.isEmpty && !hasBio && keyfileURLs.isEmpty {
+            status = "Enter the current password, keyfiles, or biometrics above."
+            return nil
+        }
+        var temps: [URL] = []
+        var paths = keyfileURLs.map(\.path)
+        if hasBio, let biometricKey {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("vcbio-\(UUID().uuidString).key")
+            try? biometricKey.write(to: url, options: .completeFileProtection)
+            temps.append(url)
+            paths.insert(url.path, at: 0)
+        }
+        return (text, paths, temps)
+    }
+
+    private func changeVolumePassword() {
+        runChangeHeader(
+            newPassword: newPassword,
+            newKdf: "",
+            keepKeyfiles: true,
+            success: "Changed volume password. Open with the new password, same keyfiles, and same biometrics."
+        )
+    }
+
+    private func setHeaderKdf() {
+        guard headerKdf != "(keep current)" else {
+            status = "Pick a KDF other than keep current."
+            return
+        }
+        runChangeHeader(
+            newPassword: "",
+            newKdf: headerKdf,
+            keepKeyfiles: true,
+            success: "Set header key derivation algorithm to \(headerKdf)."
+        )
+    }
+
+    private func applyKeyfilesToVolume() {
+        runChangeHeader(
+            newPassword: "",
+            newKdf: "",
+            keepKeyfiles: true,
+            success: "Applied the current keyfile list (Add/Remove keyfiles) to the volume header."
+        )
+    }
+
+    private func removeAllKeyfiles() {
+        runChangeHeader(
+            newPassword: "",
+            newKdf: "",
+            keepKeyfiles: false,
+            success: "Removed all keyfiles from volume. Open with the password only."
+        )
+    }
+
+    private func runChangeHeader(newPassword: String, newKdf: String, keepKeyfiles: Bool, success: String) {
+        guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
+        let nextPassword = newPassword.isEmpty ? unlock.password : newPassword
+        if !keepKeyfiles && nextPassword.isEmpty {
+            status = "Removing all keyfiles needs a text password, or the volume cannot be opened."
+            return
+        }
+        closeVolume()
+        beginWork("Rewriting volume header…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let rc = VcMobileBridge.changeHeader(
+                path: path,
+                password: unlock.password,
+                pim: Int32(pim) ?? 0,
+                keyfiles: unlock.keyfiles,
+                backup: useBackupHeader,
+                newPassword: newPassword,
+                newPim: Int32(newPim) ?? 0,
+                newKdf: newKdf,
+                newKeyfiles: keepKeyfiles ? unlock.keyfiles : []
+            )
+            unlock.temps.forEach { try? FileManager.default.removeItem(at: $0) }
+            DispatchQueue.main.async {
+                endWork()
+                status = rc == 0 ? success : headerErrorMessage(rc)
+            }
+        }
+    }
+
+    private func backupVolumeHeader() {
+        guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
+        closeVolume()
+        let dest = FileManager.default.temporaryDirectory.appendingPathComponent("volume-header.bak")
+        let rc = VcMobileBridge.backupHeaders(
+            volumePath: path,
+            backupPath: dest.path,
+            password: unlock.password,
+            pim: Int32(pim) ?? 0,
+            keyfiles: unlock.keyfiles
+        )
+        unlock.temps.forEach { try? FileManager.default.removeItem(at: $0) }
+        guard rc == 0 else {
+            status = headerErrorMessage(rc)
+            return
+        }
+        status = "Header backup ready. Save the .bak file somewhere safe, not only on this phone."
+        SystemShare.present(items: [dest])
+    }
+
+    private func restoreVolumeHeader(_ backup: URL) {
+        guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
+        closeVolume()
+        let rc = VcMobileBridge.restoreHeaders(
+            volumePath: path,
+            backupPath: backup.path,
+            password: unlock.password,
+            pim: Int32(pim) ?? 0,
+            keyfiles: unlock.keyfiles
+        )
+        unlock.temps.forEach { try? FileManager.default.removeItem(at: $0) }
+        status = rc == 0
+            ? "Restored volume header. Open with the password that was current when the backup was made."
+            : headerErrorMessage(rc)
+    }
+
+    private func restoreEmbeddedHeader() {
+        guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
+        closeVolume()
+        let rc = VcMobileBridge.restoreHeaders(
+            volumePath: path,
+            backupPath: "",
+            password: unlock.password,
+            pim: Int32(pim) ?? 0,
+            keyfiles: unlock.keyfiles
+        )
+        unlock.temps.forEach { try? FileManager.default.removeItem(at: $0) }
+        status = rc == 0
+            ? "Restored from embedded backup header. Open with the same password, PIM, and keyfiles."
+            : headerErrorMessage(rc)
+    }
+
+    private func mkdirInVolume(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let handle = volumeHandle else {
+            status = "Open a volume first."
+            return
+        }
+        guard !trimmed.isEmpty else {
+            status = "Name is empty."
+            return
+        }
+        let destDir = dirPath.isEmpty ? "/" : dirPath
+        let rc = VcMobileBridge.mkdir(handle, parent: destDir, name: trimmed)
+        if rc != 0 {
+            status = importErrorMessage(trimmed, rc)
+            return
+        }
+        status = "Created folder \(trimmed)."
+        reloadDir()
+    }
+
+    private func renameSelected(_ newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let handle = volumeHandle else {
+            status = "Open a volume first."
+            return
+        }
+        guard let old = selectedNames.first else {
+            status = "Tap a file or folder, then Rename."
+            return
+        }
+        let rc = VcMobileBridge.renameFile(handle, path: joinDir(dirPath, old), newName: trimmed)
+        if rc != 0 {
+            status = importErrorMessage(old, rc)
+            return
+        }
+        selectedNames = [trimmed]
+        status = "Renamed \(old) to \(trimmed)."
+        reloadDir()
+    }
+
+    private func deleteSelected() {
+        guard let handle = volumeHandle else {
+            status = "Open a volume first."
+            return
+        }
+        guard let name = selectedNames.first,
+              let entry = entries.first(where: { $0.name == name }) else {
+            status = "Tap a file or folder, then Delete."
+            return
+        }
+        let path = joinDir(dirPath, entry.name)
+        let rc = entry.isDir ? VcMobileBridge.rmdir(handle, path: path) : VcMobileBridge.deleteFile(handle, path: path)
+        if rc != 0 {
+            status = entry.isDir && rc == -3 ? "Folder \(path) is not empty." : importErrorMessage(entry.name, rc)
+            return
+        }
+        selectedNames.remove(name)
+        status = "Deleted \(entry.name)."
+        reloadDir()
+    }
+
+    private func showEntryProperties() {
+        guard let name = selectedNames.first,
+              let entry = entries.first(where: { $0.name == name }) else {
+            status = entries.isEmpty ? "This folder is empty." : "Tap a file or folder, then Properties."
+            return
+        }
+        let kind = entry.isDir ? "Folder" : "File"
+        let size = entry.isDir ? "" : ", \(byteCount(entry.size))"
+        status = "\(kind) \(entry.name)\(size), modified \(formatFatStamp(entry.dosDate, entry.dosTime)). FAT only; this is not a mounted drive."
+    }
+
+    private func wipeFreeSpace() {
+        guard let handle = volumeHandle else {
+            status = "Open a volume first."
+            return
+        }
+        beginWork("Wiping free space…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let rc = VcMobileBridge.wipeFreeSpace(handle)
+            DispatchQueue.main.async {
+                endWork()
+                if rc != 0 {
+                    status = "Could not wipe free space (code \(rc)). Read-only volumes refuse this."
+                } else {
+                    status = "Wiped unused FAT clusters. Deleted file contents in free space are overwritten."
+                    reloadDir()
+                }
+            }
+        }
+    }
+
+    private func formatFatStamp(_ date: UInt16, _ time: UInt16) -> String {
+        if date == 0 { return "unknown" }
+        let year = 1980 + Int(date >> 9)
+        let month = Int((date >> 5) & 0xF)
+        let day = Int(date & 0x1F)
+        let hour = Int(time >> 11)
+        let min = Int((time >> 5) & 0x3F)
+        return String(format: "%04d-%02d-%02d %02d:%02d UTC", year, month, day, hour, min)
+    }
+
+    private func showVolumeProperties() {
+        guard let handle = volumeHandle else {
+            status = "Open the volume first for Volume properties."
+            return
+        }
+        status = VcMobileBridge.volumeInfo(handle) ?? "Could not read volume properties."
+    }
+
+    private func generateKeyfile() {
+        let dest = FileManager.default.temporaryDirectory.appendingPathComponent("random.key")
+        let rc = VcMobileBridge.generateKeyfile(path: dest.path)
+        guard rc == 0 else {
+            status = "Keyfile generator failed."
+            return
+        }
+        status = "Generated a 128-byte keyfile. Save a copy, then Add keyfiles."
+        SystemShare.present(items: [dest])
+    }
+
+    private func runBenchmark() {
+        beginWork("Running encryption benchmark…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = VcMobileBridge.benchmark()
+            DispatchQueue.main.async {
+                endWork()
+                status = result
+            }
+        }
+    }
+
+    private func runTestVectors() {
+        beginWork("Running known-answer test vectors…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let rc = VcMobileBridge.testVectors()
+            DispatchQueue.main.async {
+                endWork()
+                status = rc == 0
+                    ? "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests."
+                    : "Test vectors failed."
+            }
+        }
     }
 
     private func wrapURL(_ url: URL) {
@@ -525,7 +1511,7 @@ struct ContentView: View {
             status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
             return
         }
-        status = "Wrapping \(url.lastPathComponent)…"
+        beginWork("Wrapping \(url.lastPathComponent)…")
         DispatchQueue.global(qos: .userInitiated).async {
             let dest = FileManager.default.temporaryDirectory
                 .appendingPathComponent(url.lastPathComponent + ".vcpw")
@@ -536,6 +1522,7 @@ struct ContentView: View {
                 originalName: url.lastPathComponent
             )
             DispatchQueue.main.async {
+                endWork()
                 if rc != 0 {
                     status = "Wrap failed (code \(rc))."
                     return
@@ -551,42 +1538,87 @@ struct ContentView: View {
             status = "Enter the wrap password first. It is not stored."
             return
         }
-        status = "Unwrapping \(url.lastPathComponent)…"
+        beginWork("Unwrapping \(url.lastPathComponent)…")
         DispatchQueue.global(qos: .userInitiated).async {
             let dir = FileManager.default.temporaryDirectory.appendingPathComponent("unwrapped", isDirectory: true)
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             let out = VcMobileBridge.unwrapFile(src: url.path, destDir: dir.path, password: wrapPassword)
             DispatchQueue.main.async {
+                endWork()
                 guard let out else {
                     status = "Unwrap failed. Wrong password or not a VC Port wrap."
                     return
                 }
                 let file = URL(fileURLWithPath: out)
+                lastPlain = [file]
                 status = "Unwrapped \(file.lastPathComponent). Password was not saved."
                 SystemShare.present(items: [file])
             }
         }
     }
 
-    private func looksLikeContainer(_ url: URL) -> Bool {
-        let ext = url.pathExtension.lowercased()
-        return ext == "hc" || ext == "tc" || ext == "vera"
-    }
+    private static let disguiseNames = [
+        "volume.hc",
+        "photo.jpg",
+        "image.png",
+        "clip.mp4",
+        "notes.pdf",
+        "model.safetensors",
+        "adapter.lora",
+        "weights.bin"
+    ]
 
-    private static var containerTypes: [UTType] {
-        var types: [UTType] = [.data]
-        for ext in ["hc", "tc", "vera"] {
-            if let type = UTType(filenameExtension: ext) {
-                types.insert(type, at: 0)
-            }
+    private static func sanitizeDisguiseName(_ raw: String) -> String {
+        var name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "\\", with: "_")
+        if let slash = name.lastIndex(of: "/") {
+            name = String(name[name.index(after: slash)...])
         }
-        return types
+        if name.isEmpty || name == "." || name == ".." { return "volume.hc" }
+        if name.lowercased().hasSuffix(".vcpw") {
+            name = String(name.dropLast(5))
+        }
+        if name.isEmpty { return "volume.hc" }
+        return String(name.prefix(120))
     }
 
     private func byteCount(_ size: UInt64) -> String {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(size))
+    }
+}
+
+private struct WorkOverlay: View {
+    let title: String
+    let percent: Int
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+            VStack(spacing: 16) {
+                Text(title.isEmpty ? "Working…" : title)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                if percent >= 0 {
+                    ProgressView(value: Double(min(max(percent, 0), 100)), total: 100)
+                    Text("\(percent)%")
+                        .font(.largeTitle.monospacedDigit().weight(.semibold))
+                } else {
+                    ProgressView()
+                        .controlSize(.large)
+                    Text("Working…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 320)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .allowsHitTesting(true)
     }
 }
 

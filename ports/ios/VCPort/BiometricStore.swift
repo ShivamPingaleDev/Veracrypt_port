@@ -8,7 +8,7 @@ enum BiometricStore {
     static var isAvailable: Bool {
         let context = LAContext()
         var error: NSError?
-        return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        return context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
     }
 
     static func hasFactors(for path: String) -> Bool {
@@ -28,7 +28,7 @@ enum BiometricStore {
         guard let access = SecAccessControlCreateWithFlags(
             nil,
             kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-            .biometryCurrentSet,
+            .userPresence,
             &error
         ) else { return false }
         let payload = FactorCodec.encode(bundle)
@@ -49,7 +49,7 @@ enum BiometricStore {
             kSecAttrAccount as String: path,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseOperationPrompt as String: "Unlock with Face ID or Touch ID"
+            kSecUseOperationPrompt as String: "Unlock with Face ID, Touch ID, or passcode"
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)

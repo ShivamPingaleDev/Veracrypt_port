@@ -3,6 +3,10 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+def versionJsonFile = file("${project.projectDir}/../../version.json")
+def versionJson = new groovy.json.JsonSlurper().parse(versionJsonFile)
+def qcfg = { String s -> s.replace('\\', '\\\\').replace('"', '\\"') }
+
 android {
     namespace 'dev.shivampingale.vcport'
     compileSdk 35
@@ -12,8 +16,18 @@ android {
         applicationId 'dev.shivampingale.vcport'
         minSdk 28
         targetSdk 35
-        versionCode 5
-        versionName '0.3.0'
+        versionCode (versionJson.android_version_code as Integer)
+        versionName versionJson.port_version
+        buildConfigField 'String', 'PORT_VERSION', "\"${qcfg(versionJson.port_version as String)}\""
+        buildConfigField 'String', 'UPSTREAM_VERSION', "\"${qcfg(versionJson.upstream_version as String)}\""
+        buildConfigField 'String', 'UPSTREAM_COMMIT', "\"${qcfg(versionJson.upstream_commit as String)}\""
+        buildConfigField 'String', 'SOURCE_REPO', "\"${qcfg(versionJson.source_repo as String)}\""
+        buildConfigField 'String', 'SOURCE_MANIFEST', "\"${qcfg(versionJson.update_manifest as String)}\""
+        // Official VeraCrypt git + GitHub latest-release API. GitHub flavor may GET this
+        // when the user taps Check for updates. The APK never fetches src/ or installs itself.
+        buildConfigField 'String', 'UPSTREAM_GIT', "\"${qcfg(versionJson.upstream_git as String)}\""
+        buildConfigField 'String', 'UPSTREAM_RELEASES', "\"${qcfg(versionJson.upstream_releases as String)}\""
+        buildConfigField 'String', 'UPSTREAM_TAG', "\"${qcfg(versionJson.upstream_tag as String)}\""
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
         }
@@ -101,6 +115,7 @@ dependencies {
     implementation platform('androidx.compose:compose-bom:2024.06.00')
     implementation 'androidx.compose.ui:ui'
     implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-core'
     implementation 'androidx.activity:activity-compose:1.9.1'
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.appcompat:appcompat:1.7.0'

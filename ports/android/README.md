@@ -4,11 +4,11 @@ Kotlin / Jetpack Compose client with:
 
 - VeraCrypt volume core via NDK (`shared/`)
 - Biometric unlock (Android Keystore + BiometricPrompt) as a password factor. Combine it with a text password, keyfiles, and PIM the same way VeraCrypt does on a computer. Create or import the biometric secret, then export it as a keyfile when you create the volume.
-- In-app FAT root listing and file extract
+- In-app FAT folder browse, extract, copy/move, New folder / Rename / Delete / Properties, and wipe free space (exFAT unsupported)
 - System share sheet for decrypted files inside a volume, and **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no unlock)
 - Wrap/unwrap individual files (`.vcpw`) and an in-memory password generator that never saves history
 - Incoming share / open: other apps can send a file into VC Port
-- In-app FAT browser only (no DocumentsProvider / SAF export; that was a seizure leak)
+- In-app FAT browser only (no DocumentsProvider; that was a seizure leak). Copy/move uses the system file picker.
 
 F-Droid / FOSS flavor (no `INTERNET` permission, no Play libraries):
 

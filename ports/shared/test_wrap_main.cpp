@@ -198,8 +198,13 @@ static int wrap_roundtrip (const char *label, const void *payload, size_t payloa
 	expect (read_file (outpath, recovered, sizeof (recovered), &got) == 0, "read unwrapped file");
 	expect (got == payload_len && memcmp (recovered, payload, payload_len) == 0, "payload matches");
 
-	rc = vc_unwrap_file (wrap, outdir, "wrong-password-XXXX", 20, outpath, sizeof (outpath));
-	expect (rc == VC_ERR_PASSWORD, "wrong password is rejected");
+	static int checked_wrong_pw = 0;
+	if (!checked_wrong_pw)
+	{
+		rc = vc_unwrap_file (wrap, outdir, "wrong-password-XXXX", 20, outpath, sizeof (outpath));
+		expect (rc == VC_ERR_PASSWORD, "wrong password is rejected");
+		checked_wrong_pw = 1;
+	}
 	vc_secure_wipe (pw, sizeof (pw));
 	return 0;
 }
@@ -215,6 +220,17 @@ static void test_wrap_payloads (void)
 	for (int i = 0; i < 64; ++i)
 		binary[i] = (unsigned char) i;
 	wrap_roundtrip ("wrap binary with NUL bytes", binary, sizeof (binary), "blob.bin", "blob.bin");
+
+	wrap_roundtrip ("wrap 1 byte", "X", 1, "one.bin", "one.bin");
+
+	char sector[512];
+	memset (sector, 0xA5, sizeof (sector));
+	wrap_roundtrip ("wrap 512-byte sector", sector, sizeof (sector), "sector.bin", "sector.bin");
+
+	char exact_chunk[65536];
+	memset (exact_chunk, 0x3C, sizeof (exact_chunk));
+	wrap_roundtrip ("wrap exact 64KiB chunk", exact_chunk, sizeof (exact_chunk),
+		"chunk.bin", "chunk.bin");
 
 	char chunked[65537];
 	memset (chunked, 0x5A, sizeof (chunked));
@@ -271,6 +287,108 @@ static void test_tamper_and_salt (void)
 	expect (pw[0] == 0 && pw[10] == 0 && pw[23] == 0, "secure wipe clears password buffer");
 }
 
+static void copy_file (const char *src, const char *dst)
+{
+	char buf[8192];
+	FILE *in = fopen (src, "rb");
+	FILE *out = fopen (dst, "wb");
+	if (!in || !out)
+		exit (2);
+	size_t n;
+	while ((n = fread (buf, 1, sizeof (buf), in)) > 0)
+	{
+		if (fwrite (buf, 1, n, out) != n)
+			exit (2);
+	}
+	fclose (in);
+	fclose (out);
+}
+
+static unsigned rng_next (unsigned *state)
+{
+	*state = *state * 1664525u + 1013904223u;
+	return *state;
+}
+
+static void test_unwrap_fuzz (void)
+{
+	/* Header mutations fail before Argon2. One MAC bit-flip pays one KDF. */
+	char plain[512], wrap[512], outdir[512], pw[80], outpath[1024], mutated[512], junk[512];
+	path_in (plain, sizeof (plain), "fuzz.txt");
+	path_in (wrap, sizeof (wrap), "fuzz.vcpw");
+	path_in (outdir, sizeof (outdir), "fuzz-out");
+	mkdir (outdir, 0700);
+	write_file (plain, "fuzz-plaintext", 14);
+	vc_generate_password (pw, sizeof (pw), 24);
+	expect (vc_wrap_file (plain, wrap, pw, strlen (pw), "fuzz.txt") == VC_OK, "wrap for fuzz");
+
+	char body[8192];
+	size_t nbytes = 0;
+	expect (read_file (wrap, body, sizeof (body), &nbytes) == 0 && nbytes > 80, "read wrap for fuzz");
+
+	struct { size_t off; unsigned char value; } hits[] = {
+		{ 8, 0xFF },  /* m_kib */
+		{ 12, 0x00 }, /* t_cost */
+		{ 16, 99 },   /* lanes */
+		{ 68, 0x01 }, /* payload_size low byte */
+	};
+	for (size_t i = 0; i < sizeof (hits) / sizeof (hits[0]); ++i)
+	{
+		snprintf (mutated, sizeof (mutated), "%s/mut-%zu.vcpw", g_tmp, i);
+		copy_file (wrap, mutated);
+		FILE *wf = fopen (mutated, "r+b");
+		if (!wf)
+		{
+			expect (0, "open mutated wrap");
+			continue;
+		}
+		fseek (wf, (long) hits[i].off, SEEK_SET);
+		fputc (hits[i].value, wf);
+		fclose (wf);
+		int rc = vc_unwrap_file (mutated, outdir, pw, strlen (pw), outpath, sizeof (outpath));
+		expect (rc != VC_OK, "unwrap rejects header mutation");
+	}
+
+	snprintf (mutated, sizeof (mutated), "%s/macflip.vcpw", g_tmp);
+	copy_file (wrap, mutated);
+	FILE *wf = fopen (mutated, "r+b");
+	if (wf)
+	{
+		fseek (wf, (long) (nbytes - 1), SEEK_SET);
+		int c = fgetc (wf);
+		if (c != EOF)
+		{
+			fseek (wf, (long) (nbytes - 1), SEEK_SET);
+			fputc (c ^ 0xFF, wf);
+		}
+		fclose (wf);
+		int rc = vc_unwrap_file (mutated, outdir, pw, strlen (pw), outpath, sizeof (outpath));
+		expect (rc != VC_OK, "unwrap rejects bit flips");
+	}
+
+	unsigned state = 20260816u;
+	for (int i = 0; i < 8; ++i)
+	{
+		size_t n = (size_t) (rng_next (&state) % 400u);
+		char garbage[400];
+		for (size_t k = 0; k < n; ++k)
+			garbage[k] = (char) (rng_next (&state) & 0xFF);
+		if (n >= 4)
+		{
+			garbage[0] = 'X';
+			garbage[1] = 'X';
+			garbage[2] = 'X';
+			garbage[3] = 'X';
+		}
+		snprintf (junk, sizeof (junk), "%s/junk-%d.bin", g_tmp, i);
+		write_file (junk, garbage, n);
+		int rc = vc_unwrap_file (junk, outdir, pw, strlen (pw), outpath, sizeof (outpath));
+		expect (rc != VC_OK, "unwrap rejects garbage");
+	}
+
+	vc_secure_wipe (pw, sizeof (pw));
+}
+
 int main (void)
 {
 	snprintf (g_tmp, sizeof (g_tmp), "/tmp/vcport-test-%d", (int) getpid ());
@@ -281,6 +399,7 @@ int main (void)
 	test_is_wrap_and_args ();
 	test_wrap_payloads ();
 	test_tamper_and_salt ();
+	test_unwrap_fuzz ();
 
 	printf ("\n%d passed, %s\n", g_pass, g_fail ? "TEST RUN FAILED" : "TEST RUN PASSED");
 	return g_fail;

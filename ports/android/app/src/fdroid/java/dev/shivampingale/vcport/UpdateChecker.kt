@@ -1,16 +1,13 @@
 package dev.shivampingale.vcport
 
+/**
+ * F-Droid flavor: no network permission. VeraCrypt source updates arrive as a
+ * new F-Droid build of this git tree, not as a download inside the app.
+ */
 object UpdateChecker {
-    const val LOCAL_VERSION = "0.3.0"
+    val LOCAL_VERSION: String get() = SourcePin.localVersion
 
-    data class Result(
-        val newer: Boolean,
-        val remoteVersion: String,
-        val notes: String,
-        val downloadUrl: String
-    )
-
-    fun check(): Result {
+    fun check(): SourcePin.CheckResult {
         error("F-Droid build has no network")
     }
 }

@@ -8,11 +8,13 @@ Package id: `dev.shivampingale.vcport`
 
 The full macOS port and VeraCrypt source tree live in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the mobile apps plus the shared native core.
 
-**F-Droid / FOSS:** see [FOSS.md](FOSS.md). **Privacy:** [PRIVACY.md](PRIVACY.md). **Seizure / whistleblower profile:** [THREAT-MODEL.md](THREAT-MODEL.md). **VeraCrypt updates:** [UPSTREAM.md](UPSTREAM.md).
+**VeraCrypt updates:** see [UPSTREAM.md](UPSTREAM.md). Official git and GitHub latest-release URLs are hardcoded in `ports/version.json`. The apps never fetch `src/` or install themselves. When they publish a release, a maintainer runs `scripts/sync-upstream.sh` and ships a new VC Port build.
+
+**F-Droid / FOSS:** see [FOSS.md](FOSS.md). **Privacy:** [PRIVACY.md](PRIVACY.md). **Seizure / whistleblower profile:** [THREAT-MODEL.md](THREAT-MODEL.md). **Testing:** [tests/TESTING.md](tests/TESTING.md).
 
 ## What it does
 
-- Open a VeraCrypt container (FAT root listing and file extract)
+- Open a VeraCrypt container (FAT folder browse and file extract; exFAT unsupported)
 - Biometric unlock (Android Keystore / Face ID / Touch ID) as a password factor, combinable with a text password, keyfiles, and PIM
 - System share sheet (WhatsApp, Gmail, Drive, Mail, AirDrop, …)
 - Share encrypted `.hc` / `.tc` / `.vera` files as-is
@@ -26,6 +28,7 @@ The full macOS port and VeraCrypt source tree live in [Veracrypt_port](https://g
 android/     Kotlin / Compose app (F-Droid `fdroid` flavor)
 ios/         SwiftUI sources + XcodeGen + AltStore source JSON
 shared/      Native volume + wrap core (C/C++)
+tests/       Host tests (no phone required)
 fdroiddata/  Recipe to copy into F-Droid's fdroiddata repo
 ```
 
