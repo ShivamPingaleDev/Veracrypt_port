@@ -25,6 +25,7 @@ add_definitions(
 	-D_LARGEFILE_SOURCE
 	-DARGON2_NO_THREADS
 	-DCRYPTOPP_DISABLE_X86ASM
+	-DTC_PORT_NO_TOKEN
 )
 if(ANDROID)
 	add_definitions(-DTC_LINUX -DTC_ANDROID)
@@ -50,6 +51,10 @@ elseif(APPLE)
 	add_definitions(-DTC_MACOSX)
 else()
 	add_definitions(-DTC_LINUX)
+	# Host Linux CI is x86_64. cpu.c wants TrySHA256 from Sha2Intel.c unless SHANI is off.
+	if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64|i.86")
+		add_definitions(-DCRYPTOPP_DISABLE_AESNI -DCRYPTOPP_DISABLE_SHANI)
+	endif()
 endif()
 
 include_directories(

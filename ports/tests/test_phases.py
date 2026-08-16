@@ -337,7 +337,16 @@ class Phase9LegalVersionTests(unittest.TestCase):
     def test_github_emulator_screenshots_are_png(self) -> None:
         shots = resolve("ports/docs/screenshots")
         self.assertTrue(shots.is_dir(), "missing ports/docs/screenshots")
-        names = ["01-volume.png", "02-wrap.png", "03-create.png", "04-tools.png"]
+        names = [
+            "01-volume.png",
+            "02-wrap.png",
+            "03-create.png",
+            "04-tools.png",
+            "05-skin-cyberpunk.png",
+            "06-skin-matrix.png",
+            "07-skin-eva.png",
+            "08-skin-signal.png",
+        ]
         for name in names:
             path = shots / name
             self.assertTrue(path.is_file(), f"missing {path}")

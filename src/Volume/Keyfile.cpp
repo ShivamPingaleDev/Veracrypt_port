@@ -11,7 +11,7 @@
 */
 
 #include "Platform/Serializer.h"
-#if defined (TC_ANDROID) || defined (TC_IOS)
+#if defined (TC_ANDROID) || defined (TC_IOS) || defined (TC_PORT_NO_TOKEN)
 #include "Common/Token.h"
 #else
 #include "Common/SecurityToken.h"

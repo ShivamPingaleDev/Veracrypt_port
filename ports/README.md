@@ -25,6 +25,13 @@ Real UI from the F-Droid debug app on emulator `vcport-api35` (Compose capture; 
 ![VC Port Android Create tab](docs/screenshots/03-create.png)
 ![VC Port Android Tools tab](docs/screenshots/04-tools.png)
 
+Looks APK (same app id; GitHub Release `VCPort-0.3.1-looks-preview.apk`):
+
+![VC Port Looks Cyberpunk](docs/screenshots/05-skin-cyberpunk.png)
+![VC Port Looks Matrix](docs/screenshots/06-skin-matrix.png)
+![VC Port Looks MAGI](docs/screenshots/07-skin-eva.png)
+![VC Port Looks Signal](docs/screenshots/08-skin-signal.png)
+
 ## What it does
 
 - Open a VeraCrypt container (FAT folder browse and file extract; exFAT unsupported)

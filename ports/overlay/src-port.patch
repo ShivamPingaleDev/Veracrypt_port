@@ -308,7 +308,7 @@ index 02152b62..2b0dfdb4 100644
  	}
  }
 diff --git a/src/Main/Forms/MainFrame.cpp b/src/Main/Forms/MainFrame.cpp
-index ce6d0edd..9e876d91 100644
+index ce6d0edd..c07b17ad 100644
 --- a/src/Main/Forms/MainFrame.cpp
 +++ b/src/Main/Forms/MainFrame.cpp
 @@ -12,6 +12,7 @@
@@ -378,7 +378,7 @@ index ce6d0edd..9e876d91 100644
  	}
  
  #ifdef TC_WINDOWS
-@@ -746,6 +776,58 @@ namespace VeraCrypt
+@@ -746,6 +776,93 @@ namespace VeraCrypt
  		dialog.ShowModal();
  	}
  
@@ -400,6 +400,16 @@ index ce6d0edd..9e876d91 100644
 +		wxBusyCursor busy;
 +		try
 +		{
++			try
++			{
++				string st = OfflineUpdate::FetchHttps ("https://www.githubstatus.com/api/v2/status.json");
++				if (st.find ("\"indicator\":\"major\"") != string::npos
++					|| st.find ("\"indicator\":\"critical\"") != string::npos)
++					Gui->ShowWarning (L"GitHub reports a major incident. Treat this check as unverified.");
++			}
++			catch (...)
++			{
++			}
 +			string body = OfflineUpdate::FetchHttps (VC_PORT_UPDATE_MANIFEST_URL);
 +			UpdateManifest manifest = OfflineUpdate::ParseManifest (body);
 +			if (!manifest.Parsed)
@@ -425,7 +435,32 @@ index ce6d0edd..9e876d91 100644
 +			}
 +			else
 +			{
-+				Gui->ShowInfo (LangString["UPDATE_UP_TO_DATE"]);
++				msg = LangString["UPDATE_UP_TO_DATE"];
++			}
++
++			// Optional second GET: official VeraCrypt GitHub latest release.
++			// Failure is ignored — the phone/desktop must not depend on GitHub.
++			try
++			{
++				string rel = OfflineUpdate::FetchHttps (VC_PORT_UPSTREAM_RELEASES);
++				string tag = OfflineUpdate::ParseGithubReleaseTag (rel);
++				string official = OfflineUpdate::VersionFromVeraCryptTag (tag);
++				if (!official.empty() && OfflineUpdate::IsNewer (official, VC_PORT_UPSTREAM_VERSION))
++				{
++					wxString extra = L"Official VeraCrypt ";
++					extra += wxString::FromUTF8 (official.c_str());
++					extra += L" is published. This build still compiles ";
++					extra += wxString::FromUTF8 (VC_PORT_UPSTREAM_VERSION);
++					extra += L". Merge with scripts/sync-upstream.sh and rebuild. This app does not fetch their source.";
++					Gui->ShowInfo (extra);
++				}
++				else if (msg == LangString["UPDATE_UP_TO_DATE"])
++					Gui->ShowInfo (msg);
++			}
++			catch (...)
++			{
++				if (msg == LangString["UPDATE_UP_TO_DATE"])
++					Gui->ShowInfo (msg);
 +			}
 +		}
 +		catch (exception &e)
@@ -437,7 +472,37 @@ index ce6d0edd..9e876d91 100644
  	void MainFrame::OnActivate (wxActivateEvent& event)
  	{
  		Gui->SetActiveFrame (this);
-@@ -1813,6 +1895,50 @@ namespace VeraCrypt
+@@ -1240,17 +1357,25 @@ namespace VeraCrypt
+ 	void MainFrame::OnNoHistoryCheckBoxClick (wxCommandEvent& event)
+ 	{
+ 		UserPreferences prefs = GetPreferences();
+-		prefs.SaveHistory = !event.IsChecked();
+-		Gui->SetPreferences (prefs);
+-
+-		if (event.IsChecked())
++		if (!event.IsChecked())
++		{
++			if (!VolumeHistory::ConfirmEnable())
++			{
++				NoHistoryCheckBox->SetValue (true);
++				return;
++			}
++			prefs.SaveHistory = true;
++		}
++		else
+ 		{
++			prefs.SaveHistory = false;
+ 			try
+ 			{
+ 				VolumeHistory::Clear();
+ 			}
+ 			catch (exception &e) { Gui->ShowError (e); }
+ 		}
++		Gui->SetPreferences (prefs);
+ 	}
+ 
+ 	void MainFrame::OnOrganizeFavoritesMenuItemSelected (wxCommandEvent& event)
+@@ -1813,6 +1938,50 @@ namespace VeraCrypt
  		Core->WipePasswordCache();
  		UpdateWipeCacheButton();
  	}
@@ -565,6 +630,40 @@ index 17a88d87..1ecd2179 100644
  		int LastVirtualKeyPressed;
  		unique_ptr <wxTimer> mTimer;
  		UserPreferences Preferences;
+diff --git a/src/Main/Forms/VolumeLocationWizardPage.cpp b/src/Main/Forms/VolumeLocationWizardPage.cpp
+index d2ebff78..0b3acdd3 100644
+--- a/src/Main/Forms/VolumeLocationWizardPage.cpp
++++ b/src/Main/Forms/VolumeLocationWizardPage.cpp
+@@ -50,17 +50,25 @@ namespace VeraCrypt
+ 	void VolumeLocationWizardPage::OnNoHistoryCheckBoxClick (wxCommandEvent& event)
+ 	{
+ 		UserPreferences prefs = Gui->GetPreferences();
+-		prefs.SaveHistory = !event.IsChecked();
+-		Gui->SetPreferences (prefs);
+-
+-		if (event.IsChecked())
++		if (!event.IsChecked())
+ 		{
++			if (!VolumeHistory::ConfirmEnable())
++			{
++				NoHistoryCheckBox->SetValue (true);
++				return;
++			}
++			prefs.SaveHistory = true;
++		}
++		else
++		{
++			prefs.SaveHistory = false;
+ 			try
+ 			{
+ 				VolumeHistory::Clear();
+ 			}
+ 			catch (exception &e) { Gui->ShowError (e); }
+ 		}
++		Gui->SetPreferences (prefs);
+ 	}
+ 
+ 	void VolumeLocationWizardPage::OnPageChanging (bool forward)
 diff --git a/src/Main/Forms/VolumePasswordPanel.cpp b/src/Main/Forms/VolumePasswordPanel.cpp
 index 2659de7a..932315a3 100644
 --- a/src/Main/Forms/VolumePasswordPanel.cpp
@@ -734,7 +833,7 @@ index 48de7df9..b1e8ea69 100644
  }
  
 diff --git a/src/Main/GraphicUserInterface.cpp b/src/Main/GraphicUserInterface.cpp
-index 321a9396..fafaa749 100644
+index 321a9396..189e0b88 100644
 --- a/src/Main/GraphicUserInterface.cpp
 +++ b/src/Main/GraphicUserInterface.cpp
 @@ -35,6 +35,9 @@
@@ -772,6 +871,17 @@ index 321a9396..fafaa749 100644
  		wxString url;
  
  		BeginInteractiveBusyState (parent);
+@@ -1941,6 +1955,10 @@ namespace VeraCrypt
+ 	{
+ 		list < pair <wstring, wstring> > extensions;
+ 		extensions.push_back (make_pair (L"hc", LangString["TC_VOLUMES"].ToStdWstring()));
++		extensions.push_back (make_pair (L"jpg", L"JPEG"));
++		extensions.push_back (make_pair (L"png", L"PNG"));
++		extensions.push_back (make_pair (L"safetensors", L"SafeTensors"));
++		extensions.push_back (make_pair (L"lora", L"LoRA"));
+ 
+ 		FilePathList selFiles = Gui->SelectFiles (parent, LangString[saveMode ? "OPEN_NEW_VOLUME" : "OPEN_VOL_TITLE"], saveMode, false, extensions, directory);
+ 
 diff --git a/src/Main/Main.make b/src/Main/Main.make
 index 36b8c1f6..63766cc2 100755
 --- a/src/Main/Main.make
@@ -849,10 +959,16 @@ index abed3916..5ea4799f 100644
  				return 0;
  			}
 diff --git a/src/Main/UserPreferences.cpp b/src/Main/UserPreferences.cpp
-index a626efc3..3cb43829 100644
+index a626efc3..491fa446 100644
 --- a/src/Main/UserPreferences.cpp
 +++ b/src/Main/UserPreferences.cpp
-@@ -121,6 +121,7 @@ namespace VeraCrypt
+@@ -116,11 +116,13 @@ namespace VeraCrypt
+ 			TC_CONFIG_SET (OpenExplorerWindowAfterMount);
+ 			if (configMap.count(L"PreserveTimestamps") > 0) { SetValue (configMap[L"PreserveTimestamps"], DefaultMountOptions.PreserveTimestamps); configMap.erase (L"PreserveTimestamps"); }
+ 			TC_CONFIG_SET (SaveHistory);
++			SaveHistory = false; // VC Port: never restore volume-path history from Configuration.xml
+ 			if (configMap.count(L"SecurityTokenLibrary") > 0) { SetValue (configMap[L"SecurityTokenLibrary"], SecurityTokenModule); configMap.erase (L"SecurityTokenLibrary"); }
+ 			TC_CONFIG_SET (StartOnLogon);
  			TC_CONFIG_SET (UseKeyfiles);
  			TC_CONFIG_SET (WipeCacheOnAutoDismount);
  			TC_CONFIG_SET (WipeCacheOnClose);
@@ -860,7 +976,14 @@ index a626efc3..3cb43829 100644
  
  			wstring defaultPrf;
  			if (configMap.count(L"DefaultPRF") > 0) { SetValue (configMap[L"DefaultPRF"], defaultPrf); configMap.erase (L"DefaultPRF"); }
-@@ -246,6 +247,7 @@ namespace VeraCrypt
+@@ -240,12 +242,13 @@ namespace VeraCrypt
+ 		formatter.AddEntry (L"NoKernelCrypto", DefaultMountOptions.NoKernelCrypto);
+ 		TC_CONFIG_ADD (OpenExplorerWindowAfterMount);
+ 		formatter.AddEntry (L"PreserveTimestamps", DefaultMountOptions.PreserveTimestamps);
+-		TC_CONFIG_ADD (SaveHistory);
++		formatter.AddEntry (L"SaveHistory", false); // never persist volume-path history
+ 		formatter.AddEntry (L"SecurityTokenLibrary", wstring (SecurityTokenModule));
+ 		TC_CONFIG_ADD (StartOnLogon);
  		TC_CONFIG_ADD (UseKeyfiles);
  		TC_CONFIG_ADD (WipeCacheOnAutoDismount);
  		TC_CONFIG_ADD (WipeCacheOnClose);
@@ -890,6 +1013,116 @@ index 07ab4176..fa813a94 100644
  
  		// A map used to store unknown entries from the configuration file in order to preserve them when saving the configuration.
  		// This helps to preserve unknown entries that may be used by future versions of VeraCrypt or entries used by old versions that were removed from current version.
+diff --git a/src/Main/VolumeHistory.cpp b/src/Main/VolumeHistory.cpp
+index d54a7b8f..a2e046b3 100644
+--- a/src/Main/VolumeHistory.cpp
++++ b/src/Main/VolumeHistory.cpp
+@@ -15,6 +15,8 @@
+ #include "GraphicUserInterface.h"
+ #include "Xml.h"
+ #include "VolumeHistory.h"
++#include <wx/ffile.h>
++#include <vector>
+ 
+ namespace VeraCrypt
+ {
+@@ -65,6 +67,34 @@ namespace VeraCrypt
+ 		Save();
+ 	}
+ 
++	bool VolumeHistory::ConfirmEnable ()
++	{
++		return Gui->AskYesNo (
++			L"Saving history keeps volume paths in this window for this session only. History.xml is never written. A seized computer can still see this list. Enable for this session?",
++			false, true);
++	}
++
++	static void WipeHistoryFile (const FilePath &path)
++	{
++		if (!path.IsFile())
++			return;
++		wxString native (wstring (path));
++		wxFFile file (native, wxT("r+b"));
++		if (file.IsOpened())
++		{
++			wxFileOffset len = file.Length();
++			if (len > 0 && len <= 1024 * 1024)
++			{
++				vector <char> zeros ((size_t) len, 0);
++				file.Seek (0);
++				file.Write (&zeros[0], zeros.size());
++				file.Flush();
++			}
++			file.Close();
++		}
++		wxRemoveFile (native);
++	}
++
+ 	void VolumeHistory::ConnectComboBox (wxComboBox *comboBox)
+ 	{
+ 		ScopeLock lock (AccessMutex);
+@@ -91,46 +121,14 @@ namespace VeraCrypt
+ 	{
+ 		ScopeLock lock (AccessMutex);
+ 		FilePath historyCfgPath = Application::GetConfigFilePath (GetFileName());
+-
+-		if (historyCfgPath.IsFile())
+-		{
+-			if (!Gui->GetPreferences().SaveHistory)
+-			{
+-				historyCfgPath.Delete();
+-			}
+-			else
+-			{
+-				foreach_reverse (const XmlNode &node, XmlParser (historyCfgPath).GetNodes (L"volume"))
+-				{
+-					Add (wstring (node.InnerText));
+-				}
+-			}
+-		}
++		WipeHistoryFile (historyCfgPath);
+ 	}
+ 
+ 	void VolumeHistory::Save ()
+ 	{
+ 		ScopeLock lock (AccessMutex);
+-		FilePath historyCfgPath = Application::GetConfigFilePath (GetFileName(), true);
+-
+-		if (!Gui->GetPreferences().SaveHistory || VolumePaths.empty())
+-		{
+-			if (historyCfgPath.IsFile())
+-				historyCfgPath.Delete();
+-		}
+-		else
+-		{
+-			XmlNode historyXml (L"history");
+-
+-			foreach (const VolumePath &path, VolumePaths)
+-			{
+-				historyXml.InnerNodes.push_back (XmlNode (L"volume", wstring (path)));
+-			}
+-
+-			XmlWriter historyWriter (historyCfgPath);
+-			historyWriter.WriteNode (historyXml);
+-			historyWriter.Close();
+-		}
++		FilePath historyCfgPath = Application::GetConfigFilePath (GetFileName());
++		WipeHistoryFile (historyCfgPath);
+ 	}
+ 
+ 	void VolumeHistory::UpdateComboBox (wxComboBox *comboBox)
+diff --git a/src/Main/VolumeHistory.h b/src/Main/VolumeHistory.h
+index d5ff85f9..b2d87313 100644
+--- a/src/Main/VolumeHistory.h
++++ b/src/Main/VolumeHistory.h
+@@ -26,6 +26,7 @@ namespace VeraCrypt
+ 
+ 		static void Add (const VolumePath &path);
+ 		static void Clear ();
++		static bool ConfirmEnable ();
+ 		static void ConnectComboBox (wxComboBox *comboBox);
+ 		static void DisconnectComboBox (wxComboBox *comboBox);
+ 		static VolumePathList Get () { return VolumePaths; }
 diff --git a/src/Makefile b/src/Makefile
 index 7c15e5a3..77948578 100644
 --- a/src/Makefile
@@ -903,17 +1136,73 @@ index 7c15e5a3..77948578 100644
  	# To suppress this warning, we need to use -Wl,-ld_classic flag in order to use the old ld64 linker
  	# https://mjtsai.com/blog/2024/03/15/xcode-15-no-platform-load-command-found/
 diff --git a/src/Platform/Unix/File.cpp b/src/Platform/Unix/File.cpp
-index 98108afd..68358133 100644
+index 98108afd..1a3ed8e4 100644
 --- a/src/Platform/Unix/File.cpp
 +++ b/src/Platform/Unix/File.cpp
-@@ -19,6 +19,10 @@
+@@ -19,6 +19,12 @@
  #include <sys/mount.h>
  #endif
  
 +#ifdef TC_MACOSX
++#ifndef TC_IOS
 +#include <sys/disk.h>
++#endif
 +#endif
 +
  #ifdef TC_BSD
  #include <sys/disk.h>
  #endif
+@@ -113,7 +119,7 @@ namespace VeraCrypt
+ 			throw_sys_sub_if (ioctl (FileHandle, BLKSSZGET, &blockSize) == -1, wstring (Path));
+ 			return blockSize;
+ 
+-#elif defined (TC_MACOSX)
++#elif defined (TC_MACOSX) && !defined (TC_IOS)
+ 			uint32 blockSize;
+ 			throw_sys_sub_if (ioctl (FileHandle, DKIOCGETBLOCKSIZE, &blockSize) == -1, wstring (Path));
+ 			return blockSize;
+@@ -137,6 +143,9 @@ namespace VeraCrypt
+ 			throw_sys_sub_if (ioctl (FileHandle, DKIOCGMEDIAINFO, &mediaInfo) == -1, wstring (Path));
+ 			return mediaInfo.dki_lbsize;
+ 
++#elif defined (TC_IOS)
++			throw ParameterIncorrect (SRC_POS);
++
+ #else
+ #	error GetDeviceSectorSize()
+ #endif
+@@ -156,7 +165,7 @@ namespace VeraCrypt
+ 		tr.ReadLine (line);
+ 		return StringConverter::ToUInt64 (line) * GetDeviceSectorSize();
+ 
+-#elif defined (TC_MACOSX)
++#elif defined (TC_MACOSX) && !defined (TC_IOS)
+ 
+ #ifndef DKIOCGETBASE
+ #	define DKIOCGETBASE _IOR('d', 73, uint64)
+@@ -209,7 +218,7 @@ namespace VeraCrypt
+ #ifdef TC_BSD
+ 		if (Path.IsBlockDevice() || Path.IsCharacterDevice())
+ 		{
+-#	ifdef TC_MACOSX
++#	if defined (TC_MACOSX) && !defined (TC_IOS)
+ 			uint32 blockSize;
+ 			uint64 blockCount;
+ 			throw_sys_sub_if (ioctl (FileHandle, DKIOCGETBLOCKSIZE, &blockSize) == -1, wstring (Path));
+diff --git a/src/Volume/Keyfile.cpp b/src/Volume/Keyfile.cpp
+index c5168ebc..98913ba8 100644
+--- a/src/Volume/Keyfile.cpp
++++ b/src/Volume/Keyfile.cpp
+@@ -11,8 +11,12 @@
+ */
+ 
+ #include "Platform/Serializer.h"
++#if defined (TC_ANDROID) || defined (TC_IOS)
++#include "Common/Token.h"
++#else
+ #include "Common/SecurityToken.h"
+ #include "Common/EMVToken.h"
++#endif
+ #include "Crc32.h"
+ #include "Keyfile.h"
+ #include "VolumeException.h"

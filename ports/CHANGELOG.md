@@ -6,6 +6,7 @@
 - Honest discovery only: GitHub topics + README snippet, no ad SDK, no analytics. See `PUBLIC.md`.
 - Author footnote: still in a five-year IT engineering degree (graduate summer 2027). Quiet README ask for teaching, internship, or work.
 - Looks APK (`assembleStyledRelease`) is a GitHub Release asset on this repo (`VCPort-0.3.1-looks-preview.apk`). Same `applicationId` as the Desktop-only APKs; installing Looks replaces them. Not a separate package.
+- Host Linux CI links wrap/volume tests without SHA-NI objects or PCSC; overlay inventories refreshed.
 
 ## 0.3.1
 
