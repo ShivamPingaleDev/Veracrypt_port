@@ -77,6 +77,66 @@ Java_dev_shivampingale_vcport_NativeBridge_exportFile(
 	const char *cDest = env->GetStringUTFChars(dest, nullptr);
 	int rc = vc_export_file(reinterpret_cast<VcVolume *>(handle), cName, cDest);
 	env->ReleaseStringUTFChars(name, cName);
-	env->ReleaseStringUTFChars(dest, cDest);
+		env->ReleaseStringUTFChars(dest, cDest);
 	return rc;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_wrapFile(
+	JNIEnv *env, jobject, jstring src, jstring dest, jstring password, jstring originalName)
+{
+	const char *cSrc = env->GetStringUTFChars(src, nullptr);
+	const char *cDest = env->GetStringUTFChars(dest, nullptr);
+	const char *cPassword = env->GetStringUTFChars(password, nullptr);
+	const char *cName = originalName ? env->GetStringUTFChars(originalName, nullptr) : nullptr;
+	size_t plen = cPassword ? strlen(cPassword) : 0;
+	int rc = vc_wrap_file(cSrc, cDest, cPassword, plen, cName);
+	env->ReleaseStringUTFChars(src, cSrc);
+	env->ReleaseStringUTFChars(dest, cDest);
+	env->ReleaseStringUTFChars(password, cPassword);
+	if (cName)
+		env->ReleaseStringUTFChars(originalName, cName);
+	return rc;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_unwrapFile(
+	JNIEnv *env, jobject, jstring src, jstring destDir, jstring password)
+{
+	const char *cSrc = env->GetStringUTFChars(src, nullptr);
+	const char *cDir = env->GetStringUTFChars(destDir, nullptr);
+	const char *cPassword = env->GetStringUTFChars(password, nullptr);
+	char outPath[1024];
+	outPath[0] = 0;
+	int rc = vc_unwrap_file(cSrc, cDir, cPassword, cPassword ? strlen(cPassword) : 0, outPath, sizeof(outPath));
+	env->ReleaseStringUTFChars(src, cSrc);
+	env->ReleaseStringUTFChars(destDir, cDir);
+	env->ReleaseStringUTFChars(password, cPassword);
+	if (rc != VC_OK)
+		return nullptr;
+	return env->NewStringUTF(outPath);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_isWrap(JNIEnv *env, jobject, jstring path)
+{
+	const char *cPath = env->GetStringUTFChars(path, nullptr);
+	int yes = vc_is_wrap(cPath);
+	env->ReleaseStringUTFChars(path, cPath);
+	return yes ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_generatePassword(JNIEnv *env, jobject, jint length)
+{
+	char buf[80];
+	int n = vc_generate_password(buf, sizeof(buf), length);
+	if (n < 16)
+	{
+		vc_secure_wipe(buf, sizeof(buf));
+		return nullptr;
+	}
+	jstring result = env->NewStringUTF(buf);
+	vc_secure_wipe(buf, sizeof(buf));
+	return result;
 }

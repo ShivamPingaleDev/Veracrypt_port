@@ -53,4 +53,45 @@ enum VcMobileBridge {
             }
         }
     }
+
+    static func wrapFile(src: String, dest: String, password: String, originalName: String) -> Int32 {
+        src.withCString { cSrc in
+            dest.withCString { cDest in
+                password.withCString { cPassword in
+                    originalName.withCString { cName in
+                        vc_wrap_file(cSrc, cDest, cPassword, password.utf8.count, cName)
+                    }
+                }
+            }
+        }
+    }
+
+    static func unwrapFile(src: String, destDir: String, password: String) -> String? {
+        var out = [CChar](repeating: 0, count: 1024)
+        let rc = src.withCString { cSrc in
+            destDir.withCString { cDir in
+                password.withCString { cPassword in
+                    vc_unwrap_file(cSrc, cDir, cPassword, password.utf8.count, &out, 1024)
+                }
+            }
+        }
+        guard rc == 0 else { return nil }
+        return String(cString: out)
+    }
+
+    static func isWrap(_ path: String) -> Bool {
+        path.withCString { vc_is_wrap($0) != 0 }
+    }
+
+    static func generatePassword(length: Int32 = 24) -> String? {
+        var buf = [CChar](repeating: 0, count: 80)
+        let n = vc_generate_password(&buf, 80, length)
+        defer {
+            buf.withUnsafeMutableBytes { raw in
+                raw.initializeMemory(as: UInt8.self, repeating: 0)
+            }
+        }
+        guard n >= 16 else { return nil }
+        return String(cString: buf)
+    }
 }

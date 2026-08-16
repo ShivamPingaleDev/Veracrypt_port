@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import java.io.File
 
@@ -61,6 +62,8 @@ class MainActivity : AppCompatActivity() {
                     var status by statusState
                     var entries by remember { mutableStateOf(listOf<VaultEntry>()) }
                     var handle by remember { mutableStateOf(0L) }
+                    var wrapPassword by remember { mutableStateOf("") }
+                    var generatedPassword by remember { mutableStateOf("") }
                     val incoming by incomingState
                     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                         if (uri != null) {
@@ -79,6 +82,12 @@ class MainActivity : AppCompatActivity() {
                             ShareHelper.shareUris(this@MainActivity, uris, "Share encrypted file")
                         }
                     }
+                    val wrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                        if (uri != null) wrapSelectedFile(uri, wrapPassword) { status = it }
+                    }
+                    val unwrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                        if (uri != null) unwrapSelectedFile(uri, wrapPassword) { status = it }
+                    }
                     Column(Modifier.padding(16.dp)) {
                         Text("VC Port", style = MaterialTheme.typography.headlineMedium)
                         Text("VeraCrypt-compatible Android client. Offline until you check for updates.")
@@ -94,6 +103,12 @@ class MainActivity : AppCompatActivity() {
                                 OutlinedButton(onClick = {
                                     ShareHelper.shareFiles(this@MainActivity, listOf(file), "Share encrypted file")
                                 }) { Text("Share encrypted") }
+                                if (ShareHelper.looksLikeWrap(file.name)) {
+                                    Spacer(Modifier.padding(8.dp))
+                                    OutlinedButton(onClick = {
+                                        unwrapIncomingFile(file, wrapPassword) { status = it }
+                                    }) { Text("Decrypt wrap") }
+                                }
                             }
                             Spacer(Modifier.height(8.dp))
                         }
@@ -104,6 +119,55 @@ class MainActivity : AppCompatActivity() {
                             "Sends .hc / .tc / .vera as-is. No password, no decrypt. WhatsApp, Gmail, Drive, and the rest of the share sheet.",
                             style = MaterialTheme.typography.bodySmall
                         )
+                        Spacer(Modifier.height(12.dp))
+                        Text("Wrap a single file", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Encrypt one file with a password. The result is a .vcpw wrap you can share. Unwrap it later in this app.",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        OutlinedTextField(
+                            wrapPassword,
+                            {
+                                wrapPassword = it
+                                SensitiveClipboard.setScreenshotBlocked(window, it.isNotEmpty() || generatedPassword.isNotEmpty())
+                            },
+                            label = { Text("Wrap password (never stored)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            visualTransformation = PasswordVisualTransformation()
+                        )
+                        Row {
+                            OutlinedButton(onClick = {
+                                val generated = NativeBridge.generatePassword(24)
+                                if (generated != null) {
+                                    wrapPassword = generated
+                                    generatedPassword = generated
+                                    SensitiveClipboard.setScreenshotBlocked(window, true)
+                                    status = "Generated a 24-character password in memory. It is not saved."
+                                } else {
+                                    status = "Password generator failed."
+                                }
+                            }) { Text("Generate strong password") }
+                            Spacer(Modifier.padding(8.dp))
+                            OutlinedButton(onClick = {
+                                if (wrapPassword.isNotEmpty()) {
+                                    SensitiveClipboard.copyOnce(this@MainActivity, wrapPassword)
+                                    status = "Copied once. Clipboard clears in 30 seconds. No history is kept."
+                                }
+                            }) { Text("Copy once") }
+                        }
+                        Row {
+                            OutlinedButton(onClick = {
+                                SensitiveClipboard.forget(this@MainActivity)
+                                wrapPassword = ""
+                                generatedPassword = ""
+                                SensitiveClipboard.setScreenshotBlocked(window, false)
+                                status = "Password forgotten. Clipboard cleared."
+                            }) { Text("Forget password") }
+                            Spacer(Modifier.padding(8.dp))
+                            OutlinedButton(onClick = { wrapPicker.launch(arrayOf("*/*")) }) { Text("Encrypt file") }
+                            Spacer(Modifier.padding(8.dp))
+                            OutlinedButton(onClick = { unwrapPicker.launch(arrayOf("*/*")) }) { Text("Decrypt wrap") }
+                        }
                         Spacer(Modifier.height(8.dp))
                         Button(onClick = {
                             status = "Checking for updates (one HTTPS request)..."
@@ -233,12 +297,104 @@ class MainActivity : AppCompatActivity() {
             ShareHelper.persistRead(this, uris.first())
             containerUriState.value = uris.first()
         }
-        if (ShareHelper.looksLikeContainer(first.name)) {
+        if (ShareHelper.looksLikeWrap(first.name) || NativeBridge.isWrap(first.absolutePath)) {
+            statusState.value = "Received wrapped file ${first.name}. Enter the wrap password and tap Decrypt wrap."
+        } else if (ShareHelper.looksLikeContainer(first.name)) {
             pathState.value = copyIncomingAsContainer(first)
             statusState.value = "Received encrypted file ${first.name}. Share it as-is or open it."
         } else {
-            statusState.value = "Received ${copied.joinToString { it.name }}. Share it onward or open as a container."
+            statusState.value = "Received ${copied.joinToString { it.name }}. Wrap it, share it, or open as a container."
         }
+    }
+
+    private fun unwrapIncomingFile(file: File, password: String, onStatus: (String) -> Unit) {
+        if (password.isEmpty()) {
+            onStatus("Enter the wrap password first. It is not stored.")
+            return
+        }
+        onStatus("Unwrapping file…")
+        Thread {
+            val destDir = File(cacheDir, "unwrapped").apply { mkdirs() }
+            val outPath = NativeBridge.unwrapFile(file.absolutePath, destDir.absolutePath, password)
+            runOnUiThread {
+                if (outPath == null) {
+                    onStatus("Unwrap failed. Wrong password or not a VC Port wrap.")
+                } else {
+                    val plain = File(outPath)
+                    onStatus("Unwrapped ${plain.name}. Password was not saved.")
+                    ShareHelper.shareFiles(this, listOf(plain), "Share unwrapped file")
+                }
+            }
+        }.start()
+    }
+
+    private fun wrapSelectedFile(uri: Uri, password: String, onStatus: (String) -> Unit) {
+        if (password.length < 16) {
+            onStatus("Use Generate strong password, or type at least 16 characters. Nothing is saved.")
+            return
+        }
+        onStatus("Wrapping file…")
+        Thread {
+            val name = ShareHelper.displayName(this, uri) ?: "file.bin"
+            val plain = File(cacheDir, "wrap-in-${ShareHelper.safeName(name)}")
+            val wrapped = File(ShareHelper.shareDir(this), ShareHelper.safeName(name) + ".vcpw")
+            try {
+                contentResolver.openInputStream(uri)?.use { input ->
+                    plain.outputStream().use { output -> input.copyTo(output) }
+                } ?: run {
+                    runOnUiThread { onStatus("Could not read the file.") }
+                    return@Thread
+                }
+                val rc = NativeBridge.wrapFile(plain.absolutePath, wrapped.absolutePath, password, name)
+                plain.delete()
+                runOnUiThread {
+                    if (rc != 0 || !wrapped.exists()) {
+                        onStatus("Wrap failed (code $rc).")
+                    } else {
+                        onStatus("Wrapped $name. Share the .vcpw file. The password was not saved.")
+                        ShareHelper.shareFiles(this, listOf(wrapped), "Share wrapped file")
+                    }
+                }
+            } catch (e: Exception) {
+                plain.delete()
+                runOnUiThread { onStatus("Wrap failed.") }
+            }
+        }.start()
+    }
+
+    private fun unwrapSelectedFile(uri: Uri, password: String, onStatus: (String) -> Unit) {
+        if (password.isEmpty()) {
+            onStatus("Enter the wrap password first. It is not stored.")
+            return
+        }
+        onStatus("Unwrapping file…")
+        Thread {
+            val name = ShareHelper.displayName(this, uri) ?: "wrap.vcpw"
+            val wrapped = File(cacheDir, ShareHelper.safeName(name))
+            val destDir = File(cacheDir, "unwrapped").apply { mkdirs() }
+            try {
+                contentResolver.openInputStream(uri)?.use { input ->
+                    wrapped.outputStream().use { output -> input.copyTo(output) }
+                } ?: run {
+                    runOnUiThread { onStatus("Could not read the wrap.") }
+                    return@Thread
+                }
+                val outPath = NativeBridge.unwrapFile(wrapped.absolutePath, destDir.absolutePath, password)
+                wrapped.delete()
+                runOnUiThread {
+                    if (outPath == null) {
+                        onStatus("Unwrap failed. Wrong password or not a VC Port wrap.")
+                    } else {
+                        val file = File(outPath)
+                        onStatus("Unwrapped ${file.name}. Password was not saved.")
+                        ShareHelper.shareFiles(this, listOf(file), "Share unwrapped file")
+                    }
+                }
+            } catch (e: Exception) {
+                wrapped.delete()
+                runOnUiThread { onStatus("Unwrap failed.") }
+            }
+        }.start()
     }
 
     private fun shareEncryptedVolume(uri: Uri?, path: String, onStatus: (String) -> Unit) {

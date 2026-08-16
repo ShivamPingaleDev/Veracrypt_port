@@ -6,6 +6,7 @@ Kotlin / Jetpack Compose client with:
 - Biometric unlock (Android Keystore + BiometricPrompt)
 - In-app FAT root listing and file extract
 - System share sheet for decrypted files inside a volume, and **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no unlock)
+- Wrap/unwrap individual files (`.vcpw`) and an in-memory password generator that never saves history
 - Incoming share / open: other apps can send a file into VC Port
 - DocumentsProvider stub for other apps
 

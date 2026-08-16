@@ -15,7 +15,7 @@ The iOS client is a SwiftUI app (`VCPort`) that talks to the shared VeraCrypt vo
 5. Merge keys from `VCPort/Info.plist` (Face ID, document types so other apps can Open In / share a container into VC Port).
 6. Enable Face ID / Keychain Sharing for the app target.
 
-Tap **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no password). Tap **Share decrypted** on a listed file to extract it from an opened FAT volume and present the system share sheet.
+Tap **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no password). **Wrap a single file** encrypts one file to `.vcpw`; the password generator never writes history. Tap **Share decrypted** on a listed file to extract it from an opened FAT volume and present the system share sheet.
 
 The File Provider extension should use the same `vc_mobile` library so Files.app can browse an unlocked container. The first release lists the FAT root from the in-app browser.
 

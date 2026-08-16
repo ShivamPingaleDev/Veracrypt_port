@@ -59,6 +59,15 @@ int vc_list_root (VcVolume *volume, VcDirEntry *entries, int max_entries);
 int vc_read_file (VcVolume *volume, const char *path, void *buffer, size_t buffer_size, size_t *out_size);
 int vc_export_file (VcVolume *volume, const char *path, const char *dest_path);
 
+int vc_wrap_file (const char *src_path, const char *dest_path,
+	const char *password, size_t password_len, const char *original_name);
+int vc_unwrap_file (const char *src_path, const char *dest_dir,
+	const char *password, size_t password_len, char *out_path, size_t out_path_size);
+int vc_is_wrap (const char *path);
+
+int vc_generate_password (char *out, size_t out_size, int length);
+void vc_secure_wipe (void *p, size_t n);
+
 #ifdef __cplusplus
 }
 #endif

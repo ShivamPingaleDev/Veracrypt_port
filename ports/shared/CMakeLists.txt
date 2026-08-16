@@ -110,6 +110,7 @@ set(VC_COMMON
 
 add_library(vc_mobile STATIC
 	vc_mobile.cpp
+	vc_wrap.cpp
 	token_stubs.cpp
 	${VC_CRYPTO}
 	${VC_VOLUME}

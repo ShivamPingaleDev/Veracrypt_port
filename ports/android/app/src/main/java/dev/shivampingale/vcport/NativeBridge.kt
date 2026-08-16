@@ -10,4 +10,8 @@ object NativeBridge {
     external fun volumeSize(handle: Long): Long
     external fun listRoot(handle: Long): Array<String>
     external fun exportFile(handle: Long, name: String, destPath: String): Int
+    external fun wrapFile(srcPath: String, destPath: String, password: String, originalName: String): Int
+    external fun unwrapFile(srcPath: String, destDir: String, password: String): String?
+    external fun isWrap(path: String): Boolean
+    external fun generatePassword(length: Int): String?
 }

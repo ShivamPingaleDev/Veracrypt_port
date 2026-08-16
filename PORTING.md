@@ -75,14 +75,14 @@ cd ports/android
 
 Biometric unlock uses Android Keystore + `BiometricPrompt` (strong biometrics). Opened containers are listed through a DocumentsProvider stub and the in-app FAT root browser.
 
-The in-app file list has a **Share decrypted** action that extracts the file from a FAT volume and opens the system share sheet. **Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no unlock). Other apps can also send files into VC Port (`ACTION_SEND` / `VIEW`).
+The in-app file list has a **Share decrypted** action that extracts the file from a FAT volume and opens the system share sheet. **Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no unlock). **Wrap a single file** password-encrypts one file into a `.vcpw` blob (Argon2id + AES-256-CTR + HMAC-SHA256). The password generator stays in memory, is never logged, and clipboard copies expire. Other apps can also send files into VC Port (`ACTION_SEND` / `VIEW`).
 
 ## iOS
 
 Project notes: `ports/ios/README.md`  
 The SwiftUI app uses the same `vc_mobile` C API and Keychain + Face ID / Touch ID.
 
-**Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no password). **Share decrypted** on a listed file presents `UIActivityViewController` after extract. Incoming “Open in VC Port” files are handled with `onOpenURL` and the document types in `ports/ios/VCPort/Info.plist`.
+**Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no password). **Wrap a single file** creates a `.vcpw` wrap. The password generator never writes history. **Share decrypted** on a listed file presents `UIActivityViewController` after extract. Incoming “Open in VC Port” files are handled with `onOpenURL` and the document types in `ports/ios/VCPort/Info.plist`.
 
 ## Offline-first updates
 
