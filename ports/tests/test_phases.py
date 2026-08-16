@@ -12,11 +12,10 @@ import re
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+import sys
 
-
-def read(rel: str) -> str:
-    return (ROOT / rel).read_text(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from repo_paths import ROOT, read, resolve  # noqa: E402
 
 
 def load_version() -> dict:
@@ -242,7 +241,7 @@ class Phase9LegalVersionTests(unittest.TestCase):
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
         self.assertEqual(v["android_version_code"], 5)
-        notes = ROOT / "ports/android/fastlane/metadata/android/en-US/changelogs/5.txt"
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/5.txt")
         self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 5")
         self.assertIn("FAT folder", notes.read_text(encoding="utf-8"))
         self.assertIn("not unbreakable", notes.read_text(encoding="utf-8").lower())
@@ -256,7 +255,7 @@ class Phase9LegalVersionTests(unittest.TestCase):
         self.assertIn("Shivam Mangesh Pingale", android)
 
     def test_no_fake_fdroid_screenshots(self) -> None:
-        shots = ROOT / "ports/android/fastlane/metadata/android/en-US/images/phoneScreenshots"
+        shots = resolve("ports/android/fastlane/metadata/android/en-US/images/phoneScreenshots")
         if shots.is_dir():
             files = [p for p in shots.iterdir() if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}]
             self.assertEqual(files, [])
@@ -276,7 +275,7 @@ class Phase10RelaunchTests(unittest.TestCase):
         import tempfile
         from pathlib import Path
 
-        script = ROOT / "ports/scripts/hash_release.py"
+        script = resolve("ports/scripts/hash_release.py")
         self.assertTrue(script.is_file())
         self.assertIn("Android Debug", script.read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as tmp:
@@ -293,7 +292,7 @@ class Phase10RelaunchTests(unittest.TestCase):
     def test_hash_source_and_refuse_write_on_dirty_tree(self) -> None:
         import subprocess
 
-        script = str(ROOT / "ports/scripts/hash_release.py")
+        script = str(resolve("ports/scripts/hash_release.py"))
         src = subprocess.run(
             ["python3", script, "--source"],
             cwd=ROOT,

@@ -25,8 +25,8 @@ import sys
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-VERSION = ROOT / "ports" / "version.json"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tree_paths import PORTS, VERSION
 
 OFFICIAL_GIT = "https://github.com/veracrypt/VeraCrypt.git"
 OFFICIAL_RELEASES = "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest"
@@ -85,7 +85,7 @@ def pin_problems(v: dict) -> list[str]:
     commit = str(v.get("upstream_commit") or "")
     if len(commit) != 40:
         problems.append("upstream_commit must be 40 hex chars")
-    pin = (ROOT / "ports" / "UPSTREAM_COMMIT").read_text(encoding="utf-8").strip()
+    pin = (PORTS / "UPSTREAM_COMMIT").read_text(encoding="utf-8").strip()
     if pin != commit:
         problems.append("ports/UPSTREAM_COMMIT does not match version.json")
     return problems

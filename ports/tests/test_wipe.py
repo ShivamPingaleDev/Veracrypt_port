@@ -8,9 +8,13 @@ No Android Context or iOS FileManager required.
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from repo_paths import resolve  # noqa: E402
 
 
 def wipe_file(path: Path) -> None:
@@ -96,9 +100,8 @@ class WipeTests(unittest.TestCase):
             self.assertFalse((cache / "stray").exists())
 
     def test_keyfile_size_cap_constant(self) -> None:
-        kotlin = (
-            Path(__file__).resolve().parents[2]
-            / "ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"
+        kotlin = resolve(
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"
         ).read_text()
         self.assertIn("MAX_KEYFILE = 1024 * 1024", kotlin)
 

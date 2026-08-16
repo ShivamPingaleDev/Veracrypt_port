@@ -10,6 +10,7 @@
 - FAT list cap 1024; `vc_list_dir_from` + Load more; iOS wrap uses `arc4random_buf`; iOS native defines `TC_IOS`.
 - Nation-state APTs (Unit 8200, TAO, Lazarus, and the rest) are documented as out of scope: no key escrow, no intelligence backdoor, and no foolproof claim.
 - Remember / biometric save stays off unless the user types REMEMBER. Password fields skip IME, Autofill, and iOS Keychain history. Desktop never writes History.xml; leftover history is overwritten then deleted.
+- Host tests and pin scripts run in both Veracrypt_port (full tree) and the mobile-only VCPort repo.
 - About quotes Eric Hughes: we must defend our own privacy if we expect to have any.
 
 ## 0.3.0

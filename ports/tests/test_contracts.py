@@ -15,12 +15,8 @@ import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-PORTS = ROOT / "ports"
-
-
-def read(rel: str) -> str:
-    return (ROOT / rel).read_text(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from repo_paths import ROOT, PORTS, FULL_TREE, read, resolve  # noqa: E402
 
 
 def load_version() -> dict:
@@ -201,7 +197,7 @@ class VersionMatrixTests(unittest.TestCase):
         import subprocess
 
         rc = subprocess.run(
-            [sys.executable, str(ROOT / "ports/scripts/check_veracrypt_release.py"), "--pin-only"],
+            [sys.executable, str(resolve("ports/scripts/check_veracrypt_release.py")), "--pin-only"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -213,7 +209,7 @@ class VersionMatrixTests(unittest.TestCase):
         import subprocess
 
         rc = subprocess.run(
-            [sys.executable, str(ROOT / "ports/scripts/sync_source_pin.py"), "--check"],
+            [sys.executable, str(resolve("ports/scripts/sync_source_pin.py")), "--check"],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -238,7 +234,7 @@ class VersionMatrixTests(unittest.TestCase):
     def test_changelog_mentions_current(self) -> None:
         log = read("ports/CHANGELOG.md")
         self.assertIn(f"## {self.port}", log)
-        notes = ROOT / f"ports/android/fastlane/metadata/android/en-US/changelogs/{self.code}.txt"
+        notes = resolve(f"ports/android/fastlane/metadata/android/en-US/changelogs/{self.code}.txt")
         self.assertTrue(notes.is_file(), notes)
 
 
@@ -521,7 +517,7 @@ class MacosDesktopTests(unittest.TestCase):
         self.assertIn("Forcing SMB when the backend is missing hangs the mount", fuse)
 
     def test_port_version_header_exists_for_desktop(self) -> None:
-        self.assertTrue((ROOT / "src/Main/PortVersion.h").is_file())
+        self.assertIn("VC_PORT_VERSION", read("src/Main/PortVersion.h"))
 
     def test_desktop_gui_has_wrap_panic_share(self) -> None:
         lang = read("src/Common/Language.xml")
@@ -729,6 +725,8 @@ class SharedNativeContractsTests(unittest.TestCase):
         self.assertIn("opt_avx2.c", cmake)
 
     def test_cmake_listed_files_exist(self) -> None:
+        if not FULL_TREE:
+            self.skipTest("src/ lives in Veracrypt_port")
         cmake = read("ports/shared/upstream-sources.cmake")
         missing = []
         for rel in re.findall(r"\$\{VC_SRC\}/([A-Za-z0-9_./-]+\.(?:cpp|c))\b", cmake):
@@ -764,10 +762,14 @@ class OverlayInventoryTests(unittest.TestCase):
         self.assertFalse(owned & patched)
 
     def test_patched_files_exist(self) -> None:
+        if not FULL_TREE:
+            self.skipTest("patched src/ files live in Veracrypt_port")
         for rel in self._list("ports/overlay/patched.txt"):
             self.assertTrue((ROOT / rel).is_file(), rel)
 
     def test_owned_port_files_exist(self) -> None:
+        if not FULL_TREE:
+            self.skipTest("owned overlay files live in Veracrypt_port")
         for rel in self._list("ports/overlay/owned.txt"):
             self.assertTrue((ROOT / rel).is_file(), rel)
 

@@ -14,7 +14,10 @@ import unittest
 from dataclasses import dataclass, field
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from repo_paths import read  # noqa: E402
 
 
 @dataclass
@@ -158,8 +161,8 @@ class FactorCodecTests(unittest.TestCase):
 
 class MobileSourceLockTests(unittest.TestCase):
     def test_kotlin_and_swift_share_vcf2(self) -> None:
-        kotlin = (ROOT / "ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt").read_text()
-        swift = (ROOT / "ports/ios/VCPort/UnlockFactors.swift").read_text()
+        kotlin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
+        swift = read("ports/ios/VCPort/UnlockFactors.swift")
         for src in (kotlin, swift):
             self.assertIn("VCF2\\n", src)
             self.assertIn("randomBiometricKey", src)
@@ -169,11 +172,11 @@ class MobileSourceLockTests(unittest.TestCase):
         self.assertIn("count: 64", swift)
 
     def test_kotlin_legacy_fallback_still_present(self) -> None:
-        kotlin = (ROOT / "ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt").read_text()
+        kotlin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
         self.assertIn('startsWith("VCF2\\n")', kotlin)
 
     def test_swift_legacy_fallback_still_present(self) -> None:
-        swift = (ROOT / "ports/ios/VCPort/UnlockFactors.swift").read_text()
+        swift = read("ports/ios/VCPort/UnlockFactors.swift")
         self.assertIn('hasPrefix("VCF2\\n")', swift)
 
 

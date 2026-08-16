@@ -13,21 +13,22 @@ import re
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from repo_paths import read, resolve  # noqa: E402
+
 _REL = None
-
-
-def read(rel: str) -> str:
-    return (ROOT / rel).read_text(encoding="utf-8")
 
 
 def release_mod():
     global _REL
     if _REL is None:
-        path = ROOT / "ports/scripts/check_veracrypt_release.py"
+        path = resolve("ports/scripts/check_veracrypt_release.py")
         spec = importlib.util.spec_from_file_location("check_veracrypt_release", path)
         mod = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
+        sys.path.insert(0, str(path.parent))
         spec.loader.exec_module(mod)
         _REL = mod
     return _REL
@@ -134,9 +135,9 @@ class AirgapTests(unittest.TestCase):
 
     def test_no_listeners_in_mobile_source(self) -> None:
         roots = [
-            ROOT / "ports/android/app/src",
-            ROOT / "ports/ios/VCPort",
-            ROOT / "ports/shared",
+            resolve("ports/android/app/src"),
+            resolve("ports/ios/VCPort"),
+            resolve("ports/shared"),
         ]
         banned = ("ServerSocket", "DatagramSocket", "ServerSocketChannel", "NWListener", "CFSocket")
         for root in roots:

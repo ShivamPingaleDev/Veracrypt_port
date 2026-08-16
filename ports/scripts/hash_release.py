@@ -23,8 +23,8 @@ import sys
 import zipfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-VERSION = ROOT / "ports" / "version.json"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tree_paths import ROOT, VERSION
 
 
 def sha256_file(path: Path) -> str:
