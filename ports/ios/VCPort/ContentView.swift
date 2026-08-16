@@ -122,7 +122,8 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if let biometricKey {
-                            Text("Phone-unlock keyfile ready (\(biometricKey.count) bytes).")
+                            let keyBytes = biometricKey.count
+                            Text("Phone-unlock keyfile ready (\(keyBytes) bytes).")
                                 .font(.caption)
                         }
                         Button("Import keyfile as biometric password…") { importBioPresented = true }
@@ -147,24 +148,7 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, minHeight: 168)
                         .gesture(
                             DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    var bytes = [UInt8](repeating: 0, count: 24)
-                                    func put(_ offset: Int, _ v: UInt32) {
-                                        bytes[offset] = UInt8(v & 0xff)
-                                        bytes[offset + 1] = UInt8((v >> 8) & 0xff)
-                                        bytes[offset + 2] = UInt8((v >> 16) & 0xff)
-                                        bytes[offset + 3] = UInt8((v >> 24) & 0xff)
-                                    }
-                                    put(0, Float(value.location.x).bitPattern)
-                                    put(4, Float(value.location.y).bitPattern)
-                                    let t = DispatchTime.now().uptimeNanoseconds
-                                    put(8, UInt32(truncatingIfNeeded: t))
-                                    put(12, UInt32(truncatingIfNeeded: t >> 32))
-                                    put(16, Float(value.translation.x).bitPattern)
-                                    put(20, Float(value.translation.y).bitPattern)
-                                    VcMobileBridge.addEntropy(Data(bytes))
-                                    entropyPercent = Int(VcMobileBridge.entropyPercent())
-                                }
+                                .onChanged { collectCreateEntropy($0) }
                         )
                     }
                     Toggle("Nested volume (VeraCrypt hidden volume)", isOn: $createHidden)
@@ -282,7 +266,8 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if let biometricKey {
-                            Text("Biometric password ready (\(biometricKey.count) bytes).")
+                            let keyBytes = biometricKey.count
+                            Text("Biometric password ready (\(keyBytes) bytes).")
                                 .font(.caption)
                         } else if let path = containerURL?.path, BiometricStore.hasFactors(for: path) {
                             Text("A saved factor set exists. Unlock with biometrics to load it.")
@@ -669,6 +654,25 @@ struct ContentView: View {
         return Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255)
     }
 
+    private func collectCreateEntropy(_ value: DragGesture.Value) {
+        var bytes = [UInt8](repeating: 0, count: 24)
+        func put(_ offset: Int, _ v: UInt32) {
+            bytes[offset] = UInt8(v & 0xff)
+            bytes[offset + 1] = UInt8((v >> 8) & 0xff)
+            bytes[offset + 2] = UInt8((v >> 16) & 0xff)
+            bytes[offset + 3] = UInt8((v >> 24) & 0xff)
+        }
+        put(0, Float(value.location.x).bitPattern)
+        put(4, Float(value.location.y).bitPattern)
+        let t = DispatchTime.now().uptimeNanoseconds
+        put(8, UInt32(truncatingIfNeeded: t))
+        put(12, UInt32(truncatingIfNeeded: t >> 32))
+        put(16, Float(value.translation.width).bitPattern)
+        put(20, Float(value.translation.height).bitPattern)
+        VcMobileBridge.addEntropy(Data(bytes))
+        entropyPercent = Int(VcMobileBridge.entropyPercent())
+    }
+
     private func beginWork(_ title: String) {
         VcMobileBridge.resetProgress()
         workTitle = title
@@ -872,10 +876,10 @@ struct ContentView: View {
                 volumeHandle = handle
                 dirPath = ""
                 switch VcMobileBridge.listDir(handle, path: "/") {
-                case .failure(let code):
+                case .failure(let err):
                     VcMobileBridge.close(handle)
                     volumeHandle = nil
-                    status = listErrorMessage(code)
+                    status = listErrorMessage(err.rawValue)
                     entries = []
                     listTruncated = false
                 case .success(let listed):
@@ -1142,8 +1146,8 @@ struct ContentView: View {
         let path = dirPath.isEmpty ? "/" : dirPath
         let offset = append ? Int32(entries.count) : 0
         switch VcMobileBridge.listDir(handle, path: path, offset: offset) {
-        case .failure(let code):
-            status = listErrorMessage(code)
+        case .failure(let err):
+            status = listErrorMessage(err.rawValue)
         case .success(let listed):
             let truncated = listed.contains { $0.name == "!truncated!" }
             let files = listed.filter { $0.name != "!truncated!" }

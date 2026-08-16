@@ -9,6 +9,10 @@ struct VaultEntry: Identifiable {
     var id: String { name }
 }
 
+struct VcStatusCode: Error {
+    let rawValue: Int32
+}
+
 enum VcMobileBridge {
     static func open(path: String, password: String, pim: Int32, keyfiles: [String], useBackupHeader: Bool = false, readOnly: Bool = false, error: UnsafeMutablePointer<Int32>) -> OpaquePointer? {
         path.withCString { cPath in
@@ -51,14 +55,14 @@ enum VcMobileBridge {
         vc_size(handle)
     }
 
-    static func listDir(_ handle: OpaquePointer, path: String = "/", offset: Int32 = 0) -> Result<[VaultEntry], Int32> {
+    static func listDir(_ handle: OpaquePointer, path: String = "/", offset: Int32 = 0) -> Result<[VaultEntry], VcStatusCode> {
         let cap = Int32(VC_LIST_UI_MAX)
         var entries = Array(repeating: VcDirEntry(), count: Int(cap) + 1)
         let count = path.withCString { cPath in
             vc_list_dir_from(handle, cPath, &entries, cap + 1, offset)
         }
         if count < 0 {
-            return .failure(count)
+            return .failure(VcStatusCode(rawValue: count))
         }
         var truncated = false
         var n = Int(count)

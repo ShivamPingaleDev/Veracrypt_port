@@ -28,6 +28,12 @@ add_definitions(
 )
 if(ANDROID)
 	add_definitions(-DTC_LINUX -DTC_ANDROID)
+	# NDK never assembles Aes_hw_cpu.asm (CRYPTOPP_DISABLE_X86ASM). Without
+	# these, Cipher.cpp and cpu.c still demand AES-NI / SHA-NI objects on
+	# x86 and x86_64 emulator slices.
+	if(ANDROID_ABI MATCHES "^x86")
+		add_definitions(-DCRYPTOPP_DISABLE_AESNI -DCRYPTOPP_DISABLE_SHANI)
+	endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	add_definitions(-DTC_MACOSX -DTC_IOS)
 elseif(APPLE)

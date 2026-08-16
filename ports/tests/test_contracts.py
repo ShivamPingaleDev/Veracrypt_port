@@ -676,6 +676,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("opt_sse2.c", cmake)
         self.assertIn("Aes_hw_armv8.c", cmake)
         lists = read("ports/shared/CMakeLists.txt")
+        self.assertIn("CRYPTOPP_DISABLE_AESNI", lists)
+        self.assertIn("CRYPTOPP_DISABLE_SHANI", lists)
         self.assertIn("TC_IOS", lists)
         self.assertIn('CMAKE_SYSTEM_NAME STREQUAL "iOS"', lists)
         self.assertIn("vc_progress.cpp", lists)

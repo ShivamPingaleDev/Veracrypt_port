@@ -66,14 +66,21 @@ if(_vc_arm64)
 		${VC_SRC}/Crypto/sha256_armv8.c
 		PROPERTIES COMPILE_FLAGS "-march=armv8-a+crypto"
 	)
-elseif(_vc_x64)
+elseif(_vc_x64 OR _vc_x86)
+	# ref.c calls fill_segment_avx2 whenever CRYPTOPP_BOOL_X86/X64 is set,
+	# including 32-bit Android x86. Keep the AVX2 object so the slice links;
+	# HasSAVX2() still selects SSE2 at runtime on CPUs without AVX2.
 	list(APPEND VC_CRYPTO
 		${VC_SRC}/Crypto/Argon2/src/opt_sse2.c
 		${VC_SRC}/Crypto/Argon2/src/opt_avx2.c
 	)
-elseif(_vc_x86)
-	list(APPEND VC_CRYPTO
+	set_source_files_properties(
 		${VC_SRC}/Crypto/Argon2/src/opt_sse2.c
+		PROPERTIES COMPILE_FLAGS "-msse2"
+	)
+	set_source_files_properties(
+		${VC_SRC}/Crypto/Argon2/src/opt_avx2.c
+		PROPERTIES COMPILE_FLAGS "-mavx2"
 	)
 endif()
 

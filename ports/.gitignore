@@ -16,3 +16,4 @@ veracrypt/
 *.aab
 *.ipa
 *.dSYM/
+dist/
