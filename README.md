@@ -1,4 +1,4 @@
-**VC Port** (this checkout): Android/iOS clients and Apple silicon extras on top of VeraCrypt. It is a **derived work**, **not named VeraCrypt**, and **not unbreakable**. GitHub Actions APKs are debug-signed previews. The macOS GUI has not been built on a machine with wxWidgets in this project’s remote setup. Licenses: [LICENSE](LICENSE), [NOTICE](NOTICE), full texts in [License.txt](License.txt).
+**VC Port** (this checkout): Android/iOS clients and Apple silicon extras on top of VeraCrypt. It is a **derived work**, **not named VeraCrypt**, and **not unbreakable**. GitHub Actions APKs are debug-signed previews. iPhone users sign the unsigned IPA themselves. Mobile UI shots: [ports/docs/screenshots/](ports/docs/screenshots/). How to keep the repos public: [ports/PUBLIC.md](ports/PUBLIC.md). The macOS GUI has not been built on a machine with wxWidgets in this project’s remote setup. Licenses: [LICENSE](LICENSE), [NOTICE](NOTICE), full texts in [License.txt](License.txt).
 
 **Contact:** Shivam Mangesh Pingale — [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me) · [shivampingaledev@gmail.com](mailto:shivampingaledev@gmail.com)
 

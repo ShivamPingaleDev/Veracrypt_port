@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Apple users sign the unsigned IPA themselves (AltStore / Xcode). How to keep the repos public: `PUBLIC.md`. GitHub README has real emulator UI shots (`docs/screenshots/`); Fastlane `phoneScreenshots/` stays empty until a physical phone capture.
+
 ## 0.3.1
 
 Phone release: hidden-volume write protection, full emulator NativeBridge + Compose UI tests, ARM crypto flags, and the XTS thread pool on open/create.

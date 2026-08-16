@@ -50,6 +50,14 @@ class DeviceSimulationTest {
         val unwrapped = NativeBridge.unwrapFile(wrap.absolutePath, unwrapDir.absolutePath, password)
         assertNotNull(unwrapped)
         assertEquals(PAYLOAD, File(unwrapped!!).readText())
+        val wrapWrong = NativeBridge.unwrapFile(wrap.absolutePath, unwrapDir.absolutePath, "wrong-wrap-password")
+        assertTrue("wrong wrap password must not yield a path", wrapWrong.isNullOrEmpty())
+        val flipped = wrap.readBytes()
+        flipped[flipped.size - 8] = (flipped[flipped.size - 8].toInt() xor 0xFF).toByte()
+        val tampered = File(dir, "tampered.vcpw").apply { writeBytes(flipped) }
+        assertTrue(NativeBridge.isWrap(tampered.absolutePath))
+        val wrapTamper = NativeBridge.unwrapFile(tampered.absolutePath, unwrapDir.absolutePath, password)
+        assertTrue("tampered wrap must not unwrap", wrapTamper.isNullOrEmpty())
 
         val volume = File(dir, "vault.hc")
         assertEquals(
@@ -107,6 +115,12 @@ class DeviceSimulationTest {
         assertEquals(0, NativeBridge.renameFile(handle, "VAULT/NOTE.TXT", "MEMO.TXT"))
         assertEquals(0, NativeBridge.deleteFile(handle, "VAULT/MEMO.TXT"))
         assertEquals(0, NativeBridge.importFile(handle, "VAULT", plain.absolutePath, "NOTE.TXT"))
+        assertEquals(0, NativeBridge.mkdir(handle, "/", "COPY"))
+        val copied = File(dir, "hello-copy.txt")
+        assertEquals(0, NativeBridge.exportFile(handle, "HELLO.TXT", copied.absolutePath))
+        assertEquals(0, NativeBridge.importFile(handle, "COPY", copied.absolutePath, "HELLO.TXT"))
+        assertTrue(NativeBridge.listDir(handle, "COPY").any { it.startsWith("HELLO.TXT\t") })
+        assertEquals(PAYLOAD, copied.readText())
         assertEquals(0, NativeBridge.wipeFreeSpace(handle))
         NativeBridge.closeVolume(handle)
 

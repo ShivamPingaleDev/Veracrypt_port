@@ -311,6 +311,7 @@ class Phase9LegalVersionTests(unittest.TestCase):
             read("ports/android/fastlane/metadata/android/en-US/full_description.txt"),
             read("ports/ios/altstore/source.json"),
             read("ports/fdroiddata/metadata/dev.shivampingale.vcport.yml"),
+            read("ports/PUBLIC.md"),
         ]
         if FULL_TREE:
             blobs.extend(
@@ -330,6 +331,21 @@ class Phase9LegalVersionTests(unittest.TestCase):
         if shots.is_dir():
             files = [p for p in shots.iterdir() if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}]
             self.assertEqual(files, [])
+
+    def test_github_emulator_screenshots_are_png(self) -> None:
+        shots = resolve("ports/docs/screenshots")
+        self.assertTrue(shots.is_dir(), "missing ports/docs/screenshots")
+        names = ["01-volume.png", "02-wrap.png", "03-create.png", "04-tools.png"]
+        for name in names:
+            path = shots / name
+            self.assertTrue(path.is_file(), f"missing {path}")
+            data = path.read_bytes()
+            self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"), f"{name} is not a PNG")
+            self.assertGreater(len(data), 20_000, f"{name} looks empty/fake ({len(data)} bytes)")
+        note = (shots / "README.md").read_text(encoding="utf-8")
+        self.assertIn("FLAG_SECURE", note)
+        self.assertIn("emulator", note.lower())
+        self.assertIn("not unbreakable", note.lower())
 
 
 class Phase10RelaunchTests(unittest.TestCase):

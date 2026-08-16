@@ -90,11 +90,11 @@ Biometric unlock uses Android Keystore + `BiometricPrompt` (strong biometrics, S
 
 The in-app file list has a **Share decrypted** action that extracts the file from a FAT volume and opens the system share sheet. **Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no unlock). **Wrap a single file** password-encrypts one file into a `.vcpw` blob (Argon2id + AES-256-CTR + HMAC-SHA256). The password generator stays in memory, is never logged, and clipboard copies expire. Other apps can also send files into VC Port (`ACTION_SEND` / `VIEW`).
 
-Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](ports/FOSS.md).
+Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](ports/FOSS.md). How to keep the repos public: [ports/PUBLIC.md](ports/PUBLIC.md). Emulator UI shots: [ports/docs/screenshots/](ports/docs/screenshots/).
 
 ## iOS
 
-There is no F-Droid for iPhone. `ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Sideload with AltStore / SideStore, or optionally submit to the App Store. See [ports/FOSS.md](ports/FOSS.md) and `ports/ios/README.md`.
+There is no F-Droid for iPhone. `ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Each Apple user **signs their own** IPA with their Apple ID (AltStore / SideStore or Xcode Team). The GitHub IPA is unsigned on purpose. See [ports/FOSS.md](ports/FOSS.md), [ports/PUBLIC.md](ports/PUBLIC.md), and `ports/ios/README.md`.
 
 The SwiftUI app uses the same `vc_mobile` C API and Keychain + Face ID / Touch ID. Unlock factors can be combined: biometric password (a Keychain-held keyfile), optional text password, more keyfiles, and PIM.
 

@@ -12,7 +12,16 @@ The full macOS port and VeraCrypt source tree live in [Veracrypt_port](https://g
 
 **VeraCrypt updates:** see [UPSTREAM.md](UPSTREAM.md). Official git and GitHub latest-release URLs are hardcoded in `ports/version.json`. The apps never fetch `src/` or install themselves. When they publish a release, a maintainer runs `scripts/sync-upstream.sh` and ships a new VC Port build.
 
-**F-Droid / FOSS:** see [FOSS.md](FOSS.md). **Privacy:** [PRIVACY.md](PRIVACY.md). **Seizure / whistleblower profile:** [THREAT-MODEL.md](THREAT-MODEL.md). **Testing:** [tests/TESTING.md](tests/TESTING.md).
+**F-Droid / FOSS:** see [FOSS.md](FOSS.md). **Privacy:** [PRIVACY.md](PRIVACY.md). **Seizure / whistleblower profile:** [THREAT-MODEL.md](THREAT-MODEL.md). **Testing:** [tests/TESTING.md](tests/TESTING.md). **Public / how to talk about it:** [PUBLIC.md](PUBLIC.md).
+
+## Screenshots
+
+Real UI from the F-Droid debug app on emulator `vcport-api35` (Compose capture; `FLAG_SECURE` stays on, so `adb screencap` is black). Not F-Droid store mockups.
+
+![Volume](docs/screenshots/01-volume.png)
+![Wrap](docs/screenshots/02-wrap.png)
+![Create](docs/screenshots/03-create.png)
+![Tools](docs/screenshots/04-tools.png)
 
 ## What it does
 
@@ -65,7 +74,7 @@ cd android
 
 ## iOS
 
-There is no F-Droid for iPhone. Build from source or sideload with AltStore / SideStore. See `ios/README.md` and [FOSS.md](FOSS.md).
+There is no F-Droid for iPhone. Apple users **sign it themselves** with their Apple ID (AltStore / SideStore or Xcode). The GitHub IPA is unsigned on purpose. See `ios/README.md` and [FOSS.md](FOSS.md).
 
 ```bash
 cd ios

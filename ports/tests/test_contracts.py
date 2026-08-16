@@ -282,6 +282,24 @@ class NamingAndAttributionTests(unittest.TestCase):
         ):
             self.assertNotIn(claim, blob.lower())
 
+    def test_public_md_self_sign_and_honest_name(self) -> None:
+        public = read("ports/PUBLIC.md")
+        foss = read("ports/FOSS.md")
+        ios = read("ports/ios/README.md")
+        readme = read("ports/README.md")
+        for blob in (public, foss, ios, readme):
+            self.assertIn("sign", blob.lower())
+            self.assertIn("Apple ID", blob)
+        self.assertIn("not named VeraCrypt", public)
+        self.assertIn("not unbreakable", public.lower())
+        self.assertIn("unsigned", public.lower())
+        self.assertIn("AltStore", public)
+        self.assertIn("downloadURL", public)
+        self.assertIn("docs/screenshots", public)
+        self.assertNotIn("unbreakable encryption", public.lower())
+        self.assertIn("PUBLIC.md", readme)
+        self.assertIn("docs/screenshots/01-volume.png", readme)
+
     def test_android_readme_has_no_documents_provider(self) -> None:
         readme = read("ports/android/README.md")
         self.assertNotIn("DocumentsProvider stub", readme)

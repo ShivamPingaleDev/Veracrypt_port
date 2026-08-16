@@ -59,3 +59,17 @@ echo "device ABI: $("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
 echo "device nproc: $("$ADB" shell nproc 2>/dev/null | tr -d '\r' || echo '?')"
 cd "$ANDROID"
 ./gradlew :app:connectedFdroidDebugAndroidTest --no-daemon
+
+# Compose UI shots (FLAG_SECURE still on; not adb screencap).
+SHOTS="$(cd "$ANDROID/../docs/screenshots" && pwd)"
+mkdir -p "$SHOTS"
+DL_SHOTS=/storage/emulated/0/Download/vcport-github-shots
+if "$ADB" shell ls "$DL_SHOTS/01-volume.png" >/dev/null 2>&1; then
+	echo "Pulling GitHub UI shots into $SHOTS"
+	for name in 01-volume.png 02-wrap.png 03-create.png 04-tools.png; do
+		"$ADB" pull "$DL_SHOTS/$name" "$SHOTS/$name"
+		ls -l "$SHOTS/$name"
+	done
+else
+	echo "NOTE  no github-shots on device (UI test did not write PNGs)"
+fi

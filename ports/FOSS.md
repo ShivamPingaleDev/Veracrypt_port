@@ -27,7 +27,7 @@ Recipe to copy into [fdroiddata](https://gitlab.com/fdroid/fdroiddata): `fdroidd
 
 1. **Public git repo.** TrueCrypt License 3.0 and F-Droid both require publicly available source. This tree is [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). The `fdroiddata` recipe clones that repo with `subdir: ports/android`. The mobile-only [VCPort](https://github.com/ShivamPingaleDev/VCPort) mirror is public and is not the F-Droid source.
 2. **Git tag** matching `versionName`, e.g. `v0.3.0`, on the commit F-Droid should build.
-3. **Screenshots** in `android/fastlane/metadata/android/en-US/images/phoneScreenshots/`. Do not fake device photos; leave that folder empty until a real capture exists.
+3. **Screenshots** in `android/fastlane/metadata/android/en-US/images/phoneScreenshots/`. Do not fake device photos. That folder stays empty until a **physical phone** capture exists (`FLAG_SECURE` makes `adb screencap` black). GitHub README shots are real emulator Compose captures in [docs/screenshots/](docs/screenshots/).
 4. **VeraCrypt `src` as an F-Droid srclib** (`fdroiddata/srclibs/VeraCryptPort.yml`), because this repo does not vendor the whole VeraCrypt tree.
 5. **License review.** VeraCrypt is dual-licensed Apache-2.0 / TrueCrypt 3.0. TrueCrypt 3.0 is **not** OSI/FSF/Debian-free. F-Droid defers to those lists. They may accept Apache-2.0 for VeraCrypt-authored files, or they may refuse the inherited TrueCrypt files. If the main repo refuses, host your own F-Droid repo with `fdroidserver` or ask [IzzyOnDroid](https://apt.izzysoft.de/fdroid/) — still FOSS, not Google Play.
 
@@ -74,9 +74,31 @@ xcodebuild -scheme VCPort -configuration Release \
   CODE_SIGNING_ALLOWED=NO
 ```
 
-Or open the generated `VCPort.xcodeproj` and sign with your Apple ID (free 7-day cert) / Developer account.
+### Apple users sign it themselves
 
-Default Info.plist has `VCPortEnableUpdateCheck=false`, so the iPhone app does not use the network. AltStore is how updates arrive.
+GitHub’s `VCPort-*-unsigned-preview.ipa` is **not** Apple-signed. Each person signs **their own** copy with **their** Apple ID. A cert from one Apple ID will not install on someone else’s iPhone.
+
+**AltStore / SideStore (usual path)**
+
+1. Install AltStore or SideStore on the iPhone and add your Apple ID.
+2. Download the unsigned IPA from the GitHub Release (or build from source below).
+3. Open the IPA in AltStore → Install. AltStore stamps your 7-day (free) or 1-year (paid Developer) cert.
+4. On the phone: Settings → General → VPN & Device Management → trust your developer cert.
+
+**Xcode (you have a Mac)**
+
+```bash
+cd ios
+./build-native.sh
+xcodegen generate
+open VCPort.xcodeproj
+```
+
+Signing & Capabilities → Automatically manage signing → your Team → Run on the iPhone. Bundle id stays `dev.shivampingale.vcport` on a paid team; a free Personal Team may add a unique suffix.
+
+Do **not** put the unsigned IPA in AltStore `downloadURL`. That field stays empty until a signed IPA exists. See [PUBLIC.md](PUBLIC.md).
+
+Default Info.plist has `VCPortEnableUpdateCheck=false`, so the iPhone app does not use the network. AltStore is how updates arrive after you sign a build.
 
 ### App Store extras (only if you submit there)
 

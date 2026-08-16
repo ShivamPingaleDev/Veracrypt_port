@@ -16,7 +16,11 @@ xcodegen generate
 open VCPort.xcodeproj
 ```
 
-4. Sign with your Apple ID (free 7-day cert) or a Developer account.
+4. **Sign it yourself.** There is no Apple-signed VC Port from this project. Each Apple user signs **their own** copy:
+   - In Xcode: Signing & Capabilities → your Team (free Apple ID = 7-day cert; paid Developer = 1 year). Run on the iPhone.
+   - Or sideload `VCPort-*-unsigned-preview.ipa` with **AltStore / SideStore**, which signs it with **your** Apple ID.
+   - Trust the developer cert under Settings → General → VPN & Device Management.
+   - A signature you create will not install on someone else’s phone. AltStore `downloadURL` stays empty until a signed IPA exists.
 5. The target already includes `PrivacyInfo.xcprivacy`, Face ID usage text, Keychain entitlements, and `ITSAppUsesNonExemptEncryption=true`.
 
 `VCPortEnableUpdateCheck` in `Info.plist` is **false**. The app does not use the network. Set it to true only for a GitHub/App Store build that should offer a manual update check.

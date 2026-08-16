@@ -48,7 +48,9 @@ A corrupted biometric vault must decode to empty factors, not crash.
 - Opening a real VeraCrypt volume on Android/iOS
 - Biometric prompt (StrongBox / Face ID / Touch ID)
 - Share sheet and USB/OTG roundtrip
-- FLAG_SECURE screenshot (adb capture is black by design)
+- FLAG_SECURE screenshot (`adb screencap` is black by design). GitHub README
+  shots are Compose `captureToImage` of the real UI with FLAG_SECURE still on.
+
 - FUSE-T mount / hdiutil attach on a Mac
 
 Do not add Play Integrity, obfuscation, or an open-time hidden-volume checkbox
@@ -69,9 +71,15 @@ create, wrap/unwrap, open, store, dismount, reopen, header backup/restore,
 change password, read-only, backup header, hidden-volume write protection.
 Android emulator / device: `ports/android/run_device_sim.sh` (starts AVD
 `vcport-api35` when adb is empty; skips if there is no SDK/AVD). That test
-never calls `UpdateChecker.check()`. Compose UI coverage is `MainActivityUiTest`
-(tabs, Panic wipe, Stay offline, Wrap/Create/Tools copy; does not tap Panic
-wipe or Check for updates).
+never calls `UpdateChecker.check()`. `DeviceSimulationTest` is a person-session
+on NativeBridge: wrap/unwrap (wrong password and a flipped byte fail), create,
+open, FAT mkdir/import/list/export/copy-to-folder/rename/delete, wipe free
+space, dismount/reopen, read-only, backup header, change password, PIM 0
+rejected, hidden-volume write protection, benchmark. Compose UI coverage is
+`MainActivityUiTest` (FLAG_SECURE, tabs Volume/Wrap/Create/Tools, Panic wipe
+visible, Stay offline, Encrypt file / Decrypt wrap, Generate strong password;
+does not tap Panic wipe or Check for updates; writes GitHub shots under
+app files for `run_device_sim.sh` to pull into `ports/docs/screenshots/`).
 
 ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-march=armv8-a+crypto`.
 Debug NDK builds still use `-O2` on that slice so AES/SHA detection and
