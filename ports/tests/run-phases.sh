@@ -39,6 +39,7 @@ python3 --version
 run "phase 1 honesty freeze" sh -c "cd \"$PORTS/tests\" && python3 -m unittest test_phases.Phase1HonestyFreezeTests -v"
 run "phase 2 wrap/crypto" "$PORTS/shared/run_wrap_test.sh"
 run "phase 2 volume FAT fixture" "$PORTS/shared/run_volume_test.sh"
+run "phase 2 volume lifecycle" "$PORTS/shared/run_lifecycle_test.sh"
 run "phases 3-8 python" sh -c "cd \"$PORTS/tests\" && python3 -m unittest \
 	test_phases.Phase3FatFolderTests \
 	test_phases.Phase4AndroidTests \

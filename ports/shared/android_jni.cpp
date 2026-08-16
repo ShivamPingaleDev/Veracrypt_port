@@ -48,6 +48,13 @@ static void jni_wipe_string(std::string &s)
 	s.shrink_to_fit();
 }
 
+/* Error codes are 0 and VC_ERR_* (-1..-6). A live VcVolume* may look negative
+ * as signed jlong on 64-bit Android. */
+static int jni_live_handle(jlong handle)
+{
+	return handle < (jlong) VC_ERR_UNSUPPORTED || handle > 0;
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_openVolume(
 	JNIEnv *env, jobject, jstring path, jstring password, jint pim, jboolean backup,
@@ -98,14 +105,14 @@ Java_dev_shivampingale_vcport_NativeBridge_openVolume(
 extern "C" JNIEXPORT void JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_closeVolume(JNIEnv *, jobject, jlong handle)
 {
-	if (handle > 0)
+	if (jni_live_handle(handle))
 		vc_close(reinterpret_cast<VcVolume *>(handle));
 }
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_volumeSize(JNIEnv *, jobject, jlong handle)
 {
-	if (handle <= 0)
+	if (!jni_live_handle(handle))
 		return 0;
 	return (jlong) vc_size(reinterpret_cast<VcVolume *>(handle));
 }
@@ -114,7 +121,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_listDir(JNIEnv *env, jobject, jlong handle, jstring path, jint skip)
 {
 	jclass stringClass = env->FindClass("java/lang/String");
-	if (handle <= 0)
+	if (!jni_live_handle(handle))
 		return env->NewObjectArray(0, stringClass, nullptr);
 
 	std::string cPath = jni_copy_utf(env, path);
@@ -168,7 +175,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_exportFile(
 	JNIEnv *env, jobject, jlong handle, jstring name, jstring dest)
 {
-	if (handle <= 0 || !name || !dest)
+	if (!jni_live_handle(handle) || !name || !dest)
 		return VC_ERR_ARGUMENT;
 	std::string cName = jni_copy_utf(env, name);
 	std::string cDest = jni_copy_utf(env, dest);
@@ -179,7 +186,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_importFile(
 	JNIEnv *env, jobject, jlong handle, jstring destDir, jstring src, jstring destName)
 {
-	if (handle <= 0 || !src)
+	if (!jni_live_handle(handle) || !src)
 		return VC_ERR_ARGUMENT;
 	std::string cDir = jni_copy_utf(env, destDir);
 	std::string cSrc = jni_copy_utf(env, src);
@@ -192,7 +199,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_deleteFile(
 	JNIEnv *env, jobject, jlong handle, jstring path)
 {
-	if (handle <= 0 || !path)
+	if (!jni_live_handle(handle) || !path)
 		return VC_ERR_ARGUMENT;
 	std::string cPath = jni_copy_utf(env, path);
 	return vc_delete_file(reinterpret_cast<VcVolume *>(handle), cPath.c_str());
@@ -202,7 +209,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_mkdir(
 	JNIEnv *env, jobject, jlong handle, jstring parent, jstring name)
 {
-	if (handle <= 0 || !name)
+	if (!jni_live_handle(handle) || !name)
 		return VC_ERR_ARGUMENT;
 	std::string cParent = jni_copy_utf(env, parent);
 	std::string cName = jni_copy_utf(env, name);
@@ -213,7 +220,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_rmdir(
 	JNIEnv *env, jobject, jlong handle, jstring path)
 {
-	if (handle <= 0 || !path)
+	if (!jni_live_handle(handle) || !path)
 		return VC_ERR_ARGUMENT;
 	std::string cPath = jni_copy_utf(env, path);
 	return vc_rmdir(reinterpret_cast<VcVolume *>(handle), cPath.c_str());
@@ -223,7 +230,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_renameFile(
 	JNIEnv *env, jobject, jlong handle, jstring path, jstring newName)
 {
-	if (handle <= 0 || !path || !newName)
+	if (!jni_live_handle(handle) || !path || !newName)
 		return VC_ERR_ARGUMENT;
 	std::string cPath = jni_copy_utf(env, path);
 	std::string cName = jni_copy_utf(env, newName);
@@ -233,7 +240,7 @@ Java_dev_shivampingale_vcport_NativeBridge_renameFile(
 extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_wipeFreeSpace(JNIEnv *, jobject, jlong handle)
 {
-	if (handle <= 0)
+	if (!jni_live_handle(handle))
 		return VC_ERR_ARGUMENT;
 	return vc_wipe_free_space(reinterpret_cast<VcVolume *>(handle));
 }
@@ -460,7 +467,7 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_volumeInfo(JNIEnv *env, jobject, jlong handle)
 {
 	char buf[512];
-	if (vc_volume_info((VcVolume *) handle, buf, sizeof(buf)) != VC_OK)
+	if (!jni_live_handle(handle) || vc_volume_info((VcVolume *) handle, buf, sizeof(buf)) != VC_OK)
 		return nullptr;
 	return env->NewStringUTF(buf);
 }

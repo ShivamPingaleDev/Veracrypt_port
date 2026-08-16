@@ -80,6 +80,9 @@ object NativeBridge {
     external fun progressPercent(): Int
     external fun progressPhase(): String
 
+    /** Live volume pointer. Error codes from openVolume are 0 and -1..-6. */
+    fun isOpen(handle: Long): Boolean = handle < -6L || handle > 0L
+
     val CIPHERS = listOf(
         "AES",
         "Serpent",

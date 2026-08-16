@@ -17,6 +17,8 @@ The full macOS port and VeraCrypt source tree live in [Veracrypt_port](https://g
 ## What it does
 
 - Open a VeraCrypt container (FAT folder browse and file extract; exFAT unsupported)
+- Create a file container with the desktop cipher/KDF list, PIM, keyfiles, and nested (hidden) volume
+- Change password / header KDF / keyfiles; backup and restore headers
 - Biometric unlock (Android Keystore / Face ID / Touch ID) as a password factor, combinable with a text password, keyfiles, and PIM
 - System share sheet (WhatsApp, Gmail, Drive, Mail, AirDrop, …)
 - Share encrypted `.hc` / `.tc` / `.vera` files as-is

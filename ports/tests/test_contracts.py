@@ -558,6 +558,9 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("Share encrypted", main)
         self.assertIn("Stay offline", main)
         self.assertIn("compelled", main.lower())
+        self.assertIn("Copy once", main)
+        self.assertIn("generatePassword(64)", main)
+        self.assertIn("64-character password", main)
 
     def test_wrap_panic_share_stay_offline_on_ios(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")
@@ -567,6 +570,10 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("Share encrypted file", view)
         self.assertIn("Stay offline", view)
         self.assertIn("compelled", view.lower())
+        self.assertIn("Copy once", view)
+        self.assertIn("64-character password", view)
+        self.assertIn("generatePassword(length: Int32 = 64)", read("ports/ios/VCPort/VcMobileBridge.swift"))
+        self.assertIn("VC_ENTROPY_NEED = 8192", read("ports/shared/vc_mobile.cpp"))
 
     def test_volume_tools_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")

@@ -286,7 +286,7 @@ int main ()
 	unlink (path);
 	unlink (tmpout);
 
-	for (int i = 0; i < 80; ++i)
+	for (int i = 0; i < 320; ++i)
 		vc_entropy_add ("0123456789abcdef0123456789abcdef", 32);
 	expect (vc_entropy_percent () == 100, "entropy bar fills");
 

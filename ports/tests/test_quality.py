@@ -186,6 +186,53 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("wipe free space", vol)
         self.assertIn("restore volume header", vol)
 
+    def test_lifecycle_host_harness_create_store_close_reopen(self) -> None:
+        life = read("ports/shared/test_lifecycle_main.cpp")
+        cmake = read("ports/shared/CMakeLists.txt")
+        runner = read("ports/tests/run-phases.sh")
+        self.assertIn("create AES(Twofish(Serpent))/HMAC-SHA-512", life)
+        self.assertIn("create biometric password", life)
+        self.assertIn("store VCF2 remember bundle", life)
+        self.assertIn("import NOTE.TXT", life)
+        self.assertIn("reopen with stored factors", life)
+        self.assertIn("payload still matches", life)
+        self.assertIn("close volume again", life)
+        self.assertIn("vc_lifecycle_test", cmake)
+        self.assertIn("run_lifecycle_test.sh", runner)
+        self.assertIn("std::thread", life)
+        self.assertIn("parallel CPU", life)
+        self.assertIn("VeraCrypt AES/Twofish/Serpent/HMAC test vectors", life)
+        self.assertIn("phone session", life)
+        self.assertIn("wrapFile encrypt", life)
+        self.assertIn("unwrapFile decrypt", life)
+        self.assertIn("createVolume", life)
+        self.assertIn("changeHeader", life)
+        self.assertIn("worker_count", life)
+
+    def test_emulator_device_simulation_stays_offline(self) -> None:
+        sim = read(
+            "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/DeviceSimulationTest.kt"
+        )
+        gradle = read("ports/android/app/build.gradle")
+        self.assertIn("createStoreEncryptDecryptReopen", sim)
+        self.assertIn("NativeBridge.createVolume", sim)
+        self.assertIn("NativeBridge.wrapFile", sim)
+        self.assertIn("NativeBridge.unwrapFile", sim)
+        self.assertIn("NativeBridge.importFile", sim)
+        self.assertIn("NativeBridge.changeHeader", sim)
+        self.assertNotIn("UpdateChecker.check()", sim)
+        self.assertIn("NativeBridge.isOpen", sim)
+        self.assertIn("AndroidJUnitRunner", gradle)
+        self.assertIn("ENABLE_UPDATE_CHECK", gradle)
+        cmake = read("ports/shared/CMakeLists.txt")
+        self.assertIn("-fgnu89-inline", cmake)
+        jni = read("ports/shared/android_jni.cpp")
+        self.assertIn("jni_live_handle", jni)
+        native = read(
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt"
+        )
+        self.assertIn("fun isOpen", native)
+
     def test_user_never_sees_install_from_the_app(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
@@ -266,6 +313,12 @@ class FunctionalTests(unittest.TestCase):
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("fun WorkOverlay", theme)
         self.assertIn("struct WorkOverlay", view)
+        self.assertIn("Nothing runs out of sight.", theme)
+        self.assertIn("Nothing runs out of sight.", view)
+        self.assertIn("On this phone", theme)
+        self.assertIn("On this phone", view)
+        self.assertNotIn("Working…", theme)
+        self.assertNotIn("Working…", view)
 
     def test_nested_volume_has_no_open_time_checkbox(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")

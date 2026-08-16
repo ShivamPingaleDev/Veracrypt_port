@@ -167,7 +167,7 @@ enum VcMobileBridge {
         path.withCString { vc_is_wrap($0) != 0 }
     }
 
-    static func generatePassword(length: Int32 = 24) -> String? {
+    static func generatePassword(length: Int32 = 64) -> String? {
         var buf = [CChar](repeating: 0, count: 80)
         let n = vc_generate_password(&buf, 80, length)
         defer {

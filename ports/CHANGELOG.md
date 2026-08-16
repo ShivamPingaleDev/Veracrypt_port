@@ -13,9 +13,16 @@
 - Host tests and pin scripts run in both Veracrypt_port (full tree) and the mobile-only VCPort repo.
 - The mobile-only VCPort GitHub repo is public.
 - About / README footnote: programming noob with a five-year IT engineering degree that did not work out; open to suggestions and advice.
+- Generated passwords are 64 characters. Copy once works for wrap and new volumes. Finger-scribble entropy takes longer to fill.
+- After Open volume, the FAT folder is shown in the app as Mounted in this app. Not a system drive.
+- Work overlay names the live step and percent on a visible meter. Entropy scribble draws the finger path. Nothing runs out of sight.
+- Dropped the unused Share tab and the duplicate USB/OTG picker button. Share encrypted stays on Volume and the bar in front of you.
+- File-container VeraCrypt menu items are in the apps (create, open, dismount, password/KDF/keyfiles, header backup/restore, keyfile generator, benchmark, test vectors, properties, wipe cache, FAT folders). System encryption, devices, favorites, Quick Format, and the rest stay on a computer.
 - About quotes Eric Hughes: we must defend our own privacy if we expect to have any.
 - Android x86/x86_64 NDK slices link: software AES (no AES-NI asm), Argon2 AVX2 object on i686 so emulator ABIs package.
 - iOS compiles on Xcode 26: listDir uses an Error wrapper; biometric keyfile byte count is not inlined in SwiftUI Text.
+- Host lifecycle simulation: create a FAT volume with password, PIM, and a biometric keyfile, store files, dismount, reopen. Independent cases run on a CPU worker pool; HMAC-SHA-512 is unchanged. Phone-session + optional emulator NativeBridge test stay offline (no UpdateChecker).
+- Android 64-bit openVolume handles: a live pointer may look negative as signed Long; JNI/UI use isOpen instead of handle > 0. Debug ARM cpu.c links with GNU89 inline so CPU_QueryAES/SHA2 exist at -O0.
 
 ## 0.3.0
 

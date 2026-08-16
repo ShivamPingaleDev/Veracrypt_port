@@ -34,6 +34,10 @@ if(ANDROID)
 	if(ANDROID_ABI MATCHES "^x86")
 		add_definitions(-DCRYPTOPP_DISABLE_AESNI -DCRYPTOPP_DISABLE_SHANI)
 	endif()
+	# C11 inline in cpu.c does not emit CPU_QueryAES/SHA2 at -O0 (Android
+	# Studio / connectedDebug). GNU89 inline keeps ARM crypto detection.
+	set_source_files_properties("${VC_SRC}/Crypto/cpu.c"
+		PROPERTIES COMPILE_FLAGS "-fgnu89-inline")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	add_definitions(-DTC_MACOSX -DTC_IOS)
 elseif(APPLE)
@@ -76,4 +80,6 @@ elseif(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	target_link_libraries(vc_mobile PRIVATE Threads::Threads)
 	add_executable(vc_volume_test test_volume_main.cpp)
 	target_link_libraries(vc_volume_test PRIVATE vc_mobile Threads::Threads)
+	add_executable(vc_lifecycle_test test_lifecycle_main.cpp)
+	target_link_libraries(vc_lifecycle_test PRIVATE vc_mobile Threads::Threads)
 endif()

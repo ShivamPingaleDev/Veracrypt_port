@@ -1568,7 +1568,7 @@ int vc_wipe_free_space (VcVolume *volume)
 }
 
 static Mutex gEntropyMutex;
-enum { VC_ENTROPY_POOL = 320, VC_ENTROPY_NEED = 2048 };
+enum { VC_ENTROPY_POOL = 320, VC_ENTROPY_NEED = 8192 };
 static uint8_t gPool[VC_ENTROPY_POOL];
 static size_t gPoolWrite = 0;
 static size_t gPoolSinceMix = 0;

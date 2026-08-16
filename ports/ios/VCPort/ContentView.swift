@@ -54,11 +54,123 @@ struct ContentView: View {
     @State private var busy = false
     @State private var workTitle = ""
     @State private var workPercent = -1
+    @State private var entropyMarks: [CGPoint] = []
 
     var body: some View {
         ZStack {
         NavigationStack {
             Form {
+                if volumeHandle != nil {
+                    Section("Mounted in this app") {
+                        Text("Folders and files from the open volume. This is not a system drive. Files.app cannot see it.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if entries.isEmpty {
+                            Text("This folder is empty. Copy from device to add a file. FAT folders are browsable; exFAT is not.")
+                        }
+                        HStack {
+                            if !dirPath.isEmpty {
+                                Button("Up") {
+                                    dirPath = parentDir(dirPath)
+                                    reloadDir()
+                                }
+                            }
+                            Text(dirPath.isEmpty ? "/" : "/\(dirPath)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        HStack {
+                            Button("Copy from device") {
+                                moveFromDevice = false
+                                copyFromDevicePresented = true
+                            }
+                            Button("Move from device") {
+                                moveFromDevice = true
+                                copyFromDevicePresented = true
+                            }
+                        }
+                        HStack {
+                            Button("Copy to device") { copySelectedToDevice(move: false) }
+                            Button("Move to device") { copySelectedToDevice(move: true) }
+                        }
+                        HStack {
+                            Button("New folder") {
+                                namePromptValue = ""
+                                newFolderPresented = true
+                            }
+                            Button("Rename") {
+                                guard let name = selectedNames.first else {
+                                    status = "Tap a file or folder, then Rename."
+                                    return
+                                }
+                                namePromptValue = name
+                                renamePresented = true
+                            }
+                        }
+                        HStack {
+                            Button("Delete") { deleteSelected() }
+                            Button("Properties") { showEntryProperties() }
+                        }
+                        Button("Wipe free space") { wipeFreeSpace() }
+                        ForEach(entries) { entry in
+                            HStack {
+                                ZStack {
+                                    Circle()
+                                        .fill(selectedNames.contains(entry.name) ? Color.accentColor : Color.secondary.opacity(0.18))
+                                        .frame(width: 28, height: 28)
+                                    if selectedNames.contains(entry.name) {
+                                        Image(systemName: "checkmark")
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(.white)
+                                    } else {
+                                        Image(systemName: entry.isDir ? "folder" : "doc")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                VStack(alignment: .leading) {
+                                    Text(entry.name)
+                                    Text(entry.isDir ? "Folder — tap Open" : byteCount(entry.size))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if entry.isDir {
+                                    Button("Open") {
+                                        dirPath = joinDir(dirPath, entry.name)
+                                        selectedNames = []
+                                        reloadDir()
+                                    }
+                                } else {
+                                    Button(selectedNames.contains(entry.name) ? "Selected" : "Select") {
+                                        if selectedNames.contains(entry.name) {
+                                            selectedNames.remove(entry.name)
+                                        } else {
+                                            selectedNames.insert(entry.name)
+                                        }
+                                    }
+                                    Button("Share decrypted") { shareVaultFile(entry) }
+                                }
+                            }
+                        }
+                        if listTruncated {
+                            Button("Load more") { reloadDir(append: true) }
+                        }
+                        Button("Dismount") { closeVolume() }
+                    }
+                    Section("In front of you") {
+                        Text(inFrontLabel)
+                            .font(.caption)
+                        Button("Share encrypted") { shareInFrontEncrypted() }
+                        Button("Share decrypted") { shareInFrontDecrypted() }
+                            .disabled(!canShareDecrypted)
+                    }
+                    Section("High-threat") {
+                        Button("Panic wipe", role: .destructive) {
+                            panicWipe()
+                        }
+                    }
+                } else {
                 Section("High-threat") {
                     Text("Stay offline by default. Screenshots are treated as sensitive. Wrap a file, share ciphertext as-is, or panic wipe. Biometrics can be compelled — prefer a long password and a keyfile not stored on this phone. This is not unbreakable.")
                         .font(.caption)
@@ -103,8 +215,18 @@ struct ContentView: View {
                     Button("Generate strong password") {
                         if let generated = VcMobileBridge.generatePassword() {
                             createPassword = generated
-                            status = "Generated a 24-character password in memory. It is not saved."
+                            status = "Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
                         }
+                    }
+                    Button("Copy once") {
+                        guard !createPassword.isEmpty else { return }
+                        SensitivePaste.copyOnce(createPassword)
+                        status = "Copied once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
+                    }
+                    Button("Forget password") {
+                        createPassword = ""
+                        SensitivePaste.forget()
+                        status = "Password forgotten. Clipboard cleared."
                     }
                     ForEach(keyfileURLs, id: \.self) { url in
                         HStack {
@@ -131,21 +253,41 @@ struct ContentView: View {
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Randomness (move your finger)")
-                        Text("Same idea as moving the mouse in the VeraCrypt volume wizard. Scribble in the blank area until the bar is full.")
+                        Text("Same idea as moving the mouse in the VeraCrypt volume wizard. Keep scribbling in the blank area until the bar is full. This takes longer on purpose.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         ProgressView(value: Double(entropyPercent), total: 100)
+                            .tint(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
+                            .animation(.easeInOut(duration: 0.12), value: entropyPercent)
                         Text("\(entropyPercent)%")
                             .font(.caption)
+                            .monospacedDigit()
                         ZStack {
-                            RoundedRectangle(cornerRadius: 4)
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .fill(Color(white: 0.97))
-                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.4)))
+                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.secondary.opacity(0.4)))
+                            Path { path in
+                                guard let first = entropyMarks.first else { return }
+                                path.move(to: first)
+                                for point in entropyMarks.dropFirst() {
+                                    path.addLine(to: point)
+                                }
+                            }
+                            .stroke(
+                                Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255).opacity(0.72),
+                                style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                            )
+                            if let tip = entropyMarks.last {
+                                Circle()
+                                    .fill(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
+                                    .frame(width: 12, height: 12)
+                                    .position(tip)
+                            }
                             Text(entropyPercent >= 100 ? "Entropy ready" : "Move your finger randomly here")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 168)
+                        .frame(maxWidth: .infinity, minHeight: 240)
                         .gesture(
                             DragGesture(minimumDistance: 0)
                                 .onChanged { collectCreateEntropy($0) }
@@ -201,7 +343,7 @@ struct ContentView: View {
                     Button("Generate strong password") {
                         if let generated = VcMobileBridge.generatePassword() {
                             wrapPassword = generated
-                            status = "Generated a 24-character password in memory. It is not saved."
+                            status = "Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
                         } else {
                             status = "Password generator failed."
                         }
@@ -221,10 +363,9 @@ struct ContentView: View {
                 }
                 Section("Container") {
                     Button("Choose container") { importerPresented = true }
-                    Button("USB/OTG container") {
-                        status = "Pick any file from Files, including a USB drive — .hc, .jpg, .png, .safetensors, or no extension. iOS cannot talk to a raw USB disk."
-                        importerPresented = true
-                    }
+                    Text("USB/OTG: pick any file from Files, including a USB drive — .hc, .jpg, .png, .safetensors, or no extension. iOS cannot talk to a raw USB disk.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Text(containerURL?.lastPathComponent ?? "No file selected")
                     Toggle("Use backup header", isOn: $useBackupHeader)
                     Text("If the first header is damaged, open using the copy stored at the end of the container.")
@@ -356,7 +497,7 @@ struct ContentView: View {
                     Text("Security tokens: PKCS#11 smart cards are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, hidden-volume write protection while the outer is open, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
+                    Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, hidden-volume write protection while the outer is open, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -385,107 +526,13 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                }
                 Section("Status") {
                     HStack(alignment: .top, spacing: 10) {
                         Capsule()
                             .fill(statusTone)
                             .frame(width: 4, height: 36)
                         Text(status)
-                    }
-                }
-                Section("Files") {
-                    if entries.isEmpty {
-                        Text("Open a volume to list files. Copy or move a file from or to this device, share decrypted copies, or share the encrypted volume from the section above. FAT folders are browsable; exFAT is not.")
-                    }
-                    if volumeHandle != nil {
-                        HStack {
-                            if !dirPath.isEmpty {
-                                Button("Up") {
-                                    dirPath = parentDir(dirPath)
-                                    reloadDir()
-                                }
-                            }
-                            Text(dirPath.isEmpty ? "/" : "/\(dirPath)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        HStack {
-                            Button("Copy from device") {
-                                moveFromDevice = false
-                                copyFromDevicePresented = true
-                            }
-                            Button("Move from device") {
-                                moveFromDevice = true
-                                copyFromDevicePresented = true
-                            }
-                        }
-                        HStack {
-                            Button("Copy to device") { copySelectedToDevice(move: false) }
-                            Button("Move to device") { copySelectedToDevice(move: true) }
-                        }
-                        HStack {
-                            Button("New folder") {
-                                namePromptValue = ""
-                                newFolderPresented = true
-                            }
-                            Button("Rename") {
-                                guard let name = selectedNames.first else {
-                                    status = "Tap a file or folder, then Rename."
-                                    return
-                                }
-                                namePromptValue = name
-                                renamePresented = true
-                            }
-                        }
-                        HStack {
-                            Button("Delete") { deleteSelected() }
-                            Button("Properties") { showEntryProperties() }
-                        }
-                        Button("Wipe free space") { wipeFreeSpace() }
-                    }
-                    ForEach(entries) { entry in
-                        HStack {
-                            ZStack {
-                                Circle()
-                                    .fill(selectedNames.contains(entry.name) ? Color.accentColor : Color.secondary.opacity(0.18))
-                                    .frame(width: 28, height: 28)
-                                if selectedNames.contains(entry.name) {
-                                    Image(systemName: "checkmark")
-                                        .font(.caption.weight(.bold))
-                                        .foregroundStyle(.white)
-                                } else {
-                                    Image(systemName: entry.isDir ? "folder" : "doc")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            VStack(alignment: .leading) {
-                                Text(entry.name)
-                                Text(entry.isDir ? "Folder — tap Open" : byteCount(entry.size))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if entry.isDir {
-                                Button("Open") {
-                                    dirPath = joinDir(dirPath, entry.name)
-                                    selectedNames = []
-                                    reloadDir()
-                                }
-                            } else {
-                                Button(selectedNames.contains(entry.name) ? "Selected" : "Select") {
-                                    if selectedNames.contains(entry.name) {
-                                        selectedNames.remove(entry.name)
-                                    } else {
-                                        selectedNames.insert(entry.name)
-                                    }
-                                }
-                                Button("Share decrypted") { shareVaultFile(entry) }
-                            }
-                        }
-                    }
-                    if volumeHandle != nil && listTruncated {
-                        Button("Load more") { reloadDir(append: true) }
                     }
                 }
             }
@@ -596,8 +643,10 @@ struct ContentView: View {
                 }
             }
         }
+        .animation(.easeOut(duration: 0.15), value: busy)
         if busy {
             WorkOverlay(title: workTitle.isEmpty ? status : workTitle, percent: workPercent)
+                .transition(.opacity)
         }
         }
         .task(id: busy) {
@@ -672,6 +721,10 @@ struct ContentView: View {
         put(12, UInt32(truncatingIfNeeded: t >> 32))
         put(16, Float(value.translation.width).bitPattern)
         put(20, Float(value.translation.height).bitPattern)
+        entropyMarks.append(value.location)
+        if entropyMarks.count > 96 {
+            entropyMarks.removeFirst(entropyMarks.count - 96)
+        }
         VcMobileBridge.addEntropy(Data(bytes))
         entropyPercent = Int(VcMobileBridge.entropyPercent())
     }
@@ -889,7 +942,7 @@ struct ContentView: View {
                     let truncated = listed.contains { $0.name == "!truncated!" }
                     entries = listed.filter { $0.name != "!truncated!" }
                     listTruncated = truncated
-                    status = "Opened. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file."
+                    status = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file."
                     if truncated { status += " Listing truncated at \(VC_LIST_UI_MAX) entries. Tap Load more." }
                 }
                 if remember {
@@ -977,6 +1030,11 @@ struct ContentView: View {
             VcMobileBridge.close(handle)
             volumeHandle = nil
         }
+        entries = []
+        dirPath = ""
+        listTruncated = false
+        selectedNames = []
+        status = "Dismounted. Folders are closed in this app."
     }
 
     private func lockSession() {
@@ -1627,31 +1685,73 @@ private struct WorkOverlay: View {
     let title: String
     let percent: Int
 
+    private var shown: String {
+        title.isEmpty ? "On this phone" : title
+    }
+
     var body: some View {
         ZStack {
-            Color.black.opacity(0.45)
+            Color.black.opacity(0.38)
                 .ignoresSafeArea()
             VStack(spacing: 16) {
-                Text(title.isEmpty ? "Working…" : title)
-                    .font(.headline)
+                Text("This step")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Text(shown)
+                    .font(.title3.weight(.semibold))
                     .multilineTextAlignment(.center)
+                WorkMeter(percent: percent)
                 if percent >= 0 {
                     ProgressView(value: Double(min(max(percent, 0), 100)), total: 100)
+                        .tint(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
+                        .animation(.easeInOut(duration: 0.18), value: percent)
                     Text("\(percent)%")
-                        .font(.largeTitle.monospacedDigit().weight(.semibold))
+                        .font(.system(size: 44, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
                 } else {
-                    ProgressView()
-                        .controlSize(.large)
-                    Text("Working…")
-                        .font(.subheadline)
+                    Text("This step has no percent. The cells move until it finishes.")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
+                Text("Nothing runs out of sight.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .padding(24)
-            .frame(maxWidth: 320)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .padding(28)
+            .frame(maxWidth: 340)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .allowsHitTesting(true)
+        .transition(.opacity)
+    }
+}
+
+private struct WorkMeter: View {
+    let percent: Int
+
+    var body: some View {
+        if percent >= 0 {
+            meter { i in Double(percent) / 12.5 > Double(i) }
+        } else {
+            TimelineView(.periodic(from: .now, by: 0.12)) { context in
+                let tick = Int(context.date.timeIntervalSinceReferenceDate * 8) % 8
+                meter { i in i == tick }
+            }
+        }
+    }
+
+    private func meter(on: (Int) -> Bool) -> some View {
+        HStack(spacing: 6) {
+            ForEach(0..<8, id: \.self) { i in
+                let lit = on(i)
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(lit
+                        ? Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255)
+                        : Color.secondary.opacity(0.22))
+                    .frame(height: 10)
+            }
+        }
     }
 }
 
