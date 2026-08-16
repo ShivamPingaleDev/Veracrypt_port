@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Named 10-phase host test runner (`ports/tests/run-phases.sh`) covering the pre-public cycle
+
 ## 0.3.0
 
 Pre-public hardening cycle, then public relaunch.

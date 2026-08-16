@@ -5,7 +5,8 @@ Linux box, and in GitHub Actions, without a phone, an iOS simulator, or a
 FUSE-T mount.
 
 ```
-ports/tests/run-all.sh
+ports/tests/run-phases.sh   # 10-phase pass (honesty → wrap/volume → folders → Android → iOS → desktop → manifest → CI → 0.3.0 → public tag)
+ports/tests/run-all.sh      # same runner; used by GitHub Actions
 ```
 
 ## What is covered
