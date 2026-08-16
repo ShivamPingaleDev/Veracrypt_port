@@ -1,6 +1,11 @@
 This archive contains the source code of VeraCrypt.
 It is based on the original TrueCrypt 7.1a with security enhancements and modifications.
 
+This checkout also contains the **VC Port** work: Apple silicon / FUSE-T
+improvements, Touch ID volume unlock, native macOS administrator
+authentication for standard users, and Android/iOS clients. See
+[PORTING.md](PORTING.md).
+
 # Important
 
 You may use the source code contained in this archive only if you accept and

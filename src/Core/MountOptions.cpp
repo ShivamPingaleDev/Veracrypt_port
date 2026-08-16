@@ -56,6 +56,9 @@ namespace VeraCrypt
 		TC_CLONE (SlotNumber);
 		TC_CLONE (UseBackupHeaders);
 		TC_CLONE (EMVSupportEnabled);
+#ifdef TC_MACOSX
+		TC_CLONE (RememberPasswordWithBiometrics);
+#endif
 	}
 
 	void MountOptions::Deserialize (shared_ptr <Stream> stream)

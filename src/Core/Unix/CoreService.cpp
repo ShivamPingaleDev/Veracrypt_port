@@ -34,6 +34,9 @@
 #include "CoreUnix.h"
 #include "CoreServiceRequest.h"
 #include "CoreServiceResponse.h"
+#ifdef TC_MACOSX
+#include "MacOSX/MacOSXAuthorization.h"
+#endif
 
 namespace VeraCrypt
 {
@@ -1453,15 +1456,30 @@ namespace VeraCrypt
 		{
 			request.ElevateUserPrivileges = true;
 			request.FastElevation = !ElevatedServiceAvailable;
+#ifdef TC_MACOSX
+			// Native Authorization Services shows the system admin dialog
+			// (any administrator + password or Touch ID). Do not collect a
+			// sudo password: sudo authenticates only the current user, so a
+			// standard user cannot elevate by typing the original admin password.
+			request.FastElevation = false;
+#endif
 			
 			while (!ElevatedServiceAvailable)
 			{
 				//	Test if the user has an active privilege helper session.
 				bool authCheckDone = false;
 				bool passwordCollected = false;
+#ifdef TC_MACOSX
+				PrivilegeHelper privilegeHelper = { PrivilegeHelperType::Sudo, "Authorization Services", "" };
+#else
 				PrivilegeHelper privilegeHelper = FindPrivilegeHelper ();
+#endif
 				if (!Core->GetUseDummySudoPassword ())
 				{
+#ifdef TC_MACOSX
+					authCheckDone = true;
+					passwordCollected = true;
+#else
 					// We are using -n to avoid prompting the user for a password.
 					// We are redirecting stderr to stdout and discarding both to avoid any output.
 					// This approach also works on newer macOS versions (12.0 and later).
@@ -1494,6 +1512,7 @@ namespace VeraCrypt
 						//	Set to false to force the 'WarningEvent' to be raised in case of and elevation exception.
 						request.FastElevation = false;
 					}
+#endif
 				}
 			
 				try
@@ -1570,6 +1589,10 @@ namespace VeraCrypt
 
 	void CoreService::StartElevated (const CoreServiceRequest &request)
 	{
+#ifdef TC_MACOSX
+		if (StartElevatedUsingAuthorization (request))
+			return;
+#endif
 		PrivilegeHelper privilegeHelper = FindPrivilegeHelper ();
 		int doasAuthTerminal = -1;
 		string doasAuthTerminalPath;
@@ -1884,4 +1907,21 @@ namespace VeraCrypt
 
 	bool CoreService::ElevatedPrivileges = false;
 	bool CoreService::ElevatedServiceAvailable = false;
+
+#ifdef TC_MACOSX
+	void CoreService::AdoptElevatedChannel (int writeFd, int readFd)
+	{
+		ServiceInputStream = shared_ptr <Stream> (new FileStream (writeFd));
+		ServiceOutputStream = shared_ptr <Stream> (new FileStream (readFd));
+
+		uint8 sync[] = { 0, 0x11, 0x22 };
+		ServiceInputStream->Write (ConstBufferPtr (sync, array_capacity (sync)));
+
+		uint8 ready = 0;
+		if (ServiceOutputStream->Read (BufferPtr (&ready, 1)) != 1 || ready != 0x33)
+			throw ElevationFailed (SRC_POS, "Authorization Services", 1, "Elevated core service did not complete its handshake.");
+
+		ElevatedServiceAvailable = true;
+	}
+#endif
 }

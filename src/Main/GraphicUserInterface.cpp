@@ -35,6 +35,9 @@
 #include "Forms/KeyfileGeneratorDialog.h"
 #include "Forms/MainFrame.h"
 #include "Forms/MountOptionsDialog.h"
+#ifdef TC_MACOSX
+#include "Main/MacOSXBiometric.h"
+#endif
 #include "Forms/RandomPoolEnrichmentDialog.h"
 #include "Forms/SecurityTokenKeyfilesDialog.h"
 
@@ -1013,6 +1016,11 @@ namespace VeraCrypt
 		{
 			ShowError (e);
 		}
+
+#ifdef TC_MACOSX
+		if (volume && options.RememberPasswordWithBiometrics && options.Password && options.Path)
+			MacOSXBiometric::StoreVolumePassword (string (*options.Path), options.Password, options.Pim);
+#endif
 
 #ifdef TC_LINUX
 		if (volume && !Preferences.NonInteractive && !Preferences.DisableKernelEncryptionModeWarning

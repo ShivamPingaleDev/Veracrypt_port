@@ -15,11 +15,17 @@
 #include "KeyfilesDialog.h"
 #include "VolumePasswordPanel.h"
 #include "SecurityTokenKeyfilesDialog.h"
+#ifdef TC_MACOSX
+#include "Main/MacOSXBiometric.h"
+#endif
 
 namespace VeraCrypt
 {
 	VolumePasswordPanel::VolumePasswordPanel (wxWindow* parent, MountOptions* options, shared_ptr <VolumePassword> password, shared_ptr <KeyfileList> keyfiles, bool enableCache, bool enablePassword, bool enableKeyfiles, bool enableConfirmation, bool enablePkcs5Prf, bool isMountPassword, const wxString &passwordLabel)
 		: VolumePasswordPanelBase (parent), TopOwnerParent(NULL), Keyfiles (new KeyfileList), EnablePimEntry (true)
+#ifdef TC_MACOSX
+		, RememberBiometricCheckBox (nullptr), BiometricUnlockButton (nullptr), IsMountPassword (isMountPassword)
+#endif
 	{
 		size_t maxPasswordLength = CmdLine->ArgUseLegacyPassword? VolumePassword::MaxLegacySize : VolumePassword::MaxSize;
 		if (keyfiles)
@@ -151,6 +157,29 @@ namespace VeraCrypt
 				c->SetDropTarget (new FileDropTarget (this));
 		}
 
+#ifdef TC_MACOSX
+		if (isMountPassword && enablePassword && !enableConfirmation)
+		{
+			if (options && options->Path)
+				VolumePathForBiometric = string (*options->Path);
+
+			RememberBiometricCheckBox = new wxCheckBox (this, wxID_ANY, LangString["MACOSX_REMEMBER_TOUCH_ID"], wxDefaultPosition, wxDefaultSize, 0);
+			GridBagSizer->Add (RememberBiometricCheckBox, wxGBPosition (12, 1), wxGBSpan (1, 2), wxTOP|wxBOTTOM|wxLEFT|wxALIGN_CENTER_VERTICAL, 5);
+			RememberBiometricCheckBox->Connect (wxEVT_COMMAND_CHECKBOX_CLICKED, wxCommandEventHandler (VolumePasswordPanel::OnRememberBiometricClick), nullptr, this);
+
+			BiometricUnlockButton = new wxButton (this, wxID_ANY, LangString["MACOSX_UNLOCK_TOUCH_ID"], wxDefaultPosition, wxDefaultSize, 0);
+			GridBagSizer->Add (BiometricUnlockButton, wxGBPosition (13, 1), wxGBSpan (1, 2), wxTOP|wxBOTTOM|wxLEFT, 5);
+			BiometricUnlockButton->Connect (wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler (VolumePasswordPanel::OnBiometricUnlockClick), nullptr, this);
+
+			bool biometricOk = MacOSXBiometric::IsAvailable ();
+			RememberBiometricCheckBox->Show (biometricOk);
+			bool hasStored = biometricOk && !VolumePathForBiometric.empty() && MacOSXBiometric::HasStoredPassword (VolumePathForBiometric);
+			BiometricUnlockButton->Show (hasStored);
+			if (options)
+				RememberBiometricCheckBox->SetValue (options->RememberPasswordWithBiometrics || hasStored);
+		}
+#endif
+
 		Layout();
 		Fit();
 
@@ -160,6 +189,12 @@ namespace VeraCrypt
 	VolumePasswordPanel::~VolumePasswordPanel ()
 	{
 		Pkcs5PrfChoice->Disconnect (wxEVT_COMMAND_CHOICE_SELECTED, wxCommandEventHandler (VolumePasswordPanel::OnPkcs5PrfChoiceSelected), nullptr, this);
+#ifdef TC_MACOSX
+		if (RememberBiometricCheckBox)
+			RememberBiometricCheckBox->Disconnect (wxEVT_COMMAND_CHECKBOX_CLICKED, wxCommandEventHandler (VolumePasswordPanel::OnRememberBiometricClick), nullptr, this);
+		if (BiometricUnlockButton)
+			BiometricUnlockButton->Disconnect (wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler (VolumePasswordPanel::OnBiometricUnlockClick), nullptr, this);
+#endif
 		WipeTextCtrl (PasswordTextCtrl);
 		WipeTextCtrl (ConfirmPasswordTextCtrl);
 	}
@@ -518,4 +553,61 @@ namespace VeraCrypt
 			OnUpdate();
 		}
 	}
+
+#ifdef TC_MACOSX
+	bool VolumePasswordPanel::ShouldRememberPasswordWithBiometrics () const
+	{
+		return RememberBiometricCheckBox && RememberBiometricCheckBox->IsShown() && RememberBiometricCheckBox->GetValue();
+	}
+
+	void VolumePasswordPanel::SetPasswordFromUtf8 (const uint8 *data, size_t size)
+	{
+		wxString value = wxString::FromUTF8 (reinterpret_cast <const char *> (data), size);
+		PasswordTextCtrl->SetValue (value);
+	}
+
+	void VolumePasswordPanel::OnRememberBiometricClick (wxCommandEvent& event)
+	{
+		if (RememberBiometricCheckBox && !RememberBiometricCheckBox->GetValue() && !VolumePathForBiometric.empty())
+			MacOSXBiometric::DeleteStoredPassword (VolumePathForBiometric);
+		OnUpdate();
+	}
+
+	void VolumePasswordPanel::OnBiometricUnlockClick (wxCommandEvent& event)
+	{
+		if (VolumePathForBiometric.empty())
+			return;
+
+		shared_ptr <VolumePassword> password;
+		int pim = 0;
+		if (!MacOSXBiometric::LoadVolumePassword (VolumePathForBiometric, password, pim))
+		{
+			Gui->ShowWarning (LangString["MACOSX_TOUCH_ID_FAILED"]);
+			return;
+		}
+
+		if (password)
+			SetPasswordFromUtf8 (password->DataPtr(), password->Size());
+		if (pim > 0)
+		{
+			if (PimCheckBox->IsShown())
+			{
+				wxCommandEvent dummy;
+				PimCheckBox->SetValue (true);
+				OnUsePimCheckBoxClick (dummy);
+			}
+			SetVolumePim (pim);
+		}
+		OnUpdate();
+	}
+
+	void VolumePasswordPanel::ApplyStoredBiometricPassword ()
+	{
+		if (BiometricUnlockButton && BiometricUnlockButton->IsShown())
+		{
+			wxCommandEvent dummy;
+			OnBiometricUnlockClick (dummy);
+		}
+	}
+#endif
 }

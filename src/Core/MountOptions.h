@@ -42,6 +42,9 @@ namespace VeraCrypt
 			SlotNumber (0),
 			UseBackupHeaders (false),
 			EMVSupportEnabled (false)
+#ifdef TC_MACOSX
+			, RememberPasswordWithBiometrics (false)
+#endif
 		{
 		}
 
@@ -79,6 +82,9 @@ namespace VeraCrypt
 		VolumeSlotNumber SlotNumber;
 		bool UseBackupHeaders;
 		bool EMVSupportEnabled;
+#ifdef TC_MACOSX
+		bool RememberPasswordWithBiometrics;
+#endif
 
 	protected:
 		void CopyFrom (const MountOptions &other);

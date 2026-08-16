@@ -25,6 +25,9 @@
 #if defined (TC_MACOSX) && !defined (TC_NO_GUI)
 #include <ApplicationServices/ApplicationServices.h>
 #endif
+#ifdef TC_MACOSX
+#include "Core/Unix/MacOSX/MacOSXAuthorization.h"
+#endif
 
 using namespace VeraCrypt;
 
@@ -52,6 +55,27 @@ int main (int argc, char **argv)
 				bool forkProcess = strcmp (argv[1], TC_CORE_SERVICE_CMDLINE_OPTION) == 0;
 				if (!forkProcess)
 					setenv (TC_DOAS_CORE_SERVICE_ENV, "1", 1);
+
+#ifdef TC_MACOSX
+				for (int i = 2; i + 1 < argc; ++i)
+				{
+					if (strcmp (argv[i], "--elevated-socket") == 0)
+					{
+						ConnectElevatedSocket (argv[i + 1]);
+						++i;
+					}
+					else if (strcmp (argv[i], "--client-uid") == 0)
+					{
+						setenv ("SUDO_UID", argv[i + 1], 1);
+						++i;
+					}
+					else if (strcmp (argv[i], "--client-gid") == 0)
+					{
+						setenv ("SUDO_GID", argv[i + 1], 1);
+						++i;
+					}
+				}
+#endif
 
 				CoreService::ProcessElevatedRequests (forkProcess);
 				return 0;

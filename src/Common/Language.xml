@@ -1476,6 +1476,9 @@
     <entry lang="en" key="LINUX_DESELECT">Deselect</entry>
     <entry lang="en" key="LINUX_ADMIN_PW_QUERY">Enter your user password or administrator password:</entry>
     <entry lang="en" key="LINUX_ADMIN_PW_QUERY_TITLE">Administrator privileges required</entry>
+    <entry lang="en" key="MACOSX_REMEMBER_TOUCH_ID">Remember password with Touch ID</entry>
+    <entry lang="en" key="MACOSX_UNLOCK_TOUCH_ID">Unlock with Touch ID</entry>
+    <entry lang="en" key="MACOSX_TOUCH_ID_FAILED">Touch ID could not retrieve the stored volume password.</entry>
     <entry lang="en" key="LINUX_VC_RUNNING_ALREADY">VeraCrypt is already running.</entry>
     <entry lang="en" key="LINUX_SYSTEM_ENC_PW_LENGTH_NOTE">System Encryption password is longer than {0} characters.</entry>
     <entry lang="en" key="LINUX_MOUNT_SYSTEM_ENC_PREBOOT">Mount partition &amp;using system encryption (pre-boot authentication)</entry>

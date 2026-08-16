@@ -1,0 +1,87 @@
+# VeraCrypt port — Apple silicon, Android, iOS
+
+This tree is a working fork of [VeraCrypt](https://github.com/veracrypt/VeraCrypt) with:
+
+1. **macOS Apple silicon improvements** (FUSE-T based)
+2. **Touch ID volume unlock** on macOS
+3. **Native administrator authentication** so a standard user can type the original admin password (or use Touch ID)
+4. **Android and iOS clients** with biometric unlock, using the VeraCrypt volume core
+
+The mobile apps are named **VC Port**. The VeraCrypt license does not allow a derived work to be called VeraCrypt.
+
+## FUSE-T vs FSKit (Apple silicon)
+
+**FUSE-T cannot be avoided yet.** VeraCrypt on macOS does not mount the guest filesystem itself. It:
+
+1. Decrypts the volume in user space
+2. Exposes a virtual disk *file* through FUSE
+3. Attaches that file with `hdiutil` so macOS mounts FAT/exFAT/APFS/HFS+
+
+Apple **FSKit** (macOS 15.4+, expanded in macOS 26) is a userspace filesystem API, not a virtual block-device API. It is not a drop-in replacement for that auxiliary image, and it still lacks VFS operations VeraCrypt would need for a native module.
+
+What we do instead:
+
+| macOS | Approach |
+| --- | --- |
+| Apple silicon (recommended) | FUSE-T (`make WITHFUSET=1`) |
+| FUSE-T with FSKit backend present | Use `-o backend=fskit` automatically |
+| FUSE-T with SMB backend (`go-smb2`) | Use `-o backend=smb` (avoids Network Volume prompts) |
+| FUSE-T NFS-only (Homebrew 1.0.44) | Keep the default NFS backend — **do not force SMB** (that hung mounts) |
+| Intel, Reduced Security allowed | macFUSE remains available |
+
+A native FSKit backend is tracked as future work once Apple exposes a stable block-image or loopback path.
+
+## macOS: standard user + admin password
+
+Upstream VeraCrypt elevates with `sudo -S` and a **single password field**. `sudo` authenticates the *current* user. A standard user who types the original administrator password therefore fails (`user is not in the sudoers file` / `Failed to obtain administrator privileges`).
+
+This fork uses **Authorization Services** on macOS:
+
+- System authentication dialog with **admin user picker**
+- **Touch ID** for administrator authorization on Apple silicon
+- The elevated core service is started as root over a Unix socket (`--elevated-socket`)
+- `SUDO_UID` / `SUDO_GID` are passed through so FUSE objects stay owned by the logged-in user
+
+`sudo` remains a fallback if Authorization Services is unavailable.
+
+## macOS: Touch ID for volume passwords
+
+On the mount dialog:
+
+- **Remember password with Touch ID** stores the volume password + PIM in the Keychain, wrapped with `kSecAccessControlBiometryCurrentSet` (invalidated if fingerprints change)
+- **Unlock with Touch ID** retrieves it through LocalAuthentication
+- Secrets never leave the Secure Enclave-backed Keychain in plaintext at rest
+
+This is convenience, not a replacement for a strong volume password.
+
+## Build macOS (Apple silicon, FUSE-T)
+
+```bash
+cd src
+make WXSTATIC=1 WX_ROOT=/path/to/wxWidgets WITHFUSET=1 LOCAL_DEVELOPMENT_BUILD=true
+```
+
+Install [FUSE-T](https://www.fuse-t.org/) first. The FUSE-T VeraCrypt build is the supported Apple silicon path.
+
+## Android
+
+Project: `ports/android`  
+Native core: `ports/shared` (VeraCrypt `Volume` + Crypto via NDK)
+
+```bash
+cd ports/android
+./gradlew :app:assembleDebug
+```
+
+Biometric unlock uses Android Keystore + `BiometricPrompt` (strong biometrics). Opened containers are listed through a DocumentsProvider stub and the in-app FAT root browser.
+
+## iOS
+
+Project notes: `ports/ios/README.md`  
+The SwiftUI app uses the same `vc_mobile` C API and Keychain + Face ID / Touch ID.
+
+## License
+
+Original TrueCrypt 7.1a code: TrueCrypt License 3.0  
+VeraCrypt modifications: Apache License 2.0 (`License.txt`)  
+Port additions in this repository: Apache License 2.0
