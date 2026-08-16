@@ -1190,14 +1190,14 @@ index 98108afd..1a3ed8e4 100644
  			uint64 blockCount;
  			throw_sys_sub_if (ioctl (FileHandle, DKIOCGETBLOCKSIZE, &blockSize) == -1, wstring (Path));
 diff --git a/src/Volume/Keyfile.cpp b/src/Volume/Keyfile.cpp
-index c5168ebc..98913ba8 100644
+index c5168ebc..9aadcf4d 100644
 --- a/src/Volume/Keyfile.cpp
 +++ b/src/Volume/Keyfile.cpp
 @@ -11,8 +11,12 @@
  */
  
  #include "Platform/Serializer.h"
-+#if defined (TC_ANDROID) || defined (TC_IOS)
++#if defined (TC_ANDROID) || defined (TC_IOS) || defined (TC_PORT_NO_TOKEN)
 +#include "Common/Token.h"
 +#else
  #include "Common/SecurityToken.h"
