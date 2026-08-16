@@ -3,6 +3,7 @@ package dev.shivampingale.vcport
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -11,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -97,6 +99,20 @@ class MainActivity : AppCompatActivity() {
     private val tabState = mutableIntStateOf(0)
     private val lastPlainFilesState = mutableStateOf(listOf<File>())
     private var suppressLock = false
+    private var containerPfd: ParcelFileDescriptor? = null
+
+    private fun lookPrefs() = getSharedPreferences("vc_port_look", MODE_PRIVATE)
+
+    private fun loadSkin(): VcSkin {
+        if (!BuildConfig.ENABLE_SKINS) return VcSkin.Desktop
+        val name = lookPrefs().getString("skin", VcSkin.Desktop.name) ?: VcSkin.Desktop.name
+        return VcSkin.entries.find { it.name == name } ?: VcSkin.Desktop
+    }
+
+    private fun saveSkin(skin: VcSkin) {
+        if (!BuildConfig.ENABLE_SKINS) return
+        lookPrefs().edit().putString("skin", skin.name).apply()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,7 +121,8 @@ class MainActivity : AppCompatActivity() {
         val vault = BiometricVault(this)
         handleIncoming(intent)
         setContent {
-            VcPortTheme {
+            var skin by remember { mutableStateOf(loadSkin()) }
+            VcPortTheme(skin = skin) {
                 var path by pathState
                 var containerUri by containerUriState
                 var password by passwordState
@@ -125,6 +142,8 @@ class MainActivity : AppCompatActivity() {
                 var wrapPassword by wrapPasswordState
                 var busy by busyState
                 var tab by tabState
+                val tabScroll = rememberScrollState()
+                LaunchedEffect(tab) { tabScroll.scrollTo(0) }
                 var moreFactors by remember { mutableStateOf(false) }
                 var createCipher by remember { mutableStateOf(NativeBridge.DEFAULT_CIPHER) }
                 var createKdf by remember { mutableStateOf(NativeBridge.DEFAULT_KDF) }
@@ -192,9 +211,9 @@ class MainActivity : AppCompatActivity() {
                         copyContainerAsync(uri) { copied ->
                             path = copied
                             status = if (copied.isEmpty())
-                                "Could not copy the container."
+                                "Could not open the container. Not enough free space, or the Files picker could not be read."
                             else
-                                "Container: ${ShareHelper.displayName(this@MainActivity, uri) ?: File(copied).name}"
+                                "Container: ${ShareHelper.displayName(this@MainActivity, uri) ?: File(copied).name}. Open volume to browse folders here."
                         }
                     }
                 }
@@ -334,15 +353,19 @@ class MainActivity : AppCompatActivity() {
                 Box(Modifier.fillMaxSize()) {
                 Scaffold(
                     modifier = Modifier.imePadding(),
-                    containerColor = colors.background,
+                    containerColor = Color.Transparent,
                     topBar = {
+                        Box(Modifier.background(skinHeaderBrush(skin))) {
                         TopAppBar(
                             title = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.White)
+                                    Icon(Icons.Filled.Lock, contentDescription = null, tint = colors.onPrimary)
                                     Spacer(Modifier.padding(6.dp))
                                     Column {
-                                        Text("VC Port", style = MaterialTheme.typography.titleLarge)
+                                        Text(
+                                            if (BuildConfig.ENABLE_SKINS) "VC Port Looks" else "VC Port",
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
                                         Text(
                                             if (NativeBridge.isOpen(handle))
                                                 "Mounted in this app"
@@ -351,7 +374,7 @@ class MainActivity : AppCompatActivity() {
                                             else
                                                 "Stay offline. F-Droid: no network.",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = Color.White.copy(alpha = 0.85f),
+                                            color = colors.onPrimary.copy(alpha = 0.85f),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -363,12 +386,12 @@ class MainActivity : AppCompatActivity() {
                                     TextButton(
                                         onClick = { lockSession() },
                                         enabled = !busy,
-                                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                                        colors = ButtonDefaults.textButtonColors(contentColor = colors.onPrimary)
                                     ) { Text("Dismount") }
                                 }
                                 TextButton(
                                     onClick = { runPanic() },
-                                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFFFCDD2))
+                                    colors = ButtonDefaults.textButtonColors(contentColor = colors.error)
                                 ) {
                                     Icon(Icons.Filled.Warning, contentDescription = null)
                                     Spacer(Modifier.padding(4.dp))
@@ -376,11 +399,12 @@ class MainActivity : AppCompatActivity() {
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = VcDesktopBlue,
-                                titleContentColor = Color.White,
-                                actionIconContentColor = Color.White
+                                containerColor = Color.Transparent,
+                                titleContentColor = colors.onPrimary,
+                                actionIconContentColor = colors.onPrimary
                             )
                         )
+                        }
                     },
                     bottomBar = {
                         val incomingFile = incoming
@@ -481,6 +505,11 @@ class MainActivity : AppCompatActivity() {
                                     dirPath = parentDir(dirPath)
                                     loadDir(handle, dirPath, { entries = it }, { status = it })
                                 },
+                                onGoToPath = { target ->
+                                    dirPath = target
+                                    selectedNames = emptySet()
+                                    loadDir(handle, dirPath, { entries = it }, { status = it })
+                                },
                                 onOpen = { entry ->
                                     if (entry.isDir) {
                                         dirPath = joinDir(dirPath, entry.name)
@@ -569,7 +598,11 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             ScrollableTabRow(
                                 selectedTabIndex = tab.coerceIn(0, 3),
-                                containerColor = colors.background,
+                                containerColor = if (skin == VcSkin.Desktop) {
+                                    colors.surface.copy(alpha = 0.94f)
+                                } else {
+                                    colors.background.copy(alpha = 0.35f)
+                                },
                                 contentColor = colors.primary,
                                 edgePadding = 8.dp
                             ) {
@@ -580,7 +613,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             Column(
                                 Modifier
-                                    .verticalScroll(rememberScrollState())
+                                    .verticalScroll(tabScroll)
                                     .padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
@@ -887,6 +920,46 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                     3 -> {
+                                        if (BuildConfig.ENABLE_SKINS) {
+                                            VcCard {
+                                                Text("Looks (this phone)", style = MaterialTheme.typography.titleMedium)
+                                                Text(
+                                                    "This APK is the Looks package, not the store build. Saved on this phone only. Desktop plus Cyberpunk, Matrix, MAGI, original Signal. Inspired drawing, not affiliated.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = colors.onSurfaceVariant
+                                                )
+                                                VcSkin.entries.forEach { option ->
+                                                    val selected = skin == option
+                                                    if (selected) {
+                                                        Button(
+                                                            onClick = {
+                                                                skin = option
+                                                                saveSkin(option)
+                                                            },
+                                                            enabled = !busy,
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .testTag(option.tag),
+                                                            colors = ButtonDefaults.buttonColors(
+                                                                containerColor = colors.primary,
+                                                                contentColor = colors.onPrimary
+                                                            )
+                                                        ) { Text("●  ${option.picker}") }
+                                                    } else {
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                skin = option
+                                                                saveSkin(option)
+                                                            },
+                                                            enabled = !busy,
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .testTag(option.tag)
+                                                        ) { Text(option.picker) }
+                                                    }
+                                                }
+                                            }
+                                        }
                                         VcCard {
                                             Text("Volume header", style = MaterialTheme.typography.titleMedium)
                                             Text(
@@ -1663,6 +1736,11 @@ class MainActivity : AppCompatActivity() {
         handleIncoming(intent)
     }
 
+    override fun onDestroy() {
+        releaseContainerPfd()
+        super.onDestroy()
+    }
+
     override fun onStop() {
         super.onStop()
         if (suppressLock) {
@@ -1694,6 +1772,7 @@ class MainActivity : AppCompatActivity() {
         val handle = handleState.value
         if (NativeBridge.isOpen(handle)) NativeBridge.closeVolume(handle)
         handleState.value = 0L
+        releaseContainerPfd()
         Hardening.panic(this)
     }
 
@@ -2143,10 +2222,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun copyContainerAsync(uri: Uri, onDone: (String) -> Unit) {
-        beginWork("Copying container into app cache…")
+        beginWork("Opening container…")
         Thread {
             val copied = try {
-                copyToCache(uri)
+                bindContainer(uri)
             } catch (_: Exception) {
                 ""
             }
@@ -2155,6 +2234,47 @@ class MainActivity : AppCompatActivity() {
                 onDone(copied)
             }
         }.start()
+    }
+
+    private fun releaseContainerPfd() {
+        try {
+            containerPfd?.close()
+        } catch (_: Exception) {
+        }
+        containerPfd = null
+    }
+
+    private fun bindContainer(uri: Uri): String {
+        releaseContainerPfd()
+        if (uri.scheme == "file") {
+            val p = uri.path
+            if (!p.isNullOrEmpty() && File(p).canRead()) return p
+        }
+        val len = uriLength(uri)
+        val preferFd = len < 0L || len > (32L shl 20)
+        if (preferFd) {
+            val fdPath = bindContainerFd(uri)
+            if (fdPath.isNotEmpty()) return fdPath
+        }
+        val copied = copyToCache(uri)
+        if (copied.isNotEmpty()) return copied
+        return bindContainerFd(uri)
+    }
+
+    private fun bindContainerFd(uri: Uri): String {
+        return try {
+            val pfd = contentResolver.openFileDescriptor(uri, "rw")
+                ?: contentResolver.openFileDescriptor(uri, "r")
+            if (pfd != null && pfd.statSize >= 0L) {
+                containerPfd = pfd
+                "/proc/self/fd/${pfd.fd}"
+            } else {
+                pfd?.close()
+                ""
+            }
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     private fun openVolumeWithFactors(
@@ -2249,7 +2369,7 @@ class MainActivity : AppCompatActivity() {
                         onEntries(files)
                         dirPathState.value = ""
                         listTruncatedState.value = truncated
-                        var msg = "Mounted in this app. Size $volumeBytes bytes. Tap a folder to open it, or a file to share the decrypted copy."
+                        var msg = "Mounted in this app. Size $volumeBytes bytes. Tap a folder to open it, or a file to share the decrypted copy. Copy to device puts a file where Files can open it."
                         if (protectHidden) msg = "Hidden volume is being protected against damage. $msg"
                         if (truncated) msg += " Listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more."
                         onStatus(msg)
@@ -2621,7 +2741,7 @@ class MainActivity : AppCompatActivity() {
         return when (rc) {
             -6 -> "Could not copy $name. FAT only; folders are not created this way."
             -4 -> "Could not copy $name. Bad name or path."
-            -5 -> "Could not copy $name. Volume is full, or the file is larger than 256 MiB."
+            -5 -> "Could not copy $name. Volume is full, or the file is larger than 4 GiB (FAT limit)."
             -3 -> "A file named $name already exists in this folder."
             -1 -> "Could not copy $name into the volume."
             else -> "Could not copy $name (code $rc)."
@@ -2654,36 +2774,50 @@ class MainActivity : AppCompatActivity() {
             try {
                 val display = ShareHelper.displayName(this, uri) ?: "file"
                 val name = ShareHelper.safeName(display)
-                val outFile = File(cacheDir, "from-device-${System.nanoTime()}-$name")
-                cache = outFile
-                val input = contentResolver.openInputStream(uri)
-                if (input == null) {
-                    runOnUiThread {
-                        endWork()
-                        onStatus("Could not read that file from the device.")
-                    }
-                    return@Thread
-                }
-                input.use { src ->
-                    outFile.outputStream().use { dest ->
-                        copyStreamProgress(
-                            src,
-                            dest,
-                            uriLength(uri),
-                            if (move) "Reading from device" else "Reading from device"
-                        )
-                    }
-                }
                 val destDir = if (dirPath.isEmpty()) "/" else dirPath
-                val rc = NativeBridge.importFile(handle, destDir, outFile.absolutePath, name)
+                var rc: Int? = null
+                try {
+                    contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                        if (pfd.statSize >= 0L) {
+                            NativeBridge.setProgress(0, "Copying into volume")
+                            rc = NativeBridge.importFile(
+                                handle,
+                                destDir,
+                                "/proc/self/fd/${pfd.fd}",
+                                name
+                            )
+                        }
+                    }
+                } catch (_: Exception) {
+                    rc = null
+                }
+                if (rc == null || rc == -1) {
+                    val outFile = File(cacheDir, "from-device-${System.nanoTime()}-$name")
+                    cache = outFile
+                    val input = contentResolver.openInputStream(uri)
+                    if (input == null) {
+                        runOnUiThread {
+                            endWork()
+                            onStatus("Could not read that file from the device.")
+                        }
+                        return@Thread
+                    }
+                    input.use { src ->
+                        outFile.outputStream().use { dest ->
+                            copyStreamProgress(src, dest, uriLength(uri), "Reading from device")
+                        }
+                    }
+                    rc = NativeBridge.importFile(handle, destDir, outFile.absolutePath, name)
+                }
                 var deletedOriginal = false
                 if (rc == 0 && move) {
                     deletedOriginal = tryDeleteDocument(uri)
                 }
+                val result = rc ?: -1
                 runOnUiThread {
                     endWork()
                     when {
-                        rc != 0 -> onStatus(importErrorMessage(name, rc, handle))
+                        result != 0 -> onStatus(importErrorMessage(name, result, handle))
                         move && !deletedOriginal -> {
                             onStatus("Copied $name into the volume. Could not delete the original; remove it in Files if you meant a move.")
                             loadDir(handle, dirPath, onEntries, onStatus)
@@ -2987,7 +3121,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun copyIncomingAsContainer(file: File): String {
         val name = ShareHelper.sanitizeDisguiseName(file.name)
+        if (file.absolutePath.startsWith(cacheDir.absolutePath) ||
+            file.absolutePath.startsWith(filesDir.absolutePath)
+        ) {
+            return file.absolutePath
+        }
         val outFile = File(cacheDir, name)
+        if (file.length() > 0 && cacheDir.usableSpace < file.length() + (32L shl 20)) {
+            return ""
+        }
         file.copyTo(outFile, overwrite = true)
         return outFile.absolutePath
     }
@@ -2995,9 +3137,15 @@ class MainActivity : AppCompatActivity() {
     private fun copyToCache(uri: Uri): String {
         val display = ShareHelper.displayName(this, uri) ?: "volume.hc"
         val name = ShareHelper.sanitizeDisguiseName(display)
+        val len = uriLength(uri)
+        if (len > 0 && cacheDir.usableSpace < len + (32L shl 20)) {
+            return ""
+        }
         val input = contentResolver.openInputStream(uri) ?: return ""
         val outFile = File(cacheDir, name)
-        outFile.outputStream().use { output -> input.copyTo(output) }
+        outFile.outputStream().use { output ->
+            copyStreamProgress(input, output, len, "Copying container")
+        }
         input.close()
         return outFile.absolutePath
     }
@@ -3011,6 +3159,7 @@ private fun VaultPane(
     truncated: Boolean,
     busy: Boolean,
     onUp: () -> Unit,
+    onGoToPath: (String) -> Unit,
     onOpen: (VaultEntry) -> Unit,
     onShare: (VaultEntry) -> Unit,
     onCopyFromDevice: () -> Unit,
@@ -3027,26 +3176,33 @@ private fun VaultPane(
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
         Text(
-            "Mounted in this app — folders and files. Not a system drive.",
+            "Mounted in this app — folders and files. Not a system drive. Copy to device to open a file in Files.",
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            Modifier
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .horizontalScroll(rememberScrollState()),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (dirPath.isNotEmpty()) {
                 OutlinedButton(onClick = onUp, enabled = !busy) { Text("Up") }
                 Spacer(Modifier.padding(8.dp))
             }
-            Text(
-                if (dirPath.isEmpty()) "/" else "/$dirPath",
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            val parts = dirPath.split('/').filter { it.isNotEmpty() }
+            TextButton(
+                onClick = { onGoToPath("") },
+                enabled = !busy && dirPath.isNotEmpty()
+            ) { Text("/") }
+            parts.forEachIndexed { index, part ->
+                Text("›", color = colors.onSurfaceVariant)
+                val target = parts.take(index + 1).joinToString("/")
+                TextButton(
+                    onClick = { onGoToPath(target) },
+                    enabled = !busy && index < parts.lastIndex
+                ) { Text(part) }
+            }
         }
         Column(
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -3109,11 +3265,11 @@ private fun VaultPane(
         Row(
             Modifier
                 .fillMaxWidth()
-                .background(VcDesktopBlue)
+                .background(colors.primary)
                 .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
-            Text("Name", color = Color.White, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-            Text("Size", color = Color.White, style = MaterialTheme.typography.labelSmall)
+            Text("Name", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text("Size", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall)
         }
         if (entries.isEmpty() && !busy) {
             Column(
@@ -3125,7 +3281,7 @@ private fun VaultPane(
             ) {
                 Text("This folder is empty.", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Tap Copy from device to add a file.",
+                    "Tap Copy from device to add a file. Copy to device writes a file Files can open. The unlocked volume stays in this app.",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant
                 )
@@ -3204,5 +3360,6 @@ private fun VaultPane(
 private fun formatSize(size: Long): String {
     if (size < 1024) return "$size B"
     if (size < 1024 * 1024) return "${size / 1024} KB"
-    return "${size / (1024 * 1024)} MB"
+    if (size < 1024L * 1024 * 1024) return "${size / (1024 * 1024)} MB"
+    return "${size / (1024L * 1024 * 1024)} GB"
 }

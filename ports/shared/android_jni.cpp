@@ -12,17 +12,26 @@
 #endif
 #include "vc_mobile.h"
 
-static std::string jni_copy_utf(JNIEnv *env, jstring s)
+enum { JNI_UTF_MAX = 4096 };
+
+static int jni_copy_utf(JNIEnv *env, jstring s, std::string &out)
 {
+	out.clear();
 	if (!s)
-		return std::string();
+		return VC_OK;
+	if (env->GetStringLength(s) > JNI_UTF_MAX)
+		return VC_ERR_ARGUMENT;
 	const char *p = env->GetStringUTFChars(s, nullptr);
-	std::string out(p ? p : "");
+	if (!p)
+		return VC_ERR_MEMORY;
+	out.assign(p);
 	env->ReleaseStringUTFChars(s, p);
-	return out;
+	if (out.size() > (size_t) JNI_UTF_MAX)
+		return VC_ERR_ARGUMENT;
+	return VC_OK;
 }
 
-static void jni_copy_string_array(JNIEnv *env, jobjectArray arr, std::vector<std::string> &owned, std::vector<const char *> &ptrs)
+static int jni_copy_string_array(JNIEnv *env, jobjectArray arr, std::vector<std::string> &owned, std::vector<const char *> &ptrs)
 {
 	jsize n = arr ? env->GetArrayLength(arr) : 0;
 	owned.reserve(owned.size() + (size_t) n);
@@ -31,13 +40,18 @@ static void jni_copy_string_array(JNIEnv *env, jobjectArray arr, std::vector<std
 		jstring item = (jstring) env->GetObjectArrayElement(arr, i);
 		if (!item)
 			continue;
-		owned.emplace_back(jni_copy_utf(env, item));
+		std::string piece;
+		int rc = jni_copy_utf(env, item, piece);
 		env->DeleteLocalRef(item);
+		if (rc != VC_OK)
+			return rc;
+		owned.push_back(std::move(piece));
 	}
 	ptrs.clear();
 	ptrs.reserve(owned.size());
 	for (const std::string &s : owned)
 		ptrs.push_back(s.c_str());
+	return VC_OK;
 }
 
 static void jni_wipe_string(std::string &s)
@@ -63,9 +77,11 @@ Java_dev_shivampingale_vcport_NativeBridge_openVolume(
 	if (!path)
 		return (jlong) VC_ERR_ARGUMENT;
 
-	std::string cPath = jni_copy_utf(env, path);
-	std::string cPassword = jni_copy_utf(env, password);
-	std::string cHidden = jni_copy_utf(env, hiddenPassword);
+	std::string cPath, cPassword, cHidden;
+	if (jni_copy_utf(env, path, cPath) != VC_OK ||
+		jni_copy_utf(env, password, cPassword) != VC_OK ||
+		jni_copy_utf(env, hiddenPassword, cHidden) != VC_OK)
+		return (jlong) VC_ERR_ARGUMENT;
 	VcOpenOptions options = {};
 	options.path = cPath.c_str();
 	options.password = cPassword.c_str();
@@ -78,21 +94,10 @@ Java_dev_shivampingale_vcport_NativeBridge_openVolume(
 	options.hidden_password_len = cHidden.size();
 	options.hidden_pim = hiddenPim;
 
-	jsize n = keyfiles ? env->GetArrayLength(keyfiles) : 0;
 	std::vector<std::string> owned;
 	std::vector<const char *> ptrs;
-	owned.reserve((size_t) n);
-	for (jsize i = 0; i < n; ++i)
-	{
-		jstring item = (jstring) env->GetObjectArrayElement(keyfiles, i);
-		if (!item)
-			continue;
-		owned.emplace_back(jni_copy_utf(env, item));
-		env->DeleteLocalRef(item);
-	}
-	ptrs.reserve(owned.size());
-	for (const std::string &s : owned)
-		ptrs.push_back(s.c_str());
+	if (jni_copy_string_array(env, keyfiles, owned, ptrs) != VC_OK)
+		return (jlong) VC_ERR_ARGUMENT;
 	if (!ptrs.empty())
 	{
 		options.keyfiles = ptrs.data();
@@ -130,7 +135,15 @@ Java_dev_shivampingale_vcport_NativeBridge_listDir(JNIEnv *env, jobject, jlong h
 	if (!jni_live_handle(handle))
 		return env->NewObjectArray(0, stringClass, nullptr);
 
-	std::string cPath = jni_copy_utf(env, path);
+	std::string cPath;
+	if (jni_copy_utf(env, path, cPath) != VC_OK)
+	{
+		char line[64];
+		snprintf(line, sizeof(line), "!error!\t0\t%d", VC_ERR_ARGUMENT);
+		jobjectArray result = env->NewObjectArray(1, stringClass, nullptr);
+		env->SetObjectArrayElement(result, 0, env->NewStringUTF(line));
+		return result;
+	}
 	if (cPath.empty())
 		cPath = "/";
 	const int cap = VC_LIST_UI_MAX;
@@ -183,8 +196,9 @@ Java_dev_shivampingale_vcport_NativeBridge_exportFile(
 {
 	if (!jni_live_handle(handle) || !name || !dest)
 		return VC_ERR_ARGUMENT;
-	std::string cName = jni_copy_utf(env, name);
-	std::string cDest = jni_copy_utf(env, dest);
+	std::string cName, cDest;
+	if (jni_copy_utf(env, name, cName) != VC_OK || jni_copy_utf(env, dest, cDest) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	return vc_export_file(reinterpret_cast<VcVolume *>(handle), cName.c_str(), cDest.c_str());
 }
 
@@ -194,9 +208,11 @@ Java_dev_shivampingale_vcport_NativeBridge_importFile(
 {
 	if (!jni_live_handle(handle) || !src)
 		return VC_ERR_ARGUMENT;
-	std::string cDir = jni_copy_utf(env, destDir);
-	std::string cSrc = jni_copy_utf(env, src);
-	std::string cName = jni_copy_utf(env, destName);
+	std::string cDir, cSrc, cName;
+	if (jni_copy_utf(env, destDir, cDir) != VC_OK ||
+		jni_copy_utf(env, src, cSrc) != VC_OK ||
+		jni_copy_utf(env, destName, cName) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	return vc_import_file(reinterpret_cast<VcVolume *>(handle), cDir.c_str(), cSrc.c_str(),
 		cName.empty() ? nullptr : cName.c_str());
 }
@@ -207,7 +223,9 @@ Java_dev_shivampingale_vcport_NativeBridge_deleteFile(
 {
 	if (!jni_live_handle(handle) || !path)
 		return VC_ERR_ARGUMENT;
-	std::string cPath = jni_copy_utf(env, path);
+	std::string cPath;
+	if (jni_copy_utf(env, path, cPath) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	return vc_delete_file(reinterpret_cast<VcVolume *>(handle), cPath.c_str());
 }
 
@@ -217,8 +235,9 @@ Java_dev_shivampingale_vcport_NativeBridge_mkdir(
 {
 	if (!jni_live_handle(handle) || !name)
 		return VC_ERR_ARGUMENT;
-	std::string cParent = jni_copy_utf(env, parent);
-	std::string cName = jni_copy_utf(env, name);
+	std::string cParent, cName;
+	if (jni_copy_utf(env, parent, cParent) != VC_OK || jni_copy_utf(env, name, cName) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	return vc_mkdir(reinterpret_cast<VcVolume *>(handle), cParent.c_str(), cName.c_str());
 }
 
@@ -228,7 +247,9 @@ Java_dev_shivampingale_vcport_NativeBridge_rmdir(
 {
 	if (!jni_live_handle(handle) || !path)
 		return VC_ERR_ARGUMENT;
-	std::string cPath = jni_copy_utf(env, path);
+	std::string cPath;
+	if (jni_copy_utf(env, path, cPath) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	return vc_rmdir(reinterpret_cast<VcVolume *>(handle), cPath.c_str());
 }
 
@@ -238,8 +259,9 @@ Java_dev_shivampingale_vcport_NativeBridge_renameFile(
 {
 	if (!jni_live_handle(handle) || !path || !newName)
 		return VC_ERR_ARGUMENT;
-	std::string cPath = jni_copy_utf(env, path);
-	std::string cName = jni_copy_utf(env, newName);
+	std::string cPath, cName;
+	if (jni_copy_utf(env, path, cPath) != VC_OK || jni_copy_utf(env, newName, cName) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	return vc_rename(reinterpret_cast<VcVolume *>(handle), cPath.c_str(), cName.c_str());
 }
 
@@ -257,10 +279,12 @@ Java_dev_shivampingale_vcport_NativeBridge_wrapFile(
 {
 	if (!src || !dest || !password)
 		return VC_ERR_ARGUMENT;
-	std::string cSrc = jni_copy_utf(env, src);
-	std::string cDest = jni_copy_utf(env, dest);
-	std::string cPassword = jni_copy_utf(env, password);
-	std::string cName = jni_copy_utf(env, originalName);
+	std::string cSrc, cDest, cPassword, cName;
+	if (jni_copy_utf(env, src, cSrc) != VC_OK ||
+		jni_copy_utf(env, dest, cDest) != VC_OK ||
+		jni_copy_utf(env, password, cPassword) != VC_OK ||
+		jni_copy_utf(env, originalName, cName) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	int rc = vc_wrap_file(cSrc.c_str(), cDest.c_str(), cPassword.c_str(), cPassword.size(),
 		cName.empty() ? nullptr : cName.c_str());
 	jni_wipe_string(cPassword);
@@ -273,9 +297,11 @@ Java_dev_shivampingale_vcport_NativeBridge_unwrapFile(
 {
 	if (!src || !destDir || !password)
 		return nullptr;
-	std::string cSrc = jni_copy_utf(env, src);
-	std::string cDir = jni_copy_utf(env, destDir);
-	std::string cPassword = jni_copy_utf(env, password);
+	std::string cSrc, cDir, cPassword;
+	if (jni_copy_utf(env, src, cSrc) != VC_OK ||
+		jni_copy_utf(env, destDir, cDir) != VC_OK ||
+		jni_copy_utf(env, password, cPassword) != VC_OK)
+		return nullptr;
 	char outPath[1024];
 	outPath[0] = 0;
 	int rc = vc_unwrap_file(cSrc.c_str(), cDir.c_str(), cPassword.c_str(), cPassword.size(),
@@ -291,7 +317,9 @@ Java_dev_shivampingale_vcport_NativeBridge_isWrap(JNIEnv *env, jobject, jstring 
 {
 	if (!path)
 		return JNI_FALSE;
-	std::string cPath = jni_copy_utf(env, path);
+	std::string cPath;
+	if (jni_copy_utf(env, path, cPath) != VC_OK)
+		return JNI_FALSE;
 	return vc_is_wrap(cPath.c_str()) ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -318,11 +346,13 @@ Java_dev_shivampingale_vcport_NativeBridge_createVolume(
 {
 	if (!path || sizeBytes <= 0)
 		return VC_ERR_ARGUMENT;
-	std::string cPath = jni_copy_utf(env, path);
-	std::string cPassword = jni_copy_utf(env, password);
-	std::string cCipher = jni_copy_utf(env, cipher);
-	std::string cKdf = jni_copy_utf(env, kdf);
-	std::string cHidden = jni_copy_utf(env, hiddenPassword);
+	std::string cPath, cPassword, cCipher, cKdf, cHidden;
+	if (jni_copy_utf(env, path, cPath) != VC_OK ||
+		jni_copy_utf(env, password, cPassword) != VC_OK ||
+		jni_copy_utf(env, cipher, cCipher) != VC_OK ||
+		jni_copy_utf(env, kdf, cKdf) != VC_OK ||
+		jni_copy_utf(env, hiddenPassword, cHidden) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	VcCreateOptions options = {};
 	options.path = cPath.c_str();
 	options.password = cPassword.c_str();
@@ -334,7 +364,8 @@ Java_dev_shivampingale_vcport_NativeBridge_createVolume(
 
 	std::vector<std::string> owned;
 	std::vector<const char *> ptrs;
-	jni_copy_string_array(env, keyfiles, owned, ptrs);
+	if (jni_copy_string_array(env, keyfiles, owned, ptrs) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	if (!ptrs.empty())
 	{
 		options.keyfiles = ptrs.data();
@@ -343,7 +374,8 @@ Java_dev_shivampingale_vcport_NativeBridge_createVolume(
 
 	std::vector<std::string> hiddenOwned;
 	std::vector<const char *> hiddenPtrs;
-	jni_copy_string_array(env, hiddenKeyfiles, hiddenOwned, hiddenPtrs);
+	if (jni_copy_string_array(env, hiddenKeyfiles, hiddenOwned, hiddenPtrs) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	options.hidden_size_bytes = hiddenSizeBytes > 0 ? (uint64_t) hiddenSizeBytes : 0;
 	options.hidden_password = cHidden.c_str();
 	options.hidden_password_len = cHidden.size();
@@ -394,10 +426,12 @@ Java_dev_shivampingale_vcport_NativeBridge_changeHeader(
 {
 	if (!path)
 		return VC_ERR_ARGUMENT;
-	std::string cPath = jni_copy_utf(env, path);
-	std::string cPassword = jni_copy_utf(env, password);
-	std::string cNewPassword = jni_copy_utf(env, newPassword);
-	std::string cKdf = jni_copy_utf(env, newKdf);
+	std::string cPath, cPassword, cNewPassword, cKdf;
+	if (jni_copy_utf(env, path, cPath) != VC_OK ||
+		jni_copy_utf(env, password, cPassword) != VC_OK ||
+		jni_copy_utf(env, newPassword, cNewPassword) != VC_OK ||
+		jni_copy_utf(env, newKdf, cKdf) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	VcChangeHeaderOptions options = {};
 	options.path = cPath.c_str();
 	options.password = cPassword.c_str();
@@ -410,7 +444,8 @@ Java_dev_shivampingale_vcport_NativeBridge_changeHeader(
 	options.new_kdf = cKdf.c_str();
 	std::vector<std::string> owned;
 	std::vector<const char *> ptrs;
-	jni_copy_string_array(env, keyfiles, owned, ptrs);
+	if (jni_copy_string_array(env, keyfiles, owned, ptrs) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	if (!ptrs.empty())
 	{
 		options.keyfiles = ptrs.data();
@@ -418,7 +453,8 @@ Java_dev_shivampingale_vcport_NativeBridge_changeHeader(
 	}
 	std::vector<std::string> newOwned;
 	std::vector<const char *> newPtrs;
-	jni_copy_string_array(env, newKeyfiles, newOwned, newPtrs);
+	if (jni_copy_string_array(env, newKeyfiles, newOwned, newPtrs) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	if (!newPtrs.empty())
 	{
 		options.new_keyfiles = newPtrs.data();
@@ -434,12 +470,15 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_backupHeaders(
 	JNIEnv *env, jobject, jstring volumePath, jstring backupPath, jstring password, jint pim, jobjectArray keyfiles)
 {
-	std::string cVol = jni_copy_utf(env, volumePath);
-	std::string cBak = jni_copy_utf(env, backupPath);
-	std::string cPassword = jni_copy_utf(env, password);
+	std::string cVol, cBak, cPassword;
+	if (jni_copy_utf(env, volumePath, cVol) != VC_OK ||
+		jni_copy_utf(env, backupPath, cBak) != VC_OK ||
+		jni_copy_utf(env, password, cPassword) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	std::vector<std::string> owned;
 	std::vector<const char *> ptrs;
-	jni_copy_string_array(env, keyfiles, owned, ptrs);
+	if (jni_copy_string_array(env, keyfiles, owned, ptrs) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	int rc = vc_backup_headers(cVol.c_str(), cBak.c_str(), cPassword.c_str(), cPassword.size(), pim,
 		ptrs.empty() ? nullptr : ptrs.data(), ptrs.size());
 	jni_wipe_string(cPassword);
@@ -450,12 +489,15 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_restoreHeaders(
 	JNIEnv *env, jobject, jstring volumePath, jstring backupPath, jstring password, jint pim, jobjectArray keyfiles)
 {
-	std::string cVol = jni_copy_utf(env, volumePath);
-	std::string cBak = jni_copy_utf(env, backupPath);
-	std::string cPassword = jni_copy_utf(env, password);
+	std::string cVol, cBak, cPassword;
+	if (jni_copy_utf(env, volumePath, cVol) != VC_OK ||
+		jni_copy_utf(env, backupPath, cBak) != VC_OK ||
+		jni_copy_utf(env, password, cPassword) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	std::vector<std::string> owned;
 	std::vector<const char *> ptrs;
-	jni_copy_string_array(env, keyfiles, owned, ptrs);
+	if (jni_copy_string_array(env, keyfiles, owned, ptrs) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	int rc = vc_restore_headers(cVol.c_str(), cBak.c_str(), cPassword.c_str(), cPassword.size(), pim,
 		ptrs.empty() ? nullptr : ptrs.data(), ptrs.size());
 	jni_wipe_string(cPassword);
@@ -465,7 +507,9 @@ Java_dev_shivampingale_vcport_NativeBridge_restoreHeaders(
 extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_generateKeyfile(JNIEnv *env, jobject, jstring path, jint size)
 {
-	std::string cPath = jni_copy_utf(env, path);
+	std::string cPath;
+	if (jni_copy_utf(env, path, cPath) != VC_OK)
+		return VC_ERR_ARGUMENT;
 	return vc_generate_keyfile(cPath.c_str(), size > 0 ? (size_t) size : 128);
 }
 
@@ -510,7 +554,9 @@ Java_dev_shivampingale_vcport_NativeBridge_resetProgress(JNIEnv *, jobject)
 extern "C" JNIEXPORT void JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_setProgress(JNIEnv *env, jobject, jint percent, jstring phase)
 {
-	std::string cPhase = jni_copy_utf(env, phase);
+	std::string cPhase;
+	if (jni_copy_utf(env, phase, cPhase) != VC_OK)
+		cPhase.clear();
 	vc_progress_set((int) percent, cPhase.c_str());
 }
 

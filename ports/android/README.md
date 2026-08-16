@@ -23,6 +23,12 @@ Optional GitHub flavor (user-tapped update check only):
 ./gradlew :app:assembleGithubRelease
 ```
 
+Looks package — **not** the store app. Different `applicationId` (`dev.shivampingale.vcport.looks`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installs beside the production APK:
+
+```bash
+./gradlew :app:assembleStyledRelease
+```
+
 Open `android/` in Android Studio if you prefer. The native library is `libvcport.so`, built from `shared/CMakeLists.txt`.
 
 Release signing: do **not** commit a keystore. CI and GitHub APKs stay **debug-signed previews**. For a local production APK, set `VC_PORT_RELEASE_STORE_FILE`, `VC_PORT_RELEASE_STORE_PASSWORD`, `VC_PORT_RELEASE_KEY_ALIAS`, and `VC_PORT_RELEASE_KEY_PASSWORD`. F-Droid rebuilds from source and signs with the F-Droid key.

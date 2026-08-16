@@ -22,7 +22,7 @@ python3 ports/tests/test_quality.py
 | **Regression** | Frozen pin / FOSS rule | Honesty freeze; app is still VC Port |
 | **Contract** | Clients stay in lockstep | `test_contracts.py` |
 | **Security / tamper** | Ciphertext and leftovers | Wrap HMAC; FLAG_SECURE; no F-Droid INTERNET |
-| **Negative / boundary** | Bad input | Generator length 8/65; import 256 MiB; keyfile 1 MiB |
+| **Negative / boundary** | Bad input | Generator length 8/65; import FAT 4 GiB-1; keyfile 1 MiB |
 | **Compatibility** | Same volume on a computer | AES(Twofish(Serpent)) / HMAC-SHA-512; FAT only |
 | **Recovery** | Header tools | Backup/restore in the volume fixture |
 | **Acceptance** | Ship checklist | Phase 10 public repo + version tag |
@@ -80,6 +80,8 @@ rejected, hidden-volume write protection, benchmark. Compose UI coverage is
 visible, Stay offline, Encrypt file / Decrypt wrap, Generate strong password;
 does not tap Panic wipe or Check for updates; writes GitHub shots under
 app files for `run_device_sim.sh` to pull into `ports/docs/screenshots/`).
+Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`);
+the F-Droid/GitHub packages stay Desktop-only.
 
 ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-march=armv8-a+crypto`.
 Debug NDK builds still use `-O2` on that slice so AES/SHA detection and

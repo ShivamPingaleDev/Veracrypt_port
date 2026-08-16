@@ -35,7 +35,8 @@ Do not say:
 | What | Where |
 | --- | --- |
 | Source | Both public repos above |
-| Android previews | GitHub Release `v0.3.1` APKs (debug-signed) |
+| Android previews | GitHub Actions artifacts `vcport-apks` (debug-signed F-Droid + GitHub flavors). Not a GitHub Release attach. |
+| Looks preview | GitHub Actions artifact `vcport-looks-apk` (`dev.shivampingale.vcport.looks`). Not the store app. |
 | iPhone preview | `VCPort-0.3.1-unsigned-preview.ipa` — **you sign it** (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)) |
 | F-Droid | Recipe `fdroiddata/metadata/dev.shivampingale.vcport.yml` — submit later; do not claim a listing |
 | AltStore JSON | `ios/altstore/source.json` — `downloadURL` stays **empty** until a signed IPA exists |

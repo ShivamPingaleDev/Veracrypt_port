@@ -238,16 +238,22 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("tab_create", ui)
         self.assertIn("Check for updates", ui)
         self.assertIn("Working…", ui)
+        self.assertIn("BuildConfig.ENABLE_SKINS", ui)
+        self.assertIn("Looks (this phone)", ui)
         self.assertIn("ui-test-junit4", gradle)
         self.assertIn("ui-test-manifest", gradle)
         self.assertIn("animationsDisabled true", gradle)
         self.assertIn("AndroidJUnitRunner", gradle)
         self.assertIn("ENABLE_UPDATE_CHECK", gradle)
+        self.assertIn("ENABLE_SKINS", gradle)
+        self.assertIn("applicationIdSuffix '.looks'", gradle)
         self.assertIn("vcport-api35", script)
         self.assertIn("connectedFdroidDebugAndroidTest", script)
+        self.assertIn("connectedStyledDebugAndroidTest", script)
         cmake = read("ports/shared/CMakeLists.txt")
         self.assertIn("-fgnu89-inline", cmake)
         self.assertIn("armv8-a+crypto", cmake)
+        self.assertIn("-fstack-protector-strong", cmake)
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("jni_live_handle", jni)
         self.assertIn("vc_runtime_start", jni)
@@ -415,9 +421,12 @@ class NegativeBoundaryTests(unittest.TestCase):
         self.assertIn("generate rejects length 8", wrap)
         self.assertIn("generate rejects length 65", wrap)
 
-    def test_import_size_cap_is_256_mib(self) -> None:
+    def test_import_size_cap_is_fat32_max(self) -> None:
         mobile = read("ports/shared/vc_mobile.cpp")
-        self.assertIn("VC_IMPORT_MAX = 256 * 1024 * 1024", mobile)
+        self.assertIn("0xFFFFFFFFull", mobile)
+        self.assertIn("file_size64", mobile)
+        self.assertNotIn("VC_IMPORT_MAX = 256 * 1024 * 1024", mobile)
+        self.assertIn("JNI_UTF_MAX = 4096", read("ports/shared/android_jni.cpp"))
 
     def test_keyfile_cap_is_1_mib(self) -> None:
         kotlin = read(

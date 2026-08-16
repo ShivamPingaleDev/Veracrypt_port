@@ -70,6 +70,7 @@ Host wrap test (macOS or Linux):
 cd android
 ./gradlew :app:assembleFdroidRelease   # F-Droid / FOSS (no INTERNET)
 ./gradlew :app:assembleGithubDebug     # optional in-app update check
+./gradlew :app:assembleStyledRelease   # Looks APK (dev.shivampingale.vcport.looks), not the store app
 ```
 
 `minSdk` 28, `applicationId` `dev.shivampingale.vcport`. No Google Play libraries.

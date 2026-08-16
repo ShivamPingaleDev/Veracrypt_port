@@ -65,22 +65,37 @@ struct ContentView: View {
             Form {
                 if volumeHandle != nil {
                     Section("Mounted in this app") {
-                        Text("Folders and files from the open volume. This is not a system drive. Files.app cannot see it.")
+                        Text("Folders and files from the open volume. This is not a system drive. Copy to device puts a file in Files. Files.app cannot browse the unlocked volume.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if entries.isEmpty {
                             Text("This folder is empty. Copy from device to add a file. FAT folders are browsable; exFAT is not.")
                         }
-                        HStack {
-                            if !dirPath.isEmpty {
-                                Button("Up") {
-                                    dirPath = parentDir(dirPath)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 4) {
+                                if !dirPath.isEmpty {
+                                    Button("Up") {
+                                        dirPath = parentDir(dirPath)
+                                        reloadDir()
+                                    }
+                                }
+                                Button("/") {
+                                    dirPath = ""
                                     reloadDir()
                                 }
+                                .disabled(dirPath.isEmpty)
+                                ForEach(Array(dirPath.split(separator: "/").map(String.init).enumerated()), id: \.offset) { index, part in
+                                    HStack(spacing: 4) {
+                                        Text("›")
+                                            .foregroundStyle(.secondary)
+                                        Button(part) {
+                                            dirPath = dirPath.split(separator: "/").map(String.init).prefix(index + 1).joined(separator: "/")
+                                            reloadDir()
+                                        }
+                                        .disabled(index == dirPath.split(separator: "/").count - 1)
+                                    }
+                                }
                             }
-                            Text(dirPath.isEmpty ? "/" : "/\(dirPath)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
                         }
                         HStack {
                             Button("Copy from device") {
@@ -1126,19 +1141,27 @@ struct ContentView: View {
         let destDir = dirPath.isEmpty ? "/" : dirPath
         DispatchQueue.global(qos: .userInitiated).async {
             let name = url.lastPathComponent
-            let dest = FileManager.default.temporaryDirectory
-                .appendingPathComponent("from-device-\(Int(Date().timeIntervalSince1970))-\(name)")
-            do {
-                try? FileManager.default.removeItem(at: dest)
-                try FileManager.default.copyItem(at: url, to: dest)
-            } catch {
-                DispatchQueue.main.async {
-                    endWork()
-                    status = "Could not read that file from the device."
+            var temp: URL?
+            let srcPath: String
+            if url.isFileURL {
+                srcPath = url.path
+            } else {
+                let dest = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("from-device-\(Int(Date().timeIntervalSince1970))-\(name)")
+                do {
+                    try? FileManager.default.removeItem(at: dest)
+                    try FileManager.default.copyItem(at: url, to: dest)
+                    temp = dest
+                    srcPath = dest.path
+                } catch {
+                    DispatchQueue.main.async {
+                        endWork()
+                        status = "Could not read that file from the device."
+                    }
+                    return
                 }
-                return
             }
-            let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: dest.path, destName: name)
+            let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
             var deletedOriginal = false
             if rc == 0 && move {
                 do {
@@ -1148,7 +1171,9 @@ struct ContentView: View {
                     deletedOriginal = false
                 }
             }
-            try? FileManager.default.removeItem(at: dest)
+            if let temp {
+                try? FileManager.default.removeItem(at: temp)
+            }
             DispatchQueue.main.async {
                 endWork()
                 if rc != 0 {
@@ -1287,7 +1312,7 @@ struct ContentView: View {
         switch rc {
         case -6: return "Could not copy \(name). FAT only; folders are not created this way."
         case -4: return "Could not copy \(name). Bad name or path."
-        case -5: return "Could not copy \(name). Volume is full, or the file is larger than 256 MiB."
+        case -5: return "Could not copy \(name). Volume is full, or the file is larger than 4 GiB (FAT limit)."
         case -3: return "A file named \(name) already exists in this folder."
         case -1: return "Could not copy \(name) into the volume."
         default: return "Could not copy \(name) (code \(rc))."

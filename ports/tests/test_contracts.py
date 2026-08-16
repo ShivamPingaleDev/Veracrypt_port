@@ -109,6 +109,8 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("'x86'", gradle)
         self.assertIn("x86_64", gradle)
         self.assertIn("ENABLE_UPDATE_CHECK", gradle)
+        self.assertIn("ENABLE_SKINS", gradle)
+        self.assertIn("applicationIdSuffix '.looks'", gradle)
         self.assertIn("UPSTREAM_GIT", gradle)
         self.assertIn("UPSTREAM_RELEASES", gradle)
         self.assertIn("minifyEnabled false", gradle)
@@ -121,6 +123,7 @@ class VersionMatrixTests(unittest.TestCase):
         pin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/SourcePin.kt")
         fdroid = read("ports/android/app/src/fdroid/java/dev/shivampingale/vcport/UpdateChecker.kt")
         github = read("ports/android/app/src/github/java/dev/shivampingale/vcport/UpdateChecker.kt")
+        styled = read("ports/android/app/src/styled/java/dev/shivampingale/vcport/UpdateChecker.kt")
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         self.assertIn("BuildConfig.PORT_VERSION", pin)
         self.assertIn("BuildConfig.SOURCE_MANIFEST", pin)
@@ -129,6 +132,8 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("SourcePin.localVersion", github)
         self.assertIn("SourcePin.manifest", github)
         self.assertIn('error("F-Droid build has no network")', fdroid)
+        self.assertIn('error("Looks build has no network")', styled)
+        self.assertNotIn("INTERNET", styled)
         self.assertIn("android_apk_sha256", github)
         self.assertIn("upstream_commit", github)
         self.assertIn("upstreamReleases", github)
@@ -230,6 +235,8 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("Veracrypt_port.git", yml)
         self.assertIn("subdir: ports/android", yml)
         self.assertNotIn("VCPort.git", yml)
+        self.assertNotIn("styled", yml)
+        self.assertNotIn(".looks", yml)
 
     def test_changelog_mentions_current(self) -> None:
         log = read("ports/CHANGELOG.md")
@@ -246,6 +253,8 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("This app is not named VeraCrypt", strings)
         self.assertIn("shivampingaledev@proton.me", strings)
         self.assertIn("shivampingaledev@gmail.com", strings)
+        looks = read("ports/android/app/src/styled/res/values/strings.xml")
+        self.assertIn('<string name="app_name">VC Port Looks</string>', looks)
 
     def test_notice(self) -> None:
         notice = read("ports/NOTICE")
@@ -347,7 +356,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn('android:excludeFromRecents="true"', manifest)
         self.assertIn('android:launchMode="singleTask"', manifest)
         self.assertIn('android:exported="false"', manifest)
-        self.assertIn("dev.shivampingale.vcport.share", manifest)
+        self.assertIn("${applicationId}.share", manifest)
         self.assertNotIn("VolumeDocumentsProvider", manifest)
         self.assertNotIn("MANAGE_EXTERNAL_STORAGE", manifest)
         self.assertIn("network_security_config", manifest)
@@ -358,6 +367,14 @@ class AndroidHighThreatTests(unittest.TestCase):
         fdroid = read("ports/android/app/src/fdroid/AndroidManifest.xml")
         self.assertIn("android.permission.INTERNET", fdroid)
         self.assertIn('tools:node="remove"', fdroid)
+
+    def test_styled_looks_package_has_no_internet(self) -> None:
+        styled = read("ports/android/app/src/styled/AndroidManifest.xml")
+        self.assertIn("android.permission.INTERNET", styled)
+        self.assertIn('tools:node="remove"', styled)
+        gradle = read("ports/android/app/build.gradle")
+        self.assertIn("applicationIdSuffix '.looks'", gradle)
+        self.assertIn("buildConfigField 'boolean', 'ENABLE_SKINS', 'true'", gradle)
 
     def test_github_flavor_has_opt_in_internet_only(self) -> None:
         github = read("ports/android/app/src/github/AndroidManifest.xml")

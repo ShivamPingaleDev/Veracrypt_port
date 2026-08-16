@@ -28,6 +28,7 @@ android {
         buildConfigField 'String', 'UPSTREAM_GIT', "\"${qcfg(versionJson.upstream_git as String)}\""
         buildConfigField 'String', 'UPSTREAM_RELEASES', "\"${qcfg(versionJson.upstream_releases as String)}\""
         buildConfigField 'String', 'UPSTREAM_TAG', "\"${qcfg(versionJson.upstream_tag as String)}\""
+        buildConfigField 'boolean', 'ENABLE_SKINS', 'false'
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
         }
@@ -44,10 +45,20 @@ android {
         fdroid {
             dimension 'distribution'
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
+            buildConfigField 'boolean', 'ENABLE_SKINS', 'false'
         }
         github {
             dimension 'distribution'
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'true'
+            buildConfigField 'boolean', 'ENABLE_SKINS', 'false'
+        }
+        // Separate package from production. Same crypto; four Looks + Desktop switcher.
+        styled {
+            dimension 'distribution'
+            applicationIdSuffix '.looks'
+            versionNameSuffix '-looks'
+            buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
+            buildConfigField 'boolean', 'ENABLE_SKINS', 'true'
         }
     }
 

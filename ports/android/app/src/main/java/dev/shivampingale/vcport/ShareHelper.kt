@@ -10,7 +10,7 @@ import androidx.core.content.FileProvider
 import java.io.File
 
 object ShareHelper {
-    const val AUTHORITY = "dev.shivampingale.vcport.share"
+    fun authority(context: Context): String = "${context.packageName}.share"
 
     fun shareDir(context: Context): File {
         return File(context.cacheDir, "share").apply { mkdirs() }
@@ -35,7 +35,7 @@ object ShareHelper {
     }
 
     fun uriFor(context: Context, file: File): Uri {
-        return FileProvider.getUriForFile(context, AUTHORITY, file)
+        return FileProvider.getUriForFile(context, authority(context), file)
     }
 
     fun shareFiles(context: Context, files: List<File>, title: String = "Share") {

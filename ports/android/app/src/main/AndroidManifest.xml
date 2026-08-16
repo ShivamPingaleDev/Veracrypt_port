@@ -43,7 +43,7 @@
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="dev.shivampingale.vcport.share"
+            android:authorities="${applicationId}.share"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
