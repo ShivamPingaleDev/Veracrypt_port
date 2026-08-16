@@ -6,14 +6,14 @@ Licenses
 
 1. Original VC Port code (Android/iOS UI, wrap helper, JNI, macOS extras
    listed in NOTICE) is licensed under the Apache License 2.0. Copyright
-   2026 Shivam Pingale.
+   2026 Shivam Mangesh Pingale.
 
 2. VeraCrypt volume/crypto and TrueCrypt-derived files are multi-licensed
    under the Apache License 2.0 AND the TrueCrypt License version 3.0.
    You must comply with both. The full texts are in License.txt.
 
 This license does not grant rights to use the names or logos of IDRIX,
-AM Crypto, VeraCrypt, TrueCrypt, or Shivam Pingale as a product brand.
+AM Crypto, VeraCrypt, TrueCrypt, or Shivam Mangesh Pingale as a product brand.
 A derived work must not be called VeraCrypt, TrueCrypt, or anything
 confusingly similar.
 

@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2026 Shivam Pingale. All rights reserved.
+ Copyright (c) 2026 Shivam Mangesh Pingale. All rights reserved.
 
  Individual-file wrap: Argon2id + AES-256-CTR + HMAC-SHA256.
  Passwords and generated secrets are wiped in memory and never written to logs.

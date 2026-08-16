@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2026 Shivam Pingale. All rights reserved.
+ Copyright (c) 2026 Shivam Mangesh Pingale. All rights reserved.
 
  Token stubs for Android/iOS. Smart-card keyfiles are not available on mobile.
 */

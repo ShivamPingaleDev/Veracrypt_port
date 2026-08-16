@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2026 Shivam Pingale. All rights reserved.
+ Copyright (c) 2026 Shivam Mangesh Pingale. All rights reserved.
 */
 
 #include <jni.h>

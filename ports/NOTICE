@@ -1,5 +1,5 @@
 VC Port
-Copyright 2026 Shivam Pingale
+Copyright 2026 Shivam Mangesh Pingale
 
 This product includes software developed as part of VeraCrypt
 (https://www.veracrypt.fr/) and is a derived work. It is not named VeraCrypt.
@@ -9,11 +9,11 @@ http://www.truecrypt.org/
 
 Licenses:
   - VC Port original code (Android UI, iOS UI, wrap helper, JNI, macOS extras):
-    Apache License 2.0. Copyright 2026 Shivam Pingale.
+    Apache License 2.0. Copyright 2026 Shivam Mangesh Pingale.
   - VeraCrypt volume/crypto core: Apache License 2.0 AND TrueCrypt License 3.0
   - Full texts: License.txt (repo root) / this tree's License.txt
 
 Trademarks: IDRIX, AM Crypto, VeraCrypt, and TrueCrypt names and logos are not
 granted by this notice. Do not name this app VeraCrypt or anything confusingly
 similar. Forks must keep this NOTICE and the copyright lines on files they
-received; they are not required to use "Shivam Pingale" as the app name.
+received; they are not required to use "Shivam Mangesh Pingale" as the app name.

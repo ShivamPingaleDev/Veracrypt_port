@@ -6,7 +6,7 @@ message: If you use this software, please cite it as below.
 type: software
 authors:
   - family-names: Pingale
-    given-names: Shivam
+    given-names: Shivam Mangesh
 repository-code: https://github.com/ShivamPingaleDev/Veracrypt_port
 license: Apache-2.0
 license-url: https://github.com/ShivamPingaleDev/Veracrypt_port/blob/master/LICENSE
