@@ -4,6 +4,8 @@ Android and iOS clients for VeraCrypt-compatible volumes. This derived work is *
 
 Package id: `dev.shivampingale.vcport`
 
+**Contact:** Shivam Mangesh Pingale — [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me) · [shivampingaledev@gmail.com](mailto:shivampingaledev@gmail.com)
+
 The full macOS port and VeraCrypt source tree live in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the mobile apps plus the shared native core.
 
 **F-Droid / FOSS:** see [FOSS.md](FOSS.md). **Privacy:** [PRIVACY.md](PRIVACY.md). **Seizure / whistleblower profile:** [THREAT-MODEL.md](THREAT-MODEL.md). **VeraCrypt updates:** [UPSTREAM.md](UPSTREAM.md).

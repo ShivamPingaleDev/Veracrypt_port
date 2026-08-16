@@ -12,6 +12,8 @@ The mobile apps are named **VC Port**. The VeraCrypt license does not allow a de
 Mobile-only GitHub repo: https://github.com/ShivamPingaleDev/VCPort  
 Full tree (macOS + VeraCrypt src + mobile): https://github.com/ShivamPingaleDev/Veracrypt_port
 
+Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com
+
 ## FUSE-T vs FSKit (Apple silicon)
 
 **FUSE-T cannot be avoided yet.** VeraCrypt on macOS does not mount the guest filesystem itself. It:

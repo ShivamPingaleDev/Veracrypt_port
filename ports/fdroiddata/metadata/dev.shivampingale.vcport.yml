@@ -3,6 +3,7 @@ Categories:
   - System
 License: Apache-2.0
 AuthorName: Shivam Mangesh Pingale
+AuthorEmail: shivampingaledev@proton.me
 WebSite: https://github.com/ShivamPingaleDev/VCPort
 SourceCode: https://github.com/ShivamPingaleDev/VCPort
 IssueTracker: https://github.com/ShivamPingaleDev/VCPort/issues
@@ -14,6 +15,9 @@ Summary: Open VeraCrypt volumes offline with biometrics, share, and file wrap
 Description: |-
     VC Port opens VeraCrypt-compatible encrypted containers on Android. It is a
     derived work and is not named VeraCrypt.
+
+    Contact: Shivam Mangesh Pingale, shivampingaledev@proton.me,
+    shivampingaledev@gmail.com.
 
     The F-Droid flavor has no INTERNET permission, no ads, no analytics, and no
     crash reporters. Volume passwords stay on the device.
