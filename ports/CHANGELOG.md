@@ -28,6 +28,7 @@ Phone release: hidden-volume write protection, full emulator NativeBridge + Comp
 - Host lifecycle simulation: create a FAT volume with password, PIM, and a biometric keyfile, store files, dismount, reopen. Independent cases run on a CPU worker pool; HMAC-SHA-512 is unchanged. Phone-session + optional emulator NativeBridge test stay offline (no UpdateChecker).
 - Android 64-bit openVolume handles: a live pointer may look negative as signed Long; JNI/UI use isOpen instead of handle > 0. Debug ARM cpu.c links with GNU89 inline so CPU_QueryAES/SHA2 exist at -O0.
 - Emulator NativeBridge covers read-only, backup header, PIM 0, and hidden-volume write protection. Compose UI test walks Volume/Wrap/Create/Tools without tapping Panic wipe or Check for updates. ARM64 Debug NDK uses `-O2 -march=armv8-a+crypto`; armeabi-v7a uses NEON. `vc_runtime_start` warms the XTS thread pool after native load.
+- Unsigned iOS IPA on GitHub Releases (`VCPort-0.3.1-unsigned-preview.ipa`). Re-sign with your Apple ID or sideload via AltStore. AltStore `downloadURL` stays empty.
 
 ## 0.3.0
 

@@ -1765,11 +1765,11 @@ private struct WorkMeter: View {
     }
 
     private func meter(on: (Int) -> Bool) -> some View {
-        HStack(spacing: 6) {
+        let lit = (0..<8).map(on)
+        return HStack(spacing: 6) {
             ForEach(0..<8, id: \.self) { i in
-                let lit = on(i)
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(lit
+                    .fill(lit[i]
                         ? Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255)
                         : Color.secondary.opacity(0.22))
                     .frame(height: 10)

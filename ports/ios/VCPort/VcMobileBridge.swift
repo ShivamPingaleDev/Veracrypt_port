@@ -20,25 +20,25 @@ enum VcMobileBridge {
 
     static func open(path: String, password: String, pim: Int32, keyfiles: [String], useBackupHeader: Bool = false, readOnly: Bool = false, protectHidden: Bool = false, hiddenPassword: String = "", hiddenPim: Int32 = 0, error: UnsafeMutablePointer<Int32>) -> OpaquePointer? {
         startCpu()
-        path.withCString { cPath in
+        return path.withCString { cPath in
             password.withCString { cPassword in
                 hiddenPassword.withCString { cHidden in
-                withCStringArray(keyfiles) { pointer, count in
-                    var options = VcOpenOptions()
-                    options.path = cPath
-                    options.password = cPassword
-                    options.password_len = password.utf8.count
-                    options.pim = pim
-                    options.use_backup_header = useBackupHeader ? 1 : 0
-                    options.keyfiles = pointer
-                    options.keyfile_count = count
-                    options.read_only = readOnly ? 1 : 0
-                    options.protect_hidden = protectHidden ? 1 : 0
-                    options.hidden_password = cHidden
-                    options.hidden_password_len = hiddenPassword.utf8.count
-                    options.hidden_pim = hiddenPim
-                    return vc_open(&options, error)
-                }
+                    withCStringArray(keyfiles) { pointer, count in
+                        var options = VcOpenOptions()
+                        options.path = cPath
+                        options.password = cPassword
+                        options.password_len = password.utf8.count
+                        options.pim = pim
+                        options.use_backup_header = useBackupHeader ? 1 : 0
+                        options.keyfiles = pointer
+                        options.keyfile_count = count
+                        options.read_only = readOnly ? 1 : 0
+                        options.protect_hidden = protectHidden ? 1 : 0
+                        options.hidden_password = cHidden
+                        options.hidden_password_len = hiddenPassword.utf8.count
+                        options.hidden_pim = hiddenPim
+                        return vc_open(&options, error)
+                    }
                 }
             }
         }
@@ -247,7 +247,7 @@ enum VcMobileBridge {
         hiddenKeyfiles: [String] = []
     ) -> Int32 {
         startCpu()
-        path.withCString { cPath in
+        return path.withCString { cPath in
             password.withCString { cPassword in
                 cipher.withCString { cCipher in
                     kdf.withCString { cKdf in
@@ -291,7 +291,7 @@ enum VcMobileBridge {
         newKdf: String,
         newKeyfiles: [String]
     ) -> Int32 {
-        path.withCString { cPath in
+        return path.withCString { cPath in
             password.withCString { cPassword in
                 newPassword.withCString { cNew in
                     newKdf.withCString { cKdf in
@@ -321,7 +321,7 @@ enum VcMobileBridge {
     }
 
     static func backupHeaders(volumePath: String, backupPath: String, password: String, pim: Int32, keyfiles: [String]) -> Int32 {
-        volumePath.withCString { cVol in
+        return volumePath.withCString { cVol in
             backupPath.withCString { cBak in
                 password.withCString { cPassword in
                     withCStringArray(keyfiles) { pointer, count in
@@ -333,7 +333,7 @@ enum VcMobileBridge {
     }
 
     static func restoreHeaders(volumePath: String, backupPath: String, password: String, pim: Int32, keyfiles: [String]) -> Int32 {
-        volumePath.withCString { cVol in
+        return volumePath.withCString { cVol in
             backupPath.withCString { cBak in
                 password.withCString { cPassword in
                     withCStringArray(keyfiles) { pointer, count in
