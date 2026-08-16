@@ -36,3 +36,4 @@ src/Main/Unix/Main.cpp
 src/Main/UserPreferences.cpp
 src/Main/UserPreferences.h
 src/Makefile
+src/Platform/Unix/File.cpp

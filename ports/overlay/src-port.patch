@@ -15,10 +15,10 @@ index 04ed21c1..ff20bfa0 100644
  </dict>
  </plist>
 diff --git a/src/Common/Language.xml b/src/Common/Language.xml
-index f205f6f9..f39e0101 100644
+index f205f6f9..02564814 100644
 --- a/src/Common/Language.xml
 +++ b/src/Common/Language.xml
-@@ -1476,6 +1476,42 @@
+@@ -1476,6 +1476,43 @@
      <entry lang="en" key="LINUX_DESELECT">Deselect</entry>
      <entry lang="en" key="LINUX_ADMIN_PW_QUERY">Enter your user password or administrator password:</entry>
      <entry lang="en" key="LINUX_ADMIN_PW_QUERY_TITLE">Administrator privileges required</entry>
@@ -51,6 +51,7 @@ index f205f6f9..f39e0101 100644
 +    <entry lang="en" key="SHARE_ENCRYPTED_HINT">This sends the ciphertext only. No password, no decrypt.</entry>
 +    <entry lang="en" key="PANIC_WIPE_CONFIRM">Panic wipe dismounts all volumes, wipes the password cache, clears the clipboard, and deletes stored biometric volume passwords on this computer. Continue?</entry>
 +    <entry lang="en" key="PANIC_WIPE_DONE">Panic wipe finished. Mounted volumes were dismounted. Cached and stored secrets were wiped. This is not unbreakable.</entry>
++    <entry lang="en" key="PANIC_WIPE_DISMOUNT_FAILED">Panic wipe still cleared the password cache, clipboard, and stored biometric secrets, but one or more volumes could not be dismounted. Dismount them manually. This is not unbreakable.</entry>
 +    <entry lang="en" key="MACOSX_BIOMETRIC_COMPELLED">Do not use Touch ID as the only factor in a danger-state. Biometrics can be compelled. Prefer a long password and a keyfile you do not keep on this Mac. This is not unbreakable.</entry>
 +    <entry lang="en" key="STAY_OFFLINE_LEAVE_CONFIRM">This action opens a website and will use the network. Continue?</entry>
 +    <entry lang="en" key="UPDATE_CHECK_CONFIRM">Check for updates now? This makes one short HTTPS request, then the application stays offline again. Nothing is downloaded unless you agree.</entry>
@@ -274,7 +275,7 @@ index d1cc507b..c35b245a 100644
  
  		if (getuid() == 0 || geteuid() == 0)
 diff --git a/src/Main/Forms/AboutDialog.cpp b/src/Main/Forms/AboutDialog.cpp
-index 02152b62..53c4e67d 100644
+index 02152b62..2b0dfdb4 100644
 --- a/src/Main/Forms/AboutDialog.cpp
 +++ b/src/Main/Forms/AboutDialog.cpp
 @@ -12,6 +12,7 @@
@@ -293,7 +294,7 @@ index 02152b62..53c4e67d 100644
  		VersionStaticText->SetLabel (Application::GetName() + L" " + versionStr);
  		CopyrightStaticText->SetLabel (TC_STR_RELEASED_BY);
  		WebsiteHyperlink->SetLabel (L"amcrypto.jp");
-@@ -79,6 +81,10 @@ namespace VeraCrypt
+@@ -79,6 +81,12 @@ namespace VeraCrypt
  
  			L"This software uses wxWidgets library, which is copyright \xA9 1998-2011 Julian Smart, Robert Roebling et al.\n\n"
  
@@ -301,11 +302,13 @@ index 02152b62..53c4e67d 100644
 +
 +			L"Stay Offline is on by default. Tools menu: wrap/unwrap a single file, share ciphertext as-is, panic wipe. Touch ID can be compelled — prefer a long password and a keyfile not stored on this Mac. This is not unbreakable.\n\n"
 +
++			L"VC Port contact: Shivam Mangesh Pingale <shivampingaledev@proton.me> / <shivampingaledev@gmail.com>\n\n"
++
  			L"An AM Crypto Release");
  	}
  }
 diff --git a/src/Main/Forms/MainFrame.cpp b/src/Main/Forms/MainFrame.cpp
-index ce6d0edd..79272b14 100644
+index ce6d0edd..9e876d91 100644
 --- a/src/Main/Forms/MainFrame.cpp
 +++ b/src/Main/Forms/MainFrame.cpp
 @@ -12,6 +12,7 @@
@@ -375,7 +378,7 @@ index ce6d0edd..79272b14 100644
  	}
  
  #ifdef TC_WINDOWS
-@@ -746,6 +776,53 @@ namespace VeraCrypt
+@@ -746,6 +776,58 @@ namespace VeraCrypt
  		dialog.ShowModal();
  	}
  
@@ -386,7 +389,12 @@ index ce6d0edd..79272b14 100644
 +			Gui->SetBackgroundMode (false);
 +		EnsureVisible ();
 +#endif
-+		if (!Gui->AskYesNo (LangString["UPDATE_CHECK_CONFIRM"], false, true))
++		if (Gui->GetPreferences().StayOffline)
++		{
++			if (!Gui->AskYesNo (LangString["STAY_OFFLINE_LEAVE_CONFIRM"], false, true))
++				return;
++		}
++		else if (!Gui->AskYesNo (LangString["UPDATE_CHECK_CONFIRM"], false, true))
 +			return;
 +
 +		wxBusyCursor busy;
@@ -429,7 +437,7 @@ index ce6d0edd..79272b14 100644
  	void MainFrame::OnActivate (wxActivateEvent& event)
  	{
  		Gui->SetActiveFrame (this);
-@@ -1813,6 +1890,45 @@ namespace VeraCrypt
+@@ -1813,6 +1895,50 @@ namespace VeraCrypt
  		Core->WipePasswordCache();
  		UpdateWipeCacheButton();
  	}
@@ -453,6 +461,7 @@ index ce6d0edd..79272b14 100644
 +	{
 +		if (!Gui->AskYesNo (LangString["PANIC_WIPE_CONFIRM"], false, true))
 +			return;
++		bool dismountFailed = false;
 +		try
 +		{
 +			if (!Core->GetMountedVolumes().empty())
@@ -460,6 +469,7 @@ index ce6d0edd..79272b14 100644
 +		}
 +		catch (...)
 +		{
++			dismountFailed = true;
 +		}
 +		WipeCache();
 +#ifdef TC_MACOSX
@@ -470,7 +480,10 @@ index ce6d0edd..79272b14 100644
 +			wxTheClipboard->Clear();
 +			wxTheClipboard->Close();
 +		}
-+		Gui->ShowInfo (LangString["PANIC_WIPE_DONE"]);
++		if (dismountFailed)
++			Gui->ShowWarning (LangString["PANIC_WIPE_DISMOUNT_FAILED"]);
++		else
++			Gui->ShowInfo (LangString["PANIC_WIPE_DONE"]);
 +	}
  	
  #ifdef TC_MACOSX
@@ -889,3 +902,18 @@ index 7c15e5a3..77948578 100644
  	# Xcode 15 linker emits a warning "no platform load command found" when linking object files generated by yasm
  	# To suppress this warning, we need to use -Wl,-ld_classic flag in order to use the old ld64 linker
  	# https://mjtsai.com/blog/2024/03/15/xcode-15-no-platform-load-command-found/
+diff --git a/src/Platform/Unix/File.cpp b/src/Platform/Unix/File.cpp
+index 98108afd..68358133 100644
+--- a/src/Platform/Unix/File.cpp
++++ b/src/Platform/Unix/File.cpp
+@@ -19,6 +19,10 @@
+ #include <sys/mount.h>
+ #endif
+ 
++#ifdef TC_MACOSX
++#include <sys/disk.h>
++#endif
++
+ #ifdef TC_BSD
+ #include <sys/disk.h>
+ #endif
