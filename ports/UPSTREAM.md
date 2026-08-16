@@ -29,7 +29,8 @@ Pin today: VeraCrypt 1.26.29 / `b48e31f5…` (see `ports/UPSTREAM_COMMIT`).
 | Build | Network | What “Check for updates” does |
 | --- | --- | --- |
 | Android F-Droid | none | Refuses. Updates come from F-Droid rebuilding this source. |
-| Android GitHub / iOS (opt-in) / desktop (StayOffline off) | one or two HTTPS GETs you tap for | Reads **our** `version.json`, then the **official** GitHub latest release. Shows versions and SHA-256. **Does not install.** |
+| Android Looks (offline) | none | Refuses. Ship a new Looks APK. |
+| Android GitHub / Looks GitHub / iOS (opt-in) / desktop (StayOffline off) | one or two HTTPS GETs you tap for | Reads **our** `version.json`, then the **official** GitHub latest release. Shows versions and SHA-256. **Does not install.** |
 
 If official VeraCrypt is newer than the baked-in pin, the UI says so and tells you to rebuild from source after `scripts/sync-upstream.sh`. The APK cannot rewrite `src/`.
 

@@ -135,7 +135,13 @@ class MainActivityUiTest {
             "FLAG_SECURE stays on for experimental skins",
             rule.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0
         )
-        rule.onNodeWithText("Check for updates").assertDoesNotExist()
+        rule.onNodeWithTag("tab_volume").performClick()
+        rule.waitForIdle()
+        if (BuildConfig.ENABLE_UPDATE_CHECK) {
+            rule.onNodeWithText("Check for updates").performScrollTo().assertIsDisplayed()
+        } else {
+            rule.onNodeWithText("Check for updates").assertDoesNotExist()
+        }
     }
 
     private fun captureShot(name: String, folder: String = "vcport-github-shots") {

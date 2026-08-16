@@ -5,7 +5,7 @@
 - Apple users sign the unsigned IPA themselves (AltStore / Xcode). How to keep the repos public: `PUBLIC.md`. GitHub README has real emulator UI shots (`docs/screenshots/`); Fastlane `phoneScreenshots/` stays empty until a physical phone capture.
 - Honest discovery only: GitHub topics + README snippet, no ad SDK, no analytics. See `PUBLIC.md`.
 - Author footnote: still in a five-year IT engineering degree (graduate summer 2027). Quiet README ask for teaching, internship, or work.
-- Looks APK (`assembleStyledRelease`) is a GitHub Release asset on this repo (`VCPort-0.3.1-looks-preview.apk`). Same `applicationId` as the Desktop-only APKs; installing Looks replaces them. Not a separate package.
+- Looks APKs share `applicationId` with production: offline `assembleStyledRelease` (`VCPort-0.3.1-looks-preview.apk`, no INTERNET) and tap-to-check `assembleLooksgithubRelease` (`VCPort-0.3.1-looks-github-preview.apk`, same ≤20s HTTPS window as the Desktop GitHub flavor). Installing either replaces the other Desktop/Looks APK. Not F-Droid.
 - Host Linux CI links wrap/volume tests without SHA-NI objects or PCSC; overlay inventories refreshed.
 
 ## 0.3.1

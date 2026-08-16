@@ -14,4 +14,4 @@ VC Port does not collect personal data.
 
 High-threat / seizure profile: [THREAT-MODEL.md](THREAT-MODEL.md).
 
-The optional GitHub Android flavor may make **one HTTPS GET** of `version.json` if you tap **Check for updates**. Nothing else is sent.
+The optional GitHub Android flavor and Looks GitHub flavor may make **one HTTPS GET** of `version.json` if you tap **Check for updates**. Nothing else is sent.

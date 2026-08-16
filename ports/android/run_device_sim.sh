@@ -61,6 +61,8 @@ cd "$ANDROID"
 ./gradlew :app:connectedFdroidDebugAndroidTest --no-daemon
 ./gradlew :app:connectedStyledDebugAndroidTest --no-daemon \
 	-Pandroid.testInstrumentationRunnerArguments.class=dev.shivampingale.vcport.MainActivityUiTest
+./gradlew :app:connectedLooksgithubDebugAndroidTest --no-daemon \
+	-Pandroid.testInstrumentationRunnerArguments.class=dev.shivampingale.vcport.MainActivityUiTest
 
 # Compose UI shots (FLAG_SECURE still on; not adb screencap).
 SHOTS="$(cd "$ANDROID/../docs/screenshots" && pwd)"

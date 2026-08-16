@@ -25,7 +25,7 @@ Real UI from the F-Droid debug app on emulator `vcport-api35` (Compose capture; 
 ![VC Port Android Create tab](docs/screenshots/03-create.png)
 ![VC Port Android Tools tab](docs/screenshots/04-tools.png)
 
-Looks APK (same app id; GitHub Release `VCPort-0.3.1-looks-preview.apk`):
+Looks APKs (same app id; GitHub Release `VCPort-0.3.1-looks-preview.apk` offline, `VCPort-0.3.1-looks-github-preview.apk` tap-to-check):
 
 ![VC Port Looks Cyberpunk](docs/screenshots/05-skin-cyberpunk.png)
 ![VC Port Looks Matrix](docs/screenshots/06-skin-matrix.png)
@@ -77,7 +77,8 @@ Host wrap test (macOS or Linux):
 cd android
 ./gradlew :app:assembleFdroidRelease   # F-Droid / FOSS (no INTERNET)
 ./gradlew :app:assembleGithubDebug     # optional in-app update check
-./gradlew :app:assembleStyledRelease   # Looks APK (same applicationId; GitHub Release preview)
+./gradlew :app:assembleStyledRelease         # Looks APK, no INTERNET
+./gradlew :app:assembleLooksgithubRelease    # Looks APK, tap Check for updates
 ```
 
 `minSdk` 28, `applicationId` `dev.shivampingale.vcport`. No Google Play libraries.

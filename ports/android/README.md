@@ -23,10 +23,11 @@ Optional GitHub flavor (user-tapped update check only):
 ./gradlew :app:assembleGithubRelease
 ```
 
-Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installing it replaces the Desktop-only APK. GitHub Release asset, not F-Droid:
+Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installing it replaces the Desktop-only APK. GitHub Release asset, not F-Droid. Two flavors:
 
 ```bash
-./gradlew :app:assembleStyledRelease
+./gradlew :app:assembleStyledRelease         # no INTERNET; updates are a new APK
+./gradlew :app:assembleLooksgithubRelease    # tap Check for updates (same window as GitHub Desktop)
 ```
 
 Open `android/` in Android Studio if you prefer. The native library is `libvcport.so`, built from `shared/CMakeLists.txt`.

@@ -256,6 +256,7 @@ class Phase8CiTests(unittest.TestCase):
         self.assertIn("assembleFdroidRelease", wf)
         self.assertIn("assembleGithubRelease", wf)
         self.assertIn("assembleStyledRelease", wf)
+        self.assertIn("assembleLooksgithubRelease", wf)
         self.assertIn("vcport-looks-apk", wf)
         self.assertIn("ios-native:", wf)
         self.assertIn("iphonesimulator", wf)

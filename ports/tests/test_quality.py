@@ -250,6 +250,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("vcport-api35", script)
         self.assertIn("connectedFdroidDebugAndroidTest", script)
         self.assertIn("connectedStyledDebugAndroidTest", script)
+        self.assertIn("connectedLooksgithubDebugAndroidTest", script)
         cmake = read("ports/shared/CMakeLists.txt")
         self.assertIn("-fgnu89-inline", cmake)
         self.assertIn("armv8-a+crypto", cmake)

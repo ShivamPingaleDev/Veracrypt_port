@@ -36,7 +36,7 @@ Do not say:
 | --- | --- |
 | Source | Both public repos above |
 | Android previews | GitHub Release `v0.3.1` APKs (debug-signed): `VCPort-0.3.1-fdroid-preview.apk`, `VCPort-0.3.1-github-preview.apk` |
-| Looks preview | GitHub Release `v0.3.1` asset `VCPort-0.3.1-looks-preview.apk` (same `applicationId`, skins on). Installing it replaces the Desktop-only APK. |
+| Looks preview | GitHub Release `v0.3.1`: `VCPort-0.3.1-looks-preview.apk` (no INTERNET) and `VCPort-0.3.1-looks-github-preview.apk` (tap Check for updates). Same `applicationId`, skins on. Installing either replaces the Desktop-only APK. |
 | iPhone preview | `VCPort-0.3.1-unsigned-preview.ipa` — **you sign it** (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)) |
 | F-Droid | Recipe `fdroiddata/metadata/dev.shivampingale.vcport.yml` — submit later; do not claim a listing |
 | AltStore JSON | `ios/altstore/source.json` — `downloadURL` stays **empty** until a signed IPA exists |
