@@ -6,6 +6,7 @@
 - Honest discovery only: GitHub topics + README snippet, no ad SDK, no analytics. See `PUBLIC.md`.
 - Author footnote: still in a five-year IT engineering degree (graduate summer 2027). Quiet README ask for teaching, internship, or work.
 - Looks APKs share `applicationId` with production: offline `assembleStyledRelease` (`VCPort-0.3.1-looks-preview.apk`, no INTERNET) and tap-to-check `assembleLooksgithubRelease` (`VCPort-0.3.1-looks-github-preview.apk`, same ≤20s HTTPS window as the Desktop GitHub flavor). Installing either replaces the other Desktop/Looks APK. Not F-Droid.
+- Looks wallpaper draws on its own layer and skips empty MAGI hexes / extra scanlines so scrolling stays smoother. Overlay still polls at 10 Hz. HMAC-SHA-512 unchanged.
 - Host Linux CI links wrap/volume tests without SHA-NI objects or PCSC; overlay inventories refreshed.
 
 ## 0.3.1

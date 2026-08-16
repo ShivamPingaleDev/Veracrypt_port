@@ -191,8 +191,10 @@ class MainActivity : AppCompatActivity() {
                     overlayPercent = NativeBridge.progressPercent()
                     while (true) {
                         val phase = NativeBridge.progressPhase()
-                        overlayTitle = phase.ifEmpty { status }
-                        overlayPercent = NativeBridge.progressPercent()
+                        val nextTitle = phase.ifEmpty { status }
+                        val nextPct = NativeBridge.progressPercent()
+                        if (overlayTitle != nextTitle) overlayTitle = nextTitle
+                        if (overlayPercent != nextPct) overlayPercent = nextPct
                         delay(100)
                     }
                 }

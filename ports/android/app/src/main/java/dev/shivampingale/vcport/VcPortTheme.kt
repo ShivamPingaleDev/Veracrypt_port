@@ -65,7 +65,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -598,9 +600,9 @@ private fun SkinChrome(skin: VcSkin) {
         label = "pulse"
     )
     val rain = remember {
-        List(26) { i ->
+        List(16) { i ->
             floatArrayOf(
-                (i + 0.4f) / 26f,
+                (i + 0.4f) / 16f,
                 0.11f + (i * 17 % 11) * 0.025f,
                 (7 + i % 13).toFloat(),
                 (i * 53).toFloat()
@@ -614,12 +616,12 @@ private fun SkinChrome(skin: VcSkin) {
             typeface = android.graphics.Typeface.MONOSPACE
         }
     }
-    Box(
+    Canvas(
         Modifier
             .fillMaxSize()
-            .drawBehind { drawRect(skinBackdropBrush(skin, t, size)) }
+            .graphicsLayer { compositingStrategy = CompositingStrategy.ModulateAlpha }
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+            drawRect(skinBackdropBrush(skin, t, size))
             val w = size.width
             val h = size.height
             when (skin) {
@@ -644,9 +646,9 @@ private fun SkinChrome(skin: VcSkin) {
                         37, 225, 237
                     )
                     glyphPaint.textSize = 11f
-                    for (row in 0 until 12) {
-                        for (col in 0 until 8) {
-                            val ch = hex[(row * 8 + col + (t * 16).toInt()) % hex.length].toString()
+                    for (row in 0 until 8) {
+                        for (col in 0 until 6) {
+                            val ch = hex[(row * 6 + col + (t * 16).toInt()) % hex.length].toString()
                             drawContext.canvas.nativeCanvas.drawText(
                                 ch,
                                 16f + col * (w / 9f),
@@ -672,7 +674,7 @@ private fun SkinChrome(skin: VcSkin) {
                         "> wait",
                         "> ack"
                     )
-                    for (row in 0 until 16) {
+                    for (row in 0 until 10) {
                         val line = prompts[(row + (t * 11f).toInt()) % prompts.size]
                         glyphPaint.color = android.graphics.Color.argb(
                             (190 * pulse).toInt().coerceIn(90, 230),
@@ -747,16 +749,16 @@ private fun SkinChrome(skin: VcSkin) {
                     var y = 0f
                     while (y < h) {
                         drawLine(MxTrail.copy(alpha = 0.08f), Offset(0f, y), Offset(w, y), 1f)
-                        y += 3f
+                        y += 12f
                     }
                 }
                 VcSkin.Evangelion -> {
                     var scan = 0f
                     while (scan < h) {
                         drawLine(EvaYellow.copy(alpha = 0.11f), Offset(0f, scan), Offset(w, scan), 1.2f)
-                        scan += 5f
+                        scan += 12f
                     }
-                    val hexR = 28f
+                    val hexR = 42f
                     val hexDx = hexR * 1.78f
                     val hexDy = hexR * 1.54f
                     var row = 0
@@ -766,25 +768,25 @@ private fun SkinChrome(skin: VcSkin) {
                         var hx = ox
                         var col = 0
                         while (hx < w - 28f) {
-                            val hex = Path()
-                            for (i in 0..5) {
-                                val a = Math.toRadians(60.0 * i - 30.0).toFloat()
-                                val px = hx + hexR * cos(a)
-                                val py = hy + hexR * sin(a)
-                                if (i == 0) hex.moveTo(px, py) else hex.lineTo(px, py)
-                            }
-                            hex.close()
                             val lit = ((row * 11 + col * 7 + (t * 19f).toInt()) % 9) == 0
                             val hot = ((row + col + (pulse * 6f).toInt()) % 13) == 0
                             if (lit || hot) {
+                                val hex = Path()
+                                for (i in 0..5) {
+                                    val a = Math.toRadians(60.0 * i - 30.0).toFloat()
+                                    val px = hx + hexR * cos(a)
+                                    val py = hy + hexR * sin(a)
+                                    if (i == 0) hex.moveTo(px, py) else hex.lineTo(px, py)
+                                }
+                                hex.close()
                                 drawPath(
                                     hex,
                                     (if (hot) EvaOrange else EvaPurple).copy(
                                         alpha = if (hot) 0.42f * pulse else 0.28f
                                     )
                                 )
+                                drawPath(hex, EvaOrange.copy(alpha = 0.32f), style = Stroke(width = 1.4f))
                             }
-                            drawPath(hex, EvaOrange.copy(alpha = 0.32f), style = Stroke(width = 1.4f))
                             hx += hexDx
                             col++
                         }
@@ -1001,7 +1003,6 @@ private fun SkinChrome(skin: VcSkin) {
                     )
                 }
             }
-        }
     }
 }
 
@@ -1013,15 +1014,20 @@ fun SkinProgress(
 ) {
     val skin = LocalVcSkin.current
     val scheme = MaterialTheme.colorScheme
-    val sweep by rememberInfiniteTransition(label = "skin-bar").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1100, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "bar-sweep"
-    )
+    val sweep = if (indeterminate) {
+        val s by rememberInfiniteTransition(label = "skin-bar").animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1100, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "bar-sweep"
+        )
+        s
+    } else {
+        0f
+    }
     val h = when (skin) {
         VcSkin.Signal -> 12.dp
         VcSkin.Cyberpunk -> 11.dp

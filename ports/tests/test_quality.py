@@ -361,6 +361,8 @@ class FunctionalTests(unittest.TestCase):
         self.assertIn("UNIT-01", theme)
         self.assertIn("drawMagiSeal", theme)
         self.assertIn("drawSkinFrame", theme)
+        self.assertIn("graphicsLayer", theme)
+        self.assertIn("CompositingStrategy.ModulateAlpha", theme)
         self.assertIn("fun SkinTabIndicator", theme)
         self.assertIn("fun SkinCardCap", theme)
         self.assertIn("skinTextFieldColors", theme)
