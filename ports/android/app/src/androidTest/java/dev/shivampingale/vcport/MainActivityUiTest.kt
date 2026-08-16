@@ -104,6 +104,7 @@ class MainActivityUiTest {
     @Test
     fun experimentalComputerSkinShots() {
         if (!BuildConfig.ENABLE_SKINS) return
+        rule.waitForIdle()
         rule.onNodeWithTag("tab_tools").performClick()
         rule.onNodeWithText("Looks (this phone)").performScrollTo().assertIsDisplayed()
         val shots = listOf(

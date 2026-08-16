@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -604,7 +605,13 @@ class MainActivity : AppCompatActivity() {
                                     colors.background.copy(alpha = 0.35f)
                                 },
                                 contentColor = colors.primary,
-                                edgePadding = 8.dp
+                                edgePadding = 8.dp,
+                                indicator = { positions ->
+                                    val i = tab.coerceIn(0, positions.lastIndex.coerceAtLeast(0))
+                                    if (positions.isNotEmpty()) {
+                                        SkinTabIndicator(positions[i])
+                                    }
+                                }
                             ) {
                                 Tab(selected = tab == 0, onClick = { tab = 0 }, modifier = Modifier.testTag("tab_volume"), text = { Text("Volume") })
                                 Tab(selected = tab == 1, onClick = { tab = 1 }, modifier = Modifier.testTag("tab_wrap"), text = { Text("Wrap") })
@@ -944,7 +951,7 @@ class MainActivity : AppCompatActivity() {
                                                                 containerColor = colors.primary,
                                                                 contentColor = colors.onPrimary
                                                             )
-                                                        ) { Text("●  ${option.picker}") }
+                                                        ) { LookPickerLabel(option, selected = true) }
                                                     } else {
                                                         OutlinedButton(
                                                             onClick = {
@@ -955,7 +962,7 @@ class MainActivity : AppCompatActivity() {
                                                             modifier = Modifier
                                                                 .fillMaxWidth()
                                                                 .testTag(option.tag)
-                                                        ) { Text(option.picker) }
+                                                        ) { LookPickerLabel(option, selected = false) }
                                                     }
                                                 }
                                             }
@@ -3354,6 +3361,30 @@ private fun VaultPane(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LookPickerLabel(option: VcSkin, selected: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (option == VcSkin.Evangelion) {
+            Icon(
+                painter = painterResource(R.drawable.ic_look_magi),
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = Color.Unspecified
+            )
+            Icon(
+                painter = painterResource(R.drawable.ic_look_unit01),
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint = Color.Unspecified
+            )
+        }
+        Text(if (selected) "●  ${option.picker}" else option.picker)
     }
 }
 

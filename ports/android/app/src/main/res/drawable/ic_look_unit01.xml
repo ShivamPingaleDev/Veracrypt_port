@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original Unit-01 helm geometry. Inspired drawing, not official character art. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF5A2D8A"
+        android:pathData="M12,1.2 L13.4,7.2 L18.2,8.6 L17.4,14.8 L6.6,14.8 L5.8,8.6 L10.6,7.2 Z" />
+    <path
+        android:fillColor="#FF1A0A28"
+        android:pathData="M7.2,8.4 h9.6 v4.2 h-9.6 z" />
+    <path
+        android:fillColor="#FFB8FF3A"
+        android:pathData="M9.1,9.3 h2.15 v2.3 h-2.15 z" />
+    <path
+        android:fillColor="#FFB8FF3A"
+        android:pathData="M12.75,9.3 h2.15 v2.3 h-2.15 z" />
+    <path
+        android:fillColor="#FF3B1A5C"
+        android:pathData="M8.4,14.8 L9.4,18.6 L14.6,18.6 L15.6,14.8 Z" />
+    <path
+        android:fillColor="#FFB8FF3A"
+        android:pathData="M12,16.2m-1.15,0a1.15,1.15 0,1 1,2.3 0a1.15,1.15 0,1 1,-2.3 0" />
+</vector>

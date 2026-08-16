@@ -37,12 +37,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TabPosition
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -58,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -65,6 +68,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
@@ -98,7 +102,7 @@ enum class VcSkin(val picker: String, val tag: String) {
     Desktop("Desktop", "skin_desktop"),
     Cyberpunk("Cyberpunk", "skin_cyberpunk"),
     Matrix("Matrix", "skin_matrix"),
-    Evangelion("Evangelion", "skin_eva"),
+    Evangelion("MAGI", "skin_eva"),
     Signal("Signal", "skin_signal")
 }
 
@@ -132,6 +136,7 @@ private val CpDelayed = Color(0xFFFDF901)
 private val CpCyan = Color(0xFF25E1ED)
 private val CpMagenta = Color(0xFFED1E79)
 private val CpAlert = Color(0xFFFF4A57)
+private val CpTerm = Color(0xFFFF1E2D)
 
 private val CyberpunkScheme = darkColorScheme(
     primary = CpYellow,
@@ -174,24 +179,26 @@ private val MatrixScheme = darkColorScheme(
     onError = Color(0xFF040804)
 )
 
-/** MAGI / NERV console: nerv-ui amber #FF7A18, magi-theme #F06800, Unit-01 purple. Not affiliated. */
+/** MAGI console + Unit-01 geometry. Inspired drawing, not affiliated. */
 private val EvaOrange = Color(0xFFFF7A18)
 private val EvaAmber = Color(0xFFFFB300)
 private val EvaPlug = Color(0xFFF06800)
 private val EvaPurple = Color(0xFF5C3D82)
+private val EvaArmor = Color(0xFF5A2D8A)
+private val EvaVisor = Color(0xFFB8FF3A)
 private val EvaKhaki = Color(0xFFC4B07A)
 private val EvaYellow = Color(0xFFF0F0A0)
 
 private val EvaScheme = darkColorScheme(
     primary = EvaOrange,
     onPrimary = Color(0xFF050504),
-    primaryContainer = EvaPurple,
-    onPrimaryContainer = EvaYellow,
-    secondary = EvaAmber,
+    primaryContainer = EvaArmor,
+    onPrimaryContainer = EvaVisor,
+    secondary = EvaVisor,
     onSecondary = Color(0xFF050504),
     background = Color(0xFF050504),
     onBackground = EvaYellow,
-    surface = Color(0xCC0E0E0A),
+    surface = Color(0xA60E0E0A),
     onSurface = EvaYellow,
     surfaceVariant = Color(0xFF2A2210),
     onSurfaceVariant = EvaKhaki,
@@ -238,7 +245,7 @@ fun skinHeaderBrush(skin: VcSkin): Brush = when (skin) {
     )
     VcSkin.Cyberpunk -> Brush.linearGradient(listOf(CpYellow, CpMagenta, CpCyan))
     VcSkin.Matrix -> Brush.linearGradient(listOf(Color(0xFF003B14), MxGreen, Color(0xFF001A08)))
-    VcSkin.Evangelion -> Brush.linearGradient(listOf(EvaPlug, EvaPurple, EvaOrange))
+    VcSkin.Evangelion -> Brush.linearGradient(listOf(EvaArmor, EvaVisor, EvaOrange))
     VcSkin.Signal -> Brush.linearGradient(listOf(SigDeep, SigBlue, SigCyan))
 }
 
@@ -300,15 +307,19 @@ private fun typeFor(skin: VcSkin): Typography {
 @Composable
 fun VcPortTheme(skin: VcSkin = VcSkin.Desktop, content: @Composable () -> Unit) {
     val scheme = schemeFor(skin)
-    val round = if (skin == VcSkin.Signal) 16.dp else if (skin == VcSkin.Desktop) 4.dp else 2.dp
+    val round = when (skin) {
+        VcSkin.Signal -> 16.dp
+        VcSkin.Desktop -> 4.dp
+        else -> 0.dp
+    }
     CompositionLocalProvider(LocalVcSkin provides skin) {
         MaterialTheme(
             colorScheme = scheme,
             shapes = Shapes(
-                extraSmall = RoundedCornerShape(if (skin == VcSkin.Signal) 14.dp else 2.dp),
-                small = RoundedCornerShape(if (skin == VcSkin.Signal) 14.dp else 4.dp),
+                extraSmall = RoundedCornerShape(if (skin == VcSkin.Signal) 14.dp else round),
+                small = RoundedCornerShape(if (skin == VcSkin.Signal) 14.dp else round),
                 medium = RoundedCornerShape(round),
-                large = RoundedCornerShape(if (skin == VcSkin.Signal) 20.dp else 6.dp)
+                large = RoundedCornerShape(if (skin == VcSkin.Signal) 20.dp else round)
             ),
             typography = typeFor(skin)
         ) {
@@ -336,7 +347,7 @@ private fun skinBackdropBrush(skin: VcSkin, t: Float, size: Size): Brush {
             radius = size.minDimension * 0.9f
         )
         VcSkin.Evangelion -> Brush.linearGradient(
-            listOf(Color(0xFF050504), EvaPurple.copy(alpha = 0.55f), Color(0xFF1A1008), Color(0xFF050504)),
+            listOf(Color(0xFF12081C), EvaArmor.copy(alpha = 0.7f), Color(0xFF0A1808), Color(0xFF1A1008)),
             start = Offset(0f, y * 0.3f),
             end = Offset(size.width, size.height - y * 0.2f)
         )
@@ -353,6 +364,211 @@ private fun skinBackdropBrush(skin: VcSkin, t: Float, size: Size): Brush {
     }
 }
 
+/** Original MAGI three-core seal. Majority vote is 2 of 3. Not a NERV mark. */
+private fun DrawScope.drawMagiSeal(center: Offset, r: Float, pulse: Float, lit: Int) {
+    drawCircle(EvaOrange.copy(alpha = 0.95f), r, center, style = Stroke(width = 3.4f))
+    drawCircle(EvaKhaki.copy(alpha = 0.35f), r * 0.78f, center, style = Stroke(width = 1.4f))
+    for (i in 0..2) {
+        val a = Math.toRadians(-90.0 + i * 120.0).toFloat()
+        val p = Offset(center.x + r * 0.46f * cos(a), center.y + r * 0.46f * sin(a))
+        val on = i == lit || i == (lit + 1) % 3
+        drawCircle(if (on) EvaOrange.copy(alpha = 0.55f + 0.45f * pulse) else EvaPurple.copy(alpha = 0.4f), r * 0.20f, p)
+        drawCircle(EvaYellow.copy(alpha = 0.9f), r * 0.20f, p, style = Stroke(width = 1.8f))
+    }
+    val hex = Path()
+    for (i in 0..5) {
+        val a = Math.toRadians(60.0 * i - 30.0).toFloat()
+        val px = center.x + r * 0.16f * cos(a)
+        val py = center.y + r * 0.16f * sin(a)
+        if (i == 0) hex.moveTo(px, py) else hex.lineTo(px, py)
+    }
+    hex.close()
+    drawPath(hex, EvaVisor.copy(alpha = 0.4f * pulse))
+    drawPath(hex, EvaOrange, style = Stroke(width = 2f))
+}
+
+/** Original Unit-01 helm / visor / pylons. Inspired geometry, not official art. */
+private fun DrawScope.drawUnit01(center: Offset, s: Float, pulse: Float) {
+    val at = Path()
+    for (i in 0..5) {
+        val a = Math.toRadians(60.0 * i - 30.0).toFloat()
+        val px = center.x + s * 1.42f * cos(a)
+        val py = center.y + s * 1.42f * sin(a)
+        if (i == 0) at.moveTo(px, py) else at.lineTo(px, py)
+    }
+    at.close()
+    drawPath(at, EvaVisor.copy(alpha = 0.16f + 0.12f * pulse))
+    drawPath(at, EvaVisor.copy(alpha = 0.55f + 0.35f * pulse), style = Stroke(width = 6f))
+    drawRect(
+        EvaArmor,
+        topLeft = Offset(center.x - s * 1.08f, center.y + s * 0.12f),
+        size = Size(s * 0.30f, s * 0.92f)
+    )
+    drawRect(
+        EvaArmor,
+        topLeft = Offset(center.x + s * 0.78f, center.y + s * 0.12f),
+        size = Size(s * 0.30f, s * 0.92f)
+    )
+    drawRect(EvaOrange, topLeft = Offset(center.x - s * 1.08f, center.y + s * 0.12f), size = Size(s * 0.30f, 8f))
+    drawRect(EvaOrange, topLeft = Offset(center.x + s * 0.78f, center.y + s * 0.12f), size = Size(s * 0.30f, 8f))
+    val chest = Path()
+    chest.moveTo(center.x, center.y + s * 0.18f)
+    chest.lineTo(center.x - s * 0.58f, center.y + s * 1.05f)
+    chest.lineTo(center.x + s * 0.58f, center.y + s * 1.05f)
+    chest.close()
+    drawPath(chest, EvaArmor.copy(alpha = 0.92f))
+    drawPath(chest, EvaOrange.copy(alpha = 0.75f), style = Stroke(width = 2.4f))
+    drawCircle(
+        EvaVisor.copy(alpha = 0.55f + 0.45f * pulse),
+        s * 0.13f,
+        Offset(center.x, center.y + s * 0.68f)
+    )
+    val helm = Path()
+    helm.moveTo(center.x, center.y - s * 1.02f)
+    helm.lineTo(center.x - s * 0.13f, center.y - s * 0.58f)
+    helm.lineTo(center.x - s * 0.46f, center.y - s * 0.44f)
+    helm.lineTo(center.x - s * 0.40f, center.y - s * 0.02f)
+    helm.lineTo(center.x + s * 0.40f, center.y - s * 0.02f)
+    helm.lineTo(center.x + s * 0.46f, center.y - s * 0.44f)
+    helm.lineTo(center.x + s * 0.13f, center.y - s * 0.58f)
+    helm.close()
+    drawPath(helm, EvaArmor)
+    drawPath(helm, EvaOrange.copy(alpha = 0.85f), style = Stroke(width = 2.6f))
+    drawRect(
+        Color(0xFF140818),
+        topLeft = Offset(center.x - s * 0.34f, center.y - s * 0.40f),
+        size = Size(s * 0.68f, s * 0.20f)
+    )
+    val eyeA = 0.88f + 0.12f * pulse
+    drawCircle(EvaVisor.copy(alpha = eyeA), s * 0.09f, Offset(center.x - s * 0.13f, center.y - s * 0.30f))
+    drawCircle(EvaVisor.copy(alpha = eyeA), s * 0.09f, Offset(center.x + s * 0.13f, center.y - s * 0.30f))
+    drawCircle(Color.White.copy(alpha = 0.55f * pulse), s * 0.03f, Offset(center.x - s * 0.13f, center.y - s * 0.30f))
+    drawCircle(Color.White.copy(alpha = 0.55f * pulse), s * 0.03f, Offset(center.x + s * 0.13f, center.y - s * 0.30f))
+    val jaw = Path()
+    jaw.moveTo(center.x - s * 0.24f, center.y - s * 0.02f)
+    jaw.lineTo(center.x - s * 0.17f, center.y + s * 0.20f)
+    jaw.lineTo(center.x + s * 0.17f, center.y + s * 0.20f)
+    jaw.lineTo(center.x + s * 0.24f, center.y - s * 0.02f)
+    jaw.close()
+    drawPath(jaw, Color(0xFF2A1040))
+}
+
+private fun DrawScope.drawSkinFrame(skin: VcSkin) {
+    val w = size.width
+    val h = size.height
+    val c = 14f
+    fun corner(x: Float, y: Float, sx: Float, sy: Float, color: Color) {
+        drawLine(color, Offset(x, y), Offset(x + c * sx, y), 3.2f)
+        drawLine(color, Offset(x, y), Offset(x, y + c * sy), 3.2f)
+    }
+    when (skin) {
+        VcSkin.Evangelion -> {
+            corner(0f, 0f, 1f, 1f, EvaOrange)
+            corner(w, 0f, -1f, 1f, EvaOrange)
+            corner(0f, h, 1f, -1f, EvaOrange)
+            corner(w, h, -1f, -1f, EvaOrange)
+            drawLine(EvaVisor.copy(alpha = 0.9f), Offset(1.5f, 0f), Offset(1.5f, h), 3f)
+            drawLine(EvaKhaki, Offset(0f, h - 2f), Offset(w, h - 2f), 4f)
+        }
+        VcSkin.Cyberpunk -> {
+            corner(0f, 0f, 1f, 1f, CpYellow)
+            corner(w, 0f, -1f, 1f, CpCyan)
+            corner(0f, h, 1f, -1f, CpMagenta)
+            corner(w, h, -1f, -1f, CpTerm)
+        }
+        VcSkin.Matrix -> {
+            corner(0f, 0f, 1f, 1f, MxGreen)
+            corner(w, 0f, -1f, 1f, MxGreen)
+            corner(0f, h, 1f, -1f, MxHead)
+            corner(w, h, -1f, -1f, MxGreen)
+        }
+        else -> {}
+    }
+}
+
+@Composable
+fun SkinTabIndicator(position: TabPosition) {
+    val skin = LocalVcSkin.current
+    val color = when (skin) {
+        VcSkin.Evangelion -> EvaOrange
+        VcSkin.Cyberpunk -> CpYellow
+        VcSkin.Matrix -> MxGreen
+        VcSkin.Signal -> SigBlue
+        VcSkin.Desktop -> VcDesktopBlue
+    }
+    Box(
+        Modifier
+            .tabIndicatorOffset(position)
+            .fillMaxWidth()
+            .height(if (skin == VcSkin.Evangelion) 5.dp else 3.dp)
+            .background(color)
+    )
+}
+
+@Composable
+fun skinTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+    focusedLabelColor = MaterialTheme.colorScheme.primary,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    cursorColor = MaterialTheme.colorScheme.primary,
+    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+)
+
+@Composable
+private fun SkinCardCap() {
+    val skin = LocalVcSkin.current
+    when (skin) {
+        VcSkin.Desktop -> Box(
+            Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(skinHeaderBrush(VcSkin.Desktop))
+        )
+        VcSkin.Evangelion -> Column {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .background(EvaOrange)
+            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                repeat(3) { i ->
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(4.dp)
+                            .background(if (i < 2) EvaVisor else EvaKhaki.copy(alpha = 0.4f))
+                    )
+                }
+            }
+        }
+        VcSkin.Cyberpunk -> Row(Modifier.fillMaxWidth().height(8.dp)) {
+            repeat(18) { i ->
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .background(if (i % 2 == 0) CpYellow else Color(0xFF0A0812))
+                )
+            }
+        }
+        VcSkin.Matrix -> Box(
+            Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(MxGreen)
+        )
+        VcSkin.Signal -> {}
+    }
+}
+
 @Composable
 private fun SkinChrome(skin: VcSkin) {
     val motion = rememberInfiniteTransition(label = "skin-clock")
@@ -360,7 +576,7 @@ private fun SkinChrome(skin: VcSkin) {
         VcSkin.Desktop -> 22000
         VcSkin.Matrix -> 7200
         VcSkin.Cyberpunk -> 8800
-        VcSkin.Evangelion -> 14000
+        VcSkin.Evangelion -> 11000
         else -> 11000
     }
     val t by motion.animateFloat(
@@ -445,6 +661,64 @@ private fun SkinChrome(skin: VcSkin) {
                     drawLine(CpCyan, Offset(10f, h - 14f), Offset(w - 10f, h - 14f), 2.2f)
                     drawCircle(CpMagenta.copy(alpha = 0.22f * pulse), 90f, Offset(w * 0.82f, h * 0.22f))
                     drawCircle(CpCyan.copy(alpha = 0.16f * pulse), 120f, Offset(w * 0.18f, h * 0.72f))
+                    glyphPaint.textSize = 15f
+                    val prompts = arrayOf(
+                        "> sys.ready",
+                        "> clk",
+                        "> io /xts",
+                        "> buf 4096",
+                        "> link ok",
+                        "> net.run",
+                        "> wait",
+                        "> ack"
+                    )
+                    for (row in 0 until 16) {
+                        val line = prompts[(row + (t * 11f).toInt()) % prompts.size]
+                        glyphPaint.color = android.graphics.Color.argb(
+                            (190 * pulse).toInt().coerceIn(90, 230),
+                            255, 30, 45
+                        )
+                        drawContext.canvas.nativeCanvas.drawText(
+                            line,
+                            22f,
+                            88f + row * 20f + ((t * 36f) % 20f),
+                            glyphPaint
+                        )
+                    }
+                    val termTop = h * 0.68f
+                    val termH = h * 0.22f
+                    val termW = w * 0.58f
+                    drawRect(Color(0xE608000A), topLeft = Offset(16f, termTop), size = Size(termW, termH))
+                    drawRect(CpTerm, topLeft = Offset(16f, termTop), size = Size(termW, termH), style = Stroke(width = 2f))
+                    drawLine(CpTerm, Offset(16f, termTop), Offset(16f + termW, termTop), 3f)
+                    val termScan = termTop + ((t * termH) % termH)
+                    drawRect(CpTerm.copy(alpha = 0.22f), topLeft = Offset(16f, termScan), size = Size(termW, 4f))
+                    glyphPaint.textSize = 14f
+                    glyphPaint.color = android.graphics.Color.argb(255, 255, 30, 45)
+                    val clk = ((t * 97f) % 10f).toInt()
+                    val termLines = arrayOf(
+                        "> sys.ready",
+                        "> clk $clk.${((t * 53f) % 10f).toInt()}",
+                        "> io /xts",
+                        "> buf 4096",
+                        "> ${hex[(t * 16f).toInt() % hex.length]}f wait",
+                        "> link ok"
+                    )
+                    termLines.forEachIndexed { i, line ->
+                        drawContext.canvas.nativeCanvas.drawText(
+                            line,
+                            28f,
+                            termTop + 24f + i * 18f,
+                            glyphPaint
+                        )
+                    }
+                    if (pulse > 0.62f) {
+                        drawRect(
+                            CpTerm,
+                            topLeft = Offset(28f + 78f, termTop + 24f + termLines.size * 18f - 16f),
+                            size = Size(8f, 13f)
+                        )
+                    }
                 }
                 VcSkin.Matrix -> {
                     val glyphs = "0123456789ABCDEF¥$*+<>|"
@@ -477,47 +751,204 @@ private fun SkinChrome(skin: VcSkin) {
                     }
                 }
                 VcSkin.Evangelion -> {
-                    drawRect(EvaPurple.copy(alpha = 0.85f), topLeft = Offset(0f, 0f), size = Size(12f, h))
-                    drawRect(EvaAmber.copy(alpha = pulse), topLeft = Offset(12f, 0f), size = Size(4f, h))
-                    drawRect(EvaKhaki, topLeft = Offset(0f, h - 16f), size = Size(w, 16f))
-                    drawRect(EvaOrange, topLeft = Offset(0f, h - 18f), size = Size(w, 3f))
-                    val chev = ((t * 40f) % 24f)
-                    var cy = 80f - chev
-                    while (cy < h - 40f) {
+                    var scan = 0f
+                    while (scan < h) {
+                        drawLine(EvaYellow.copy(alpha = 0.11f), Offset(0f, scan), Offset(w, scan), 1.2f)
+                        scan += 5f
+                    }
+                    val hexR = 28f
+                    val hexDx = hexR * 1.78f
+                    val hexDy = hexR * 1.54f
+                    var row = 0
+                    var hy = 48f
+                    while (hy < h - 28f) {
+                        val ox = if (row % 2 == 0) 40f else 40f + hexDx * 0.5f
+                        var hx = ox
+                        var col = 0
+                        while (hx < w - 28f) {
+                            val hex = Path()
+                            for (i in 0..5) {
+                                val a = Math.toRadians(60.0 * i - 30.0).toFloat()
+                                val px = hx + hexR * cos(a)
+                                val py = hy + hexR * sin(a)
+                                if (i == 0) hex.moveTo(px, py) else hex.lineTo(px, py)
+                            }
+                            hex.close()
+                            val lit = ((row * 11 + col * 7 + (t * 19f).toInt()) % 9) == 0
+                            val hot = ((row + col + (pulse * 6f).toInt()) % 13) == 0
+                            if (lit || hot) {
+                                drawPath(
+                                    hex,
+                                    (if (hot) EvaOrange else EvaPurple).copy(
+                                        alpha = if (hot) 0.42f * pulse else 0.28f
+                                    )
+                                )
+                            }
+                            drawPath(hex, EvaOrange.copy(alpha = 0.32f), style = Stroke(width = 1.4f))
+                            hx += hexDx
+                            col++
+                        }
+                        hy += hexDy
+                        row++
+                    }
+                    drawRect(EvaPurple.copy(alpha = 0.96f), topLeft = Offset(0f, 0f), size = Size(22f, h))
+                    drawRect(EvaAmber.copy(alpha = 0.55f + 0.45f * pulse), topLeft = Offset(22f, 0f), size = Size(6f, h))
+                    var tape = -48f + (t * 32f) % 32f
+                    while (tape < h) {
+                        val stripe = Path()
+                        stripe.moveTo(0f, tape)
+                        stripe.lineTo(22f, tape + 10f)
+                        stripe.lineTo(22f, tape + 22f)
+                        stripe.lineTo(0f, tape + 12f)
+                        stripe.close()
+                        drawPath(stripe, EvaOrange)
+                        tape += 32f
+                    }
+                    var chev = 90f - ((t * 48f) % 26f)
+                    while (chev < h - 36f) {
                         val p = Path()
-                        p.moveTo(22f, cy)
-                        p.lineTo(44f, cy + 10f)
-                        p.lineTo(22f, cy + 20f)
+                        p.moveTo(30f, chev)
+                        p.lineTo(56f, chev + 12f)
+                        p.lineTo(30f, chev + 24f)
                         p.close()
-                        drawPath(p, EvaOrange.copy(alpha = 0.55f))
-                        cy += 24f
+                        drawPath(p, EvaOrange.copy(alpha = 0.85f))
+                        chev += 26f
                     }
-                    rotate(t * 360f, Offset(w * 0.5f, h * 0.42f)) {
+                    drawRect(EvaOrange, topLeft = Offset(w - 16f, 0f), size = Size(16f, h))
+                    drawRect(EvaPurple.copy(alpha = 0.7f), topLeft = Offset(w - 22f, 0f), size = Size(6f, h))
+                    var tick = 64f
+                    var tn = 0
+                    while (tick < h - 28f) {
+                        val long = tn % 5 == 0
+                        drawLine(
+                            EvaYellow.copy(alpha = 0.85f),
+                            Offset(w - 22f, tick),
+                            Offset(w - (if (long) 40f else 30f), tick),
+                            if (long) 2.4f else 1.2f
+                        )
+                        tick += 18f
+                        tn++
+                    }
+                    drawUnit01(Offset(w * 0.52f, h * 0.46f), minOf(w, h) * 0.34f, pulse)
+                    drawUnit01(Offset(w * 0.84f, h * 0.81f), minOf(w, h) * 0.13f, pulse)
+                    val cores = listOf(
+                        Triple("MELCHIOR", "MAGI-1  SCI", 0.22f),
+                        Triple("BALTHASAR", "MAGI-2  MOT", 0.50f),
+                        Triple("CASPER", "MAGI-3  WOM", 0.78f)
+                    )
+                    val vote = (t * 3f).toInt() % 3
+                    val panelW = w * 0.24f
+                    cores.forEachIndexed { i, triple ->
+                        val (label, sub, xf) = triple
+                        val cx = w * xf
+                        val yes = i == vote || i == (vote + 1) % 3
+                        val left = cx - panelW / 2f
+                        val top = h * 0.12f
+                        val ph = h * 0.22f
+                        drawRect(
+                            EvaArmor.copy(alpha = if (yes) 0.55f else 0.22f),
+                            topLeft = Offset(left, top),
+                            size = Size(panelW, ph)
+                        )
+                        drawRect(
+                            EvaOrange.copy(alpha = 0.95f),
+                            topLeft = Offset(left, top),
+                            size = Size(panelW, ph),
+                            style = Stroke(width = 3f)
+                        )
+                        drawRect(if (yes) EvaVisor else EvaOrange, topLeft = Offset(left, top), size = Size(panelW, 6f))
+                        drawMagiSeal(Offset(cx, top + 44f), 22f, pulse, i)
+                        glyphPaint.textSize = 13f
+                        glyphPaint.color = android.graphics.Color.argb(255, 240, 240, 160)
+                        drawContext.canvas.nativeCanvas.drawText(label, left + 8f, top + 78f, glyphPaint)
+                        glyphPaint.textSize = 11f
+                        glyphPaint.color = android.graphics.Color.argb(
+                            230,
+                            if (yes) 184 else 196,
+                            if (yes) 255 else 176,
+                            if (yes) 58 else 122
+                        )
+                        drawContext.canvas.nativeCanvas.drawText(
+                            if (yes) "$sub  YES" else "$sub  NO",
+                            left + 8f,
+                            top + 96f,
+                            glyphPaint
+                        )
+                        for (cell in 0 until 4) {
+                            val on = yes && cell <= (pulse * 4f).toInt()
+                            drawRect(
+                                if (on) EvaOrange.copy(alpha = 0.9f) else EvaKhaki.copy(alpha = 0.22f),
+                                topLeft = Offset(left + 10f, top + 108f + cell * (ph * 0.08f)),
+                                size = Size(panelW - 20f, ph * 0.055f)
+                            )
+                        }
+                    }
+                    drawMagiSeal(Offset(w * 0.22f, h * 0.74f), 64f, pulse, vote)
+                    glyphPaint.textSize = 14f
+                    glyphPaint.color = android.graphics.Color.argb(230, 255, 122, 24)
+                    drawContext.canvas.nativeCanvas.drawText("MAGI  2/3", w * 0.22f - 36f, h * 0.74f + 86f, glyphPaint)
+                    glyphPaint.textSize = 56f
+                    glyphPaint.color = android.graphics.Color.argb((80 * pulse).toInt().coerceIn(40, 100), 184, 255, 58)
+                    drawContext.canvas.nativeCanvas.drawText("UNIT-01", w * 0.18f, h * 0.58f, glyphPaint)
+                    fun corner(x: Float, y: Float, s: Float, flipX: Boolean, flipY: Boolean) {
+                        val sx = if (flipX) -1f else 1f
+                        val sy = if (flipY) -1f else 1f
+                        drawLine(EvaOrange, Offset(x, y), Offset(x + s * sx, y), 4f)
+                        drawLine(EvaOrange, Offset(x, y), Offset(x, y + s * sy), 4f)
+                    }
+                    corner(40f, 64f, 36f, false, false)
+                    corner(w - 40f, 64f, 36f, true, false)
+                    corner(40f, h - 56f, 36f, false, true)
+                    corner(w - 40f, h - 56f, 36f, true, true)
+                    val plug = Offset(w * 0.78f, h * 0.78f)
+                    for (r in 1..4) {
                         drawCircle(
-                            EvaAmber.copy(alpha = 0.4f * pulse),
-                            78f,
-                            Offset(w * 0.5f, h * 0.42f),
-                            style = Stroke(width = 5f, cap = StrokeCap.Square)
-                        )
-                        drawLine(
-                            EvaOrange,
-                            Offset(w * 0.5f - 96f, h * 0.42f),
-                            Offset(w * 0.5f + 96f, h * 0.42f),
-                            2f
-                        )
-                        drawLine(
-                            EvaOrange,
-                            Offset(w * 0.5f, h * 0.42f - 96f),
-                            Offset(w * 0.5f, h * 0.42f + 96f),
-                            2f
+                            EvaPlug.copy(alpha = 0.28f + 0.08f * r),
+                            18f * r,
+                            plug,
+                            style = Stroke(width = 3f, cap = StrokeCap.Square)
                         )
                     }
-                    val cores = listOf(0.28f, 0.5f, 0.72f)
-                    cores.forEachIndexed { i, xf ->
-                        val a = if ((i + (t * 3f).toInt()) % 3 == 0) pulse else 0.45f
-                        drawCircle(EvaOrange.copy(alpha = a), 7f, Offset(w * xf, 40f))
+                    rotate(t * 220f, plug) {
+                        drawLine(EvaAmber, Offset(plug.x - 86f, plug.y), Offset(plug.x + 86f, plug.y), 2.4f)
+                        drawLine(EvaOrange, Offset(plug.x, plug.y - 86f), Offset(plug.x, plug.y + 86f), 2.4f)
                     }
-                    drawRect(EvaOrange, topLeft = Offset(20f, 52f), size = Size(w - 40f, 7f))
+                    val wave = Path()
+                    val mid = h * 0.905f
+                    wave.moveTo(36f, mid)
+                    var wx = 36f
+                    var wi = 0
+                    while (wx < w - 36f) {
+                        val amp = 14f + 10f * sin(t * 14f + wi)
+                        wave.lineTo(wx, mid + amp * sin(wx / 16f + t * 22f))
+                        wx += 8f
+                        wi++
+                    }
+                    drawPath(wave, EvaAmber.copy(alpha = 0.75f), style = Stroke(width = 2.6f))
+                    drawRect(EvaKhaki, topLeft = Offset(0f, h - 26f), size = Size(w, 26f))
+                    drawRect(EvaOrange, topLeft = Offset(0f, h - 32f), size = Size(w, 6f))
+                    val sync = ((pulse * 99f).toInt())
+                    val fill = (w - 48f) * (sync / 99f)
+                    drawRect(EvaOrange, topLeft = Offset(24f, h - 20f), size = Size(fill, 10f))
+                    glyphPaint.textSize = 13f
+                    glyphPaint.color = android.graphics.Color.argb(240, 20, 16, 8)
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "MAGI  2/3  ·  UNIT-01  SYNC  $sync%",
+                        28f,
+                        h - 8f,
+                        glyphPaint
+                    )
+                    glyphPaint.textSize = 12f
+                    glyphPaint.color = android.graphics.Color.argb(200, 184, 255, 58)
+                    drawContext.canvas.nativeCanvas.save()
+                    drawContext.canvas.nativeCanvas.rotate(90f, w - 14f, h * 0.42f)
+                    drawContext.canvas.nativeCanvas.drawText(
+                        "MAGI  CORE  LINK",
+                        w - 14f,
+                        h * 0.42f,
+                        glyphPaint
+                    )
+                    drawContext.canvas.nativeCanvas.restore()
                 }
                 VcSkin.Signal -> {
                     drawCircle(
@@ -575,18 +1006,178 @@ private fun SkinChrome(skin: VcSkin) {
 }
 
 @Composable
+fun SkinProgress(
+    progress: Float,
+    modifier: Modifier = Modifier,
+    indeterminate: Boolean = false
+) {
+    val skin = LocalVcSkin.current
+    val scheme = MaterialTheme.colorScheme
+    val sweep by rememberInfiniteTransition(label = "skin-bar").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1100, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "bar-sweep"
+    )
+    val h = when (skin) {
+        VcSkin.Signal -> 12.dp
+        VcSkin.Cyberpunk -> 11.dp
+        VcSkin.Evangelion -> 14.dp
+        VcSkin.Matrix -> 12.dp
+        VcSkin.Desktop -> 8.dp
+    }
+    Canvas(modifier.fillMaxWidth().height(h)) {
+        val w = size.width
+        val bh = size.height
+        val p = progress.coerceIn(0f, 1f)
+        val fillW = if (indeterminate) {
+            val win = w * 0.28f
+            val x = (sweep * (w + win)) - win
+            x to win
+        } else {
+            0f to (p * w)
+        }
+        when (skin) {
+            VcSkin.Desktop -> {
+                drawRect(scheme.surfaceVariant, size = Size(w, bh))
+                drawRect(scheme.outline.copy(alpha = 0.7f), style = Stroke(width = 1.2f), size = Size(w, bh))
+                if (indeterminate) {
+                    drawRect(scheme.primary, topLeft = Offset(fillW.first.coerceAtLeast(0f), 1f), size = Size(fillW.second, bh - 2f))
+                } else {
+                    drawRect(scheme.primary, topLeft = Offset(1f, 1f), size = Size((fillW.second - 2f).coerceAtLeast(0f), bh - 2f))
+                }
+            }
+            VcSkin.Cyberpunk -> {
+                val cells = 16
+                val gap = 2.2f
+                val cw = (w - gap * (cells - 1)) / cells
+                drawRect(Color(0xFF1A0810), size = Size(w, bh))
+                drawLine(CpTerm, Offset(0f, bh), Offset(w, bh), 1.6f)
+                for (i in 0 until cells) {
+                    val x = i * (cw + gap)
+                    val on = if (indeterminate) {
+                        val head = (sweep * cells).toInt()
+                        i == head % cells || i == (head + 1) % cells
+                    } else {
+                        (i + 1) / cells.toFloat() <= p
+                    }
+                    drawRect(
+                        if (on) CpYellow else Color(0xFF2A1030),
+                        topLeft = Offset(x, 0f),
+                        size = Size(cw, bh - 2f)
+                    )
+                    if (on) {
+                        drawRect(CpCyan.copy(alpha = 0.55f), topLeft = Offset(x, 0f), size = Size(cw, 2f))
+                    }
+                }
+            }
+            VcSkin.Matrix -> {
+                val cells = 18
+                val gap = 1.5f
+                val cw = (w - gap * (cells - 1)) / cells
+                for (i in 0 until cells) {
+                    val x = i * (cw + gap)
+                    val on = if (indeterminate) {
+                        val head = (sweep * cells).toInt()
+                        i <= head % cells
+                    } else {
+                        (i + 1) / cells.toFloat() <= p
+                    }
+                    val head = !indeterminate && on && i == ((p * cells).toInt() - 1).coerceAtLeast(0)
+                    drawRect(
+                        if (head) MxHead else if (on) MxGreen else Color(0xFF0A1A0A),
+                        topLeft = Offset(x, 0f),
+                        size = Size(cw, bh)
+                    )
+                }
+            }
+            VcSkin.Evangelion -> {
+                val cells = 12
+                val gap = 3f
+                val cw = (w - gap * (cells - 1)) / cells
+                drawRect(EvaKhaki.copy(alpha = 0.25f), size = Size(w, bh), style = Stroke(width = 2f))
+                for (i in 0 until cells) {
+                    val x = i * (cw + gap)
+                    val on = if (indeterminate) {
+                        (i + (sweep * cells).toInt()) % 3 == 0
+                    } else {
+                        (i + 1) / cells.toFloat() <= p
+                    }
+                    val head = on && (indeterminate || i == ((p * cells).toInt() - 1).coerceAtLeast(0))
+                    val chev = Path()
+                    chev.moveTo(x, bh)
+                    chev.lineTo(x + cw * 0.2f, 0f)
+                    chev.lineTo(x + cw, 0f)
+                    chev.lineTo(x + cw * 0.8f, bh)
+                    chev.close()
+                    drawPath(
+                        chev,
+                        when {
+                            head -> EvaVisor
+                            on -> EvaOrange
+                            else -> EvaArmor.copy(alpha = 0.55f)
+                        }
+                    )
+                }
+            }
+            VcSkin.Signal -> {
+                val r = CornerRadius(bh / 2f, bh / 2f)
+                drawRoundRect(scheme.surfaceVariant, cornerRadius = r, size = Size(w, bh))
+                if (indeterminate) {
+                    drawRoundRect(
+                        SigBlue,
+                        topLeft = Offset(fillW.first.coerceIn(0f, w), 0f),
+                        size = Size(fillW.second, bh),
+                        cornerRadius = r
+                    )
+                } else if (p > 0f) {
+                    drawRoundRect(
+                        SigBlue,
+                        size = Size((p * w).coerceAtLeast(bh), bh),
+                        cornerRadius = r
+                    )
+                    drawCircle(SigCyan.copy(alpha = 0.55f), bh * 0.35f, Offset((p * w).coerceIn(bh, w - 4f), bh / 2f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun WorkOverlay(
     visible: Boolean,
     title: String,
     percent: Int
 ) {
     val colors = MaterialTheme.colorScheme
+    val skin = LocalVcSkin.current
     val shown = title.ifBlank { "On this phone" }
     val animated by animateFloatAsState(
         targetValue = if (percent in 0..100) percent / 100f else 0f,
         animationSpec = tween(180),
         label = "work-percent"
     )
+    val dim = when (skin) {
+        VcSkin.Cyberpunk -> Color(0xCC08000A)
+        VcSkin.Evangelion -> Color(0xCC050504)
+        VcSkin.Matrix -> Color(0x99020804)
+        else -> Color(0x66000000)
+    }
+    val panelShape = when (skin) {
+        VcSkin.Signal -> RoundedCornerShape(20.dp)
+        VcSkin.Desktop -> RoundedCornerShape(8.dp)
+        else -> RoundedCornerShape(2.dp)
+    }
+    val panelBorder = when (skin) {
+        VcSkin.Cyberpunk -> BorderStroke(1.5.dp, CpTerm)
+        VcSkin.Evangelion -> BorderStroke(2.dp, EvaOrange)
+        VcSkin.Matrix -> BorderStroke(1.dp, MxGreen)
+        VcSkin.Signal -> BorderStroke(0.dp, Color.Transparent)
+        VcSkin.Desktop -> BorderStroke(1.dp, colors.outline.copy(alpha = 0.55f))
+    }
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(140)),
@@ -595,7 +1186,7 @@ fun WorkOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0x66000000))
+                .background(dim)
                 .pointerInput(Unit) {
                     awaitPointerEventScope {
                         while (true) {
@@ -609,41 +1200,42 @@ fun WorkOverlay(
                 modifier = Modifier
                     .padding(32.dp)
                     .widthIn(max = 340.dp)
-                    .fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = colors.surface,
-                shadowElevation = 16.dp
+                    .fillMaxWidth()
+                    .drawBehind { drawSkinFrame(skin) },
+                shape = panelShape,
+                color = if (skin == VcSkin.Cyberpunk) Color(0xF2100008) else colors.surface,
+                shadowElevation = if (skin == VcSkin.Desktop || skin == VcSkin.Signal) 16.dp else 0.dp,
+                border = panelBorder
             ) {
-                Column(
-                    Modifier.padding(horizontal = 28.dp, vertical = 28.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+                Column {
+                    SkinCardCap()
+                    Column(
+                        Modifier.padding(horizontal = 28.dp, vertical = 20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
                     Text(
                         "This step",
                         style = MaterialTheme.typography.labelSmall,
-                        color = colors.onSurfaceVariant
+                        color = if (skin == VcSkin.Cyberpunk) CpTerm else colors.onSurfaceVariant
                     )
                     Text(
                         shown,
                         style = MaterialTheme.typography.titleLarge,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        color = if (skin == VcSkin.Cyberpunk) CpTerm else colors.onSurface
                     )
                     WorkMeter(percent = percent, fill = animated, color = colors.primary)
                     if (percent in 0..100) {
-                        LinearProgressIndicator(
-                            progress = { animated },
-                            modifier = Modifier.fillMaxWidth().height(6.dp),
-                            color = colors.primary,
-                            trackColor = colors.surfaceVariant,
-                            strokeCap = StrokeCap.Round
-                        )
+                        SkinProgress(progress = animated)
                         Text(
                             "$percent%",
                             style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (skin == VcSkin.Cyberpunk) CpTerm else colors.onSurface
                         )
                     } else {
+                        SkinProgress(progress = 0f, indeterminate = true)
                         Text(
                             "This step has no percent. The cells move until it finishes.",
                             style = MaterialTheme.typography.bodySmall,
@@ -657,6 +1249,7 @@ fun WorkOverlay(
                         color = colors.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
+                    }
                 }
             }
         }
@@ -683,20 +1276,35 @@ private fun WorkMeter(percent: Int, fill: Float, color: Color) {
 
 @Composable
 private fun MeterRow(on: (Int) -> Boolean, color: Color) {
+    val skin = LocalVcSkin.current
     val track = MaterialTheme.colorScheme.surfaceVariant
+    val shape = when (skin) {
+        VcSkin.Signal -> RoundedCornerShape(8.dp)
+        VcSkin.Desktop -> RoundedCornerShape(2.dp)
+        VcSkin.Cyberpunk, VcSkin.Evangelion, VcSkin.Matrix -> RoundedCornerShape(0.dp)
+    }
+    val gap = if (skin == VcSkin.Signal) 8.dp else 4.dp
+    val cellH = when (skin) {
+        VcSkin.Evangelion -> 12.dp
+        VcSkin.Cyberpunk -> 8.dp
+        else -> 10.dp
+    }
+    val fill = when (skin) {
+        VcSkin.Cyberpunk -> CpYellow
+        VcSkin.Matrix -> MxGreen
+        VcSkin.Evangelion -> EvaOrange
+        else -> color
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(gap)
     ) {
         repeat(8) { i ->
             Box(
                 Modifier
                     .weight(1f)
-                    .height(10.dp)
-                    .background(
-                        if (on(i)) color else track,
-                        RoundedCornerShape(3.dp)
-                    )
+                    .height(cellH)
+                    .background(if (on(i)) fill else track, shape)
             )
         }
     }
@@ -708,32 +1316,58 @@ fun StatusBanner(
     modifier: Modifier = Modifier
 ) {
     val colors = MaterialTheme.colorScheme
+    val skin = LocalVcSkin.current
     val lower = status.lowercase()
     val tone = when {
         listOf("fail", "could not", "wrong password", "name is empty", "must be", "choose at least", "enter the wrap", "select a container", "tap a file", "open a volume first").any { it in lower } ->
             colors.error
         listOf("opened", "copied", "created", "moved", "wiped", "complete", "saved", "unwrapped", "wrapped", "renamed", "deleted").any { it in lower } ->
-            Color(0xFF1B7A3A)
+            if (skin == VcSkin.Evangelion) EvaVisor else Color(0xFF1B7A3A)
         else ->
             colors.primary
     }
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .drawBehind { drawSkinFrame(skin) },
         shape = MaterialTheme.shapes.medium,
         color = colors.surface,
-        shadowElevation = 1.dp
+        shadowElevation = if (skin == VcSkin.Desktop || skin == VcSkin.Signal) 1.dp else 0.dp,
+        border = when (skin) {
+            VcSkin.Evangelion -> BorderStroke(1.5.dp, EvaOrange)
+            VcSkin.Cyberpunk -> BorderStroke(1.dp, CpCyan)
+            VcSkin.Matrix -> BorderStroke(1.dp, MxGreen)
+            VcSkin.Signal -> BorderStroke(0.dp, Color.Transparent)
+            VcSkin.Desktop -> BorderStroke(1.dp, colors.outline.copy(alpha = 0.4f))
+        }
     ) {
         Row(
             Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                Modifier
-                    .width(4.dp)
-                    .height(36.dp)
-                    .background(tone, RoundedCornerShape(2.dp))
-            )
+            if (skin == VcSkin.Evangelion) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    repeat(3) { i ->
+                        Box(
+                            Modifier
+                                .width(10.dp)
+                                .height(8.dp)
+                                .background(if (i < 2) tone else EvaKhaki.copy(alpha = 0.35f))
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    Modifier
+                        .width(if (skin == VcSkin.Signal) 6.dp else 4.dp)
+                        .height(36.dp)
+                        .background(
+                            tone,
+                            if (skin == VcSkin.Signal) RoundedCornerShape(8.dp) else RoundedCornerShape(0.dp)
+                        )
+                )
+            }
             Text(
                 status,
                 style = MaterialTheme.typography.bodySmall,
@@ -750,43 +1384,28 @@ fun VcCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val skin = LocalVcSkin.current
-    val body: @Composable () -> Unit = {
-        Column(
-            Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            content = content
-        )
-    }
-    if (skin == VcSkin.Desktop) {
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 2.dp,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))
-        ) {
-            Column {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .background(skinHeaderBrush(VcSkin.Desktop))
-                )
-                body()
-            }
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .drawBehind { drawSkinFrame(skin) },
+        shape = MaterialTheme.shapes.medium,
+        color = colors.surface,
+        shadowElevation = if (skin == VcSkin.Desktop || skin == VcSkin.Signal) 2.dp else 0.dp,
+        border = when (skin) {
+            VcSkin.Desktop -> BorderStroke(1.dp, colors.outline.copy(alpha = 0.55f))
+            VcSkin.Evangelion -> BorderStroke(1.5.dp, EvaOrange)
+            VcSkin.Cyberpunk -> BorderStroke(1.2.dp, CpCyan)
+            VcSkin.Matrix -> BorderStroke(1.dp, MxGreen)
+            VcSkin.Signal -> BorderStroke(0.dp, Color.Transparent)
         }
-    } else {
-        Box(
-            modifier
-                .fillMaxWidth()
-                .background(skinHeaderBrush(skin), MaterialTheme.shapes.medium)
-                .padding(1.5.dp)
-        ) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 0.dp,
-                content = body
+    ) {
+        Column {
+            SkinCardCap()
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                content = content
             )
         }
     }
@@ -808,6 +1427,8 @@ fun SecretField(
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         singleLine = true,
+        shape = MaterialTheme.shapes.small,
+        colors = skinTextFieldColors(),
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(
             capitalization = KeyboardCapitalization.None,
@@ -825,6 +1446,7 @@ fun EntropyPad(
     onSample: (ByteArray) -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
+    val skin = LocalVcSkin.current
     val marks = remember { mutableStateListOf<Offset>() }
     val bar by animateFloatAsState(
         targetValue = (percent.coerceIn(0, 100)) / 100f,
@@ -838,20 +1460,19 @@ fun EntropyPad(
             style = MaterialTheme.typography.bodySmall,
             color = colors.onSurfaceVariant
         )
-        LinearProgressIndicator(
-            progress = { bar },
-            modifier = Modifier.fillMaxWidth().height(6.dp),
-            color = colors.primary,
-            trackColor = colors.surfaceVariant,
-            strokeCap = StrokeCap.Round
-        )
+        SkinProgress(progress = bar)
         Text("$percent%", style = MaterialTheme.typography.bodySmall)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(240.dp)
-                .border(1.dp, colors.outline, RoundedCornerShape(4.dp))
-                .background(colors.surface, RoundedCornerShape(4.dp))
+                .border(
+                    if (skin == VcSkin.Evangelion) 2.dp else 1.dp,
+                    colors.outline,
+                    MaterialTheme.shapes.small
+                )
+                .background(colors.surface, MaterialTheme.shapes.small)
+                .drawBehind { drawSkinFrame(skin) }
                 .pointerInput(enabled) {
                     if (!enabled) return@pointerInput
                     awaitPointerEventScope {
@@ -940,6 +1561,8 @@ fun OptionDropdown(
             enabled = enabled,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            shape = MaterialTheme.shapes.small,
+            colors = skinTextFieldColors(),
             modifier = Modifier
                 .menuAnchor()
                 .fillMaxWidth()
@@ -971,17 +1594,17 @@ fun InFrontShareBar(
     val skin = LocalVcSkin.current
     Surface(
         color = colors.surface,
-        shadowElevation = 8.dp
+        shadowElevation = if (skin == VcSkin.Desktop || skin == VcSkin.Signal) 8.dp else 0.dp,
+        border = when (skin) {
+            VcSkin.Evangelion -> BorderStroke(1.5.dp, EvaOrange)
+            VcSkin.Cyberpunk -> BorderStroke(1.dp, CpTerm)
+            VcSkin.Matrix -> BorderStroke(1.dp, MxGreen)
+            else -> BorderStroke(0.dp, Color.Transparent)
+        },
+        modifier = Modifier.drawBehind { drawSkinFrame(skin) }
     ) {
         Column(Modifier.fillMaxWidth()) {
-            if (skin == VcSkin.Desktop) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .background(skinHeaderBrush(VcSkin.Desktop))
-                )
-            }
+            SkinCardCap()
             Column(
                 Modifier
                     .fillMaxWidth()

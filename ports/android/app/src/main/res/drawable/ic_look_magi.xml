@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Original three-core MAGI seal. Inspired drawing, not a Khara/NERV mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12,2.2A9.8,9.8 0,1 1,11.99 2.2Z"
+        android:strokeWidth="1.4"
+        android:strokeColor="#FFFF7A18" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12,5.2A6.8,6.8 0,1 1,11.99 5.2Z"
+        android:strokeWidth="0.8"
+        android:strokeColor="#FFC4B07A" />
+    <path
+        android:fillColor="#FFFF7A18"
+        android:pathData="M12,4.1m-2.15,0a2.15,2.15 0,1 1,4.3 0a2.15,2.15 0,1 1,-4.3 0" />
+    <path
+        android:fillColor="#FFF06800"
+        android:pathData="M6.35,16.15m-2.15,0a2.15,2.15 0,1 1,4.3 0a2.15,2.15 0,1 1,-4.3 0" />
+    <path
+        android:fillColor="#FFFFB300"
+        android:pathData="M17.65,16.15m-2.15,0a2.15,2.15 0,1 1,4.3 0a2.15,2.15 0,1 1,-4.3 0" />
+    <path
+        android:fillColor="#FFB8FF3A"
+        android:pathData="M12,10.2 L13.7,11.2 L13.05,13.15 L10.95,13.15 L10.3,11.2 Z" />
+</vector>
