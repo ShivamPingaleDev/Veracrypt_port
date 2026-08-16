@@ -25,7 +25,7 @@ Recipe to copy into [fdroiddata](https://gitlab.com/fdroid/fdroiddata): `fdroidd
 
 ### Still required before an inclusion merge request
 
-1. **Public git repo.** TrueCrypt License 3.0 and F-Droid both require publicly available source. This tree is [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). The `fdroiddata` recipe clones that repo with `subdir: ports/android`. The mobile-only [VCPort](https://github.com/ShivamPingaleDev/VCPort) mirror may still be private and is not the F-Droid source.
+1. **Public git repo.** TrueCrypt License 3.0 and F-Droid both require publicly available source. This tree is [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). The `fdroiddata` recipe clones that repo with `subdir: ports/android`. The mobile-only [VCPort](https://github.com/ShivamPingaleDev/VCPort) mirror is public and is not the F-Droid source.
 2. **Git tag** matching `versionName`, e.g. `v0.3.0`, on the commit F-Droid should build.
 3. **Screenshots** in `android/fastlane/metadata/android/en-US/images/phoneScreenshots/`. Do not fake device photos; leave that folder empty until a real capture exists.
 4. **VeraCrypt `src` as an F-Droid srclib** (`fdroiddata/srclibs/VeraCryptPort.yml`), because this repo does not vendor the whole VeraCrypt tree.

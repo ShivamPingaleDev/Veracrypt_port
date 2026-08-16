@@ -273,7 +273,8 @@ class Phase10RelaunchTests(unittest.TestCase):
         foss = read("ports/FOSS.md")
         self.assertIn("https://github.com/ShivamPingaleDev/Veracrypt_port", foss)
         self.assertIn("v0.3.0", foss)
-        self.assertIn("may still be private", foss)
+        self.assertIn("https://github.com/ShivamPingaleDev/VCPort", foss)
+        self.assertNotIn("may still be private", foss)
         self.assertIn("subdir: ports/android", foss)
         self.assertNotIn("this repository is currently private", foss.lower())
 

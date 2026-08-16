@@ -34,7 +34,8 @@ Description: |-
 
     Builds from the public Veracrypt_port tree (subdir ports/android). The
     VeraCrypt src/ directory is in the same git commit; no extra srclib is
-    required. The mobile-only VCPort mirror is not the F-Droid source.
+    required. The mobile-only VCPort mirror is public and is not the F-Droid
+    source.
 
 RepoType: git
 Repo: https://github.com/ShivamPingaleDev/Veracrypt_port.git

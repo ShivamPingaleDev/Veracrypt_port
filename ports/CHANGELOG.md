@@ -11,6 +11,7 @@
 - Nation-state APTs (Unit 8200, TAO, Lazarus, and the rest) are documented as out of scope: no key escrow, no intelligence backdoor, and no foolproof claim.
 - Remember / biometric save stays off unless the user types REMEMBER. Password fields skip IME, Autofill, and iOS Keychain history. Desktop never writes History.xml; leftover history is overwritten then deleted.
 - Host tests and pin scripts run in both Veracrypt_port (full tree) and the mobile-only VCPort repo.
+- The mobile-only VCPort GitHub repo is public.
 - About quotes Eric Hughes: we must defend our own privacy if we expect to have any.
 - Android x86/x86_64 NDK slices link: software AES (no AES-NI asm), Argon2 AVX2 object on i686 so emulator ABIs package.
 - iOS compiles on Xcode 26: listDir uses an Error wrapper; biometric keyfile byte count is not inlined in SwiftUI Text.
