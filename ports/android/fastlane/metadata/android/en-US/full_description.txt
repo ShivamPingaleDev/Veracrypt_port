@@ -20,4 +20,4 @@ VC Port original code is Apache License 2.0. The volume core follows VeraCrypt (
 
 <b>Author</b>
 
-Shivam Mangesh Pingale. Footnote: A programming noob with a five-year IT engineering degree that did not work out. Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
+Shivam Mangesh Pingale. Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.

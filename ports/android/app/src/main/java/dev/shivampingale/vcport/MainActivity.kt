@@ -1552,7 +1552,7 @@ class MainActivity : AppCompatActivity() {
                                                 color = colors.onSurfaceVariant
                                             )
                                             Text(
-                                                "Footnote: A programming noob with a five-year IT engineering degree that did not work out. Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.",
+                                                "Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colors.onSurfaceVariant
                                             )

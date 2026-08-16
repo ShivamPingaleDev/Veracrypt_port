@@ -299,7 +299,7 @@ class Phase9LegalVersionTests(unittest.TestCase):
             self.assertIn("shivampingaledev@proton.me", blob)
             self.assertIn("shivampingaledev@gmail.com", blob)
         self.assertIn("Shivam Mangesh Pingale", android)
-        footnote = "programming noob with a five-year IT engineering degree"
+        footnote = "programming noob still doing a five-year IT engineering degree"
         blobs = [
             android,
             ios,

@@ -297,8 +297,20 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("downloadURL", public)
         self.assertIn("docs/screenshots", public)
         self.assertNotIn("unbreakable encryption", public.lower())
+        self.assertIn("GitHub topics", public)
+        self.assertIn("no Google Analytics", public)
+        self.assertIn("Do **not** title posts", public)
         self.assertIn("PUBLIC.md", readme)
         self.assertIn("docs/screenshots/01-volume.png", readme)
+        for blob in (public, readme):
+            self.assertIn("internship", blob.lower())
+            self.assertIn("teach", blob.lower())
+            self.assertIn("hire", blob.lower())
+            self.assertIn("No pressure", blob)
+        if FULL_TREE:
+            root = read("README.md")
+            self.assertIn("internship", root.lower())
+            self.assertIn("No pressure", root)
 
     def test_android_readme_has_no_documents_provider(self) -> None:
         readme = read("ports/android/README.md")

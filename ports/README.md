@@ -1,12 +1,14 @@
 # VC Port
 
-Android and iOS clients for VeraCrypt-compatible volumes. This derived work is **not** named VeraCrypt.
+VC Port opens **VeraCrypt-compatible** encrypted file containers on **Android** and **iPhone**. Offline by default. This derived work is **not named VeraCrypt**. It is **not unbreakable**.
 
 Package id: `dev.shivampingale.vcport`
 
 **Contact:** Shivam Mangesh Pingale — [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me) · [shivampingaledev@gmail.com](mailto:shivampingaledev@gmail.com)
 
-**Footnote:** A programming noob with a five-year IT engineering degree that did not work out. Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
+**Footnote:** A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
+
+If this work is useful to you and you have room to **teach**, offer an **internship**, or **hire**: I am looking for that. Same email as Contact. No pressure.
 
 The full macOS port and VeraCrypt source tree live in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the mobile apps plus the shared native core.
 
@@ -18,10 +20,10 @@ The full macOS port and VeraCrypt source tree live in [Veracrypt_port](https://g
 
 Real UI from the F-Droid debug app on emulator `vcport-api35` (Compose capture; `FLAG_SECURE` stays on, so `adb screencap` is black). Not F-Droid store mockups.
 
-![Volume](docs/screenshots/01-volume.png)
-![Wrap](docs/screenshots/02-wrap.png)
-![Create](docs/screenshots/03-create.png)
-![Tools](docs/screenshots/04-tools.png)
+![VC Port Android Volume tab](docs/screenshots/01-volume.png)
+![VC Port Android Wrap tab](docs/screenshots/02-wrap.png)
+![VC Port Android Create tab](docs/screenshots/03-create.png)
+![VC Port Android Tools tab](docs/screenshots/04-tools.png)
 
 ## What it does
 

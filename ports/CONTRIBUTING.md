@@ -1,6 +1,6 @@
 # Contributing
 
-**Footnote:** A programming noob with a five-year IT engineering degree that did not work out. Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
+**Footnote:** A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
 
 1. Keep the apps offline by default. Do not add Google Play services, Firebase, ads, analytics, or crash reporters.
 2. Android store builds use the `fdroid` product flavor (`./gradlew :app:assembleFdroidRelease`).
