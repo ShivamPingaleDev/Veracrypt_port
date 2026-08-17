@@ -280,7 +280,7 @@ int main ()
 	uint8_t marker[8];
 	memcpy (marker, "EXFAT   ", 8);
 	expect (vc_write (vol, 3, marker, 8) == VC_OK, "write exFAT marker");
-	expect (vc_list_root (vol, entries, 32) == VC_ERR_UNSUPPORTED, "exFAT unsupported");
+	expect (vc_list_root (vol, entries, 32) == VC_ERR_FORMAT, "invalid exFAT boot is not listed as FAT");
 
 	vc_close (vol);
 	unlink (path);
@@ -352,6 +352,50 @@ int main ()
 		vc_close (createdVol);
 	}
 	unlink (created);
+
+	char exfatPath[] = "/tmp/vcport-exfat-XXXXXX";
+	int efd = mkstemp (exfatPath);
+	if (efd >= 0)
+		close (efd);
+	VcCreateOptions eopts = copts;
+	eopts.path = exfatPath;
+	eopts.size_bytes = 8ull * 1024ull * 1024ull;
+	eopts.filesystem = "exFAT";
+	expect (vc_create_volume (&eopts) == VC_OK, "create exFAT volume");
+	err = 0;
+	VcOpenOptions exOpt = opt;
+	exOpt.path = exfatPath;
+	VcVolume *exVol = vc_open (&exOpt, &err);
+	expect (exVol != nullptr && err == VC_OK, "open created exFAT volume");
+	if (exVol)
+	{
+		n = vc_list_root (exVol, entries, 32);
+		expect (n >= 0, "list created exFAT");
+		char srcin[] = "/tmp/vcport-exfat-in-XXXXXX";
+		int ifd = mkstemp (srcin);
+		expect (ifd >= 0, "temp exFAT import source");
+		if (ifd >= 0)
+		{
+			expect (write (ifd, "exfat-ok\n", 9) == 9, "write exFAT payload");
+			close (ifd);
+		}
+		expect (vc_import_file (exVol, "/", srcin, "BIGNAME.TXT") == VC_OK, "import into exFAT");
+		n = vc_list_root (exVol, entries, 32);
+		expect (n >= 1 && has_name (entries, n, "BIGNAME.TXT", 0), "BIGNAME.TXT on exFAT");
+		expect (vc_export_file (exVol, "BIGNAME.TXT", tmpout) == VC_OK, "export exFAT file");
+		f = fopen (tmpout, "rb");
+		got = f ? fread (buf, 1, sizeof (buf), f) : 0;
+		if (f)
+			fclose (f);
+		expect (got == 9 && memcmp (buf, "exfat-ok\n", 9) == 0, "exFAT contents match");
+		expect (vc_mkdir (exVol, "/", "DOCS") == VC_OK, "exFAT mkdir");
+		expect (vc_delete_file (exVol, "BIGNAME.TXT") == VC_OK, "exFAT delete");
+		expect (vc_rmdir (exVol, "DOCS") == VC_OK, "exFAT rmdir");
+		expect (vc_wipe_free_space (exVol) == VC_OK, "exFAT wipe free space");
+		unlink (srcin);
+		vc_close (exVol);
+	}
+	unlink (exfatPath);
 
 	char nested[] = "/tmp/vcport-hidden-XXXXXX";
 	int nfd = mkstemp (nested);

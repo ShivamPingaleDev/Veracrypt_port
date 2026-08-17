@@ -25,7 +25,7 @@ Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/V
 The full computer source lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the phone apps.
 
 ![Volume](docs/screenshots/01-volume.png)
-![Wrap](docs/screenshots/02-wrap.png)
+![Create](docs/screenshots/02-wrap.png)
 ![Create](docs/screenshots/03-create.png)
 ![Tools](docs/screenshots/04-tools.png)
 

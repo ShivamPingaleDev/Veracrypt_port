@@ -73,7 +73,8 @@ class DeviceSimulationTest {
                 "",
                 0,
                 0L,
-                emptyArray()
+                emptyArray(),
+                "FAT"
             )
         )
 
@@ -200,7 +201,8 @@ class DeviceSimulationTest {
                 hidden,
                 1,
                 2L * 1024L * 1024L,
-                emptyArray()
+                emptyArray(),
+                "FAT"
             )
         )
 

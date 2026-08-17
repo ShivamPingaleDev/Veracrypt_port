@@ -7,6 +7,7 @@
 */
 
 #include "vc_mobile.h"
+#include "vc_exfat.h"
 
 #include "Volume/Volume.h"
 #include "Volume/Keyfile.h"
@@ -646,6 +647,11 @@ int vc_list_dir_from (VcVolume *volume, const char *path, VcDirEntry *entries, i
 {
 	if (!volume || !entries || max_entries <= 0 || skip < 0)
 		return VC_ERR_ARGUMENT;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_list_dir_from (volume, path, entries, max_entries, skip);
 
 	FatGeom geom;
 	int rc = fat_load_geom (volume, &geom);
@@ -734,6 +740,11 @@ int vc_read_file (VcVolume *volume, const char *path, void *buffer, size_t buffe
 		*out_size = 0;
 	if (!volume || !path || !buffer)
 		return VC_ERR_ARGUMENT;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_read_file (volume, path, buffer, buffer_size, out_size);
 
 	VcDirEntry entry;
 	int rc = fat_find_path (volume, path, &entry);
@@ -746,6 +757,11 @@ int vc_export_file (VcVolume *volume, const char *path, const char *dest_path)
 {
 	if (!volume || !path || !dest_path)
 		return VC_ERR_ARGUMENT;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_export (volume, path, dest_path);
 
 	VcDirEntry entry;
 	int rc = fat_find_path (volume, path, &entry);
@@ -1291,6 +1307,11 @@ int vc_import_file (VcVolume *volume, const char *dest_dir, const char *src_path
 	int wr = fat_writable (volume);
 	if (wr != VC_OK)
 		return wr;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_import (volume, dest_dir, src_path, dest_name);
 	if (!src_path || !src_path[0])
 		return VC_ERR_ARGUMENT;
 	const char *name = dest_name && dest_name[0] ? dest_name : fat_basename (src_path);
@@ -1412,6 +1433,11 @@ int vc_delete_file (VcVolume *volume, const char *path)
 	int wr = fat_writable (volume);
 	if (wr != VC_OK)
 		return wr;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_delete (volume, path);
 	if (!path)
 		return VC_ERR_ARGUMENT;
 	VcDirEntry entry;
@@ -1445,6 +1471,11 @@ int vc_mkdir (VcVolume *volume, const char *parent_dir, const char *name)
 	int wr = fat_writable (volume);
 	if (wr != VC_OK)
 		return wr;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_mkdir (volume, parent_dir, name);
 	name = fat_basename (name);
 	if (fat_name_bad (name))
 		return VC_ERR_ARGUMENT;
@@ -1499,6 +1530,11 @@ int vc_rmdir (VcVolume *volume, const char *path)
 	int wr = fat_writable (volume);
 	if (wr != VC_OK)
 		return wr;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_rmdir (volume, path);
 	if (!path || fat_is_root_path (path))
 		return VC_ERR_ARGUMENT;
 	VcDirEntry entry;
@@ -1543,6 +1579,11 @@ int vc_rename (VcVolume *volume, const char *path, const char *new_name)
 	int wr = fat_writable (volume);
 	if (wr != VC_OK)
 		return wr;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_rename (volume, path, new_name);
 	new_name = fat_basename (new_name);
 	if (!path || fat_name_bad (new_name))
 		return VC_ERR_ARGUMENT;
@@ -1590,6 +1631,11 @@ int vc_wipe_free_space (VcVolume *volume)
 	int wr = fat_writable (volume);
 	if (wr != VC_OK)
 		return wr;
+	int ex = vc_exfat_probe (volume);
+	if (ex < 0)
+		return ex;
+	if (ex)
+		return vc_exfat_wipe_free (volume);
 	FatGeom geom;
 	int rc = fat_load_geom (volume, &geom);
 	if (rc != VC_OK)
@@ -1882,7 +1928,7 @@ static int BuildHeader (
 }
 
 static int FormatOpened (const char *path, const char *password, size_t passwordLen, int pim,
-	const char *const *keyfiles, size_t keyfileCount, uint64 dataBytes)
+	const char *const *keyfiles, size_t keyfileCount, uint64 dataBytes, int exfat)
 {
 	VcOpenOptions openOpt = {};
 	openOpt.path = path;
@@ -1895,7 +1941,7 @@ static int FormatOpened (const char *path, const char *password, size_t password
 	VcVolume *vol = vc_open (&openOpt, &err);
 	if (!vol)
 		return err != 0 ? err : VC_ERR_FORMAT;
-	int fatRc = format_empty_fat16 (vol, dataBytes);
+	int fatRc = exfat ? vc_exfat_format (vol, dataBytes) : format_empty_fat16 (vol, dataBytes);
 	vc_close (vol);
 	return fatRc;
 }
@@ -1988,15 +2034,27 @@ int vc_create_volume (const VcCreateOptions *options)
 		file.Close ();
 
 		vc_progress_set (70, "Formatting");
+		int useExfat = 0;
+		if (options->filesystem && options->filesystem[0])
+		{
+			if (strcasecmp (options->filesystem, "exfat") == 0)
+				useExfat = 1;
+			else
+				useExfat = 0;
+		}
+		else
+			useExfat = options->size_bytes >= 4ull * 1024ull * 1024ull * 1024ull;
+		if (options->size_bytes >= 4ull * 1024ull * 1024ull * 1024ull)
+			useExfat = 1;
 		rc = FormatOpened (options->path, pw, pwLen, options->pim,
-			options->keyfiles, options->keyfile_count, outerDataSize);
+			options->keyfiles, options->keyfile_count, outerDataSize, useExfat);
 		if (rc != VC_OK)
 			return rc;
 		if (hiddenSize > 0)
 		{
 			vc_progress_set (85, "Formatting nested volume");
 			rc = FormatOpened (options->path, hiddenPw, hiddenPwLen, options->hidden_pim,
-				options->hidden_keyfiles, options->hidden_keyfile_count, hiddenDataSize);
+				options->hidden_keyfiles, options->hidden_keyfile_count, hiddenDataSize, useExfat);
 		}
 		if (rc == VC_OK)
 			vc_progress_set (100, "Done");

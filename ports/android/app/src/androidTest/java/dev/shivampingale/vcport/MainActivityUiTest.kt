@@ -53,9 +53,8 @@ class MainActivityUiTest {
         rule.onNodeWithText("Working…").assertDoesNotExist()
         captureShot("01-volume.png")
 
-        rule.onNodeWithTag("tab_wrap").performClick()
-        rule.onNodeWithText("Encrypt file").assertIsDisplayed()
-        rule.onNodeWithText("Decrypt wrap").assertIsDisplayed()
+        rule.onNodeWithTag("tab_create").performClick()
+        rule.onNodeWithText("File basket").assertIsDisplayed()
         captureShot("02-wrap.png")
 
         rule.onNodeWithTag("tab_create").performClick()
@@ -63,6 +62,7 @@ class MainActivityUiTest {
         captureShot("03-create.png")
 
         rule.onNodeWithTag("tab_tools").performClick()
+        rule.onNodeWithText("Decrypt wrap").performScrollTo().assertIsDisplayed()
         captureShot("04-tools.png")
 
         rule.onNodeWithTag("tab_volume").performClick()
@@ -75,7 +75,7 @@ class MainActivityUiTest {
         rule.onNodeWithText("not unbreakable", substring = true).performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("compelled", substring = true).performScrollTo().assertIsDisplayed()
 
-        rule.onNodeWithTag("tab_wrap").performClick()
+        rule.onNodeWithTag("tab_create").performClick()
         rule.onNodeWithText("Generate strong password").assertIsEnabled()
         rule.onAllNodesWithText("Generate strong password").onFirst().performClick()
         rule.waitForIdle()

@@ -69,6 +69,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/upstream-sources.cmake")
 
 add_library(vc_mobile STATIC
 	vc_mobile.cpp
+	vc_exfat.cpp
 	vc_wrap.cpp
 	vc_progress.cpp
 	token_stubs.cpp

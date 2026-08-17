@@ -235,7 +235,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("createAndroidComposeRule", ui)
         self.assertIn("Panic wipe", ui)
         self.assertIn("Stay offline. F-Droid: no network.", ui)
-        self.assertIn("Encrypt file", ui)
+        self.assertIn("Decrypt wrap", ui)
         self.assertIn("tab_create", ui)
         self.assertIn("Check for updates", ui)
         self.assertIn("Working…", ui)

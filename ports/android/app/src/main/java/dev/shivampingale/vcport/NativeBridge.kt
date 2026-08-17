@@ -46,7 +46,8 @@ object NativeBridge {
         hiddenPassword: String,
         hiddenPim: Int,
         hiddenSizeBytes: Long,
-        hiddenKeyfiles: Array<String>
+        hiddenKeyfiles: Array<String>,
+        filesystem: String
     ): Int
     external fun addEntropy(samples: ByteArray)
     external fun entropyPercent(): Int

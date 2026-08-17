@@ -3,8 +3,8 @@
 Kotlin / Jetpack Compose client with:
 
 - VeraCrypt volume core via NDK (`shared/`)
-- Biometric unlock (Android Keystore + BiometricPrompt) as a password factor. Combine it with a text password, keyfiles, and PIM the same way VeraCrypt does on a computer. Create or import the biometric secret, then export it as a keyfile when you create the volume.
-- In-app FAT folder browse, extract, copy/move, New folder / Rename / Delete / Properties, and wipe free space (exFAT unsupported)
+- Biometric unlock as an *extra* VeraCrypt keyfile after you type the volume password. Android Keystore + BiometricPrompt. Export the keyfile for a computer. Fingerprint/face is not the password (NIST SP 800-63B).
+- In-app FAT or exFAT folder browse, extract, copy/move, New folder / Rename / Delete / Properties, and wipe free space. Files larger than 4 GiB need exFAT. This app cannot mount a whole USB disk.
 - System share sheet for decrypted files inside a volume, and **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no unlock)
 - Wrap/unwrap individual files (`.vcpw`) and an in-memory password generator that never saves history
 - Incoming share / open: other apps can send a file into VC Port

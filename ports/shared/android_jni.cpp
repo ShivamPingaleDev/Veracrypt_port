@@ -346,16 +346,18 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_createVolume(
 	JNIEnv *env, jobject, jstring path, jstring password, jint pim, jlong sizeBytes,
 	jstring cipher, jstring kdf, jobjectArray keyfiles,
-	jstring hiddenPassword, jint hiddenPim, jlong hiddenSizeBytes, jobjectArray hiddenKeyfiles)
+	jstring hiddenPassword, jint hiddenPim, jlong hiddenSizeBytes, jobjectArray hiddenKeyfiles,
+	jstring filesystem)
 {
 	if (!path || sizeBytes <= 0)
 		return VC_ERR_ARGUMENT;
-	std::string cPath, cPassword, cCipher, cKdf, cHidden;
+	std::string cPath, cPassword, cCipher, cKdf, cHidden, cFs;
 	if (jni_copy_utf(env, path, cPath) != VC_OK ||
 		jni_copy_utf(env, password, cPassword) != VC_OK ||
 		jni_copy_utf(env, cipher, cCipher) != VC_OK ||
 		jni_copy_utf(env, kdf, cKdf) != VC_OK ||
-		jni_copy_utf(env, hiddenPassword, cHidden) != VC_OK)
+		jni_copy_utf(env, hiddenPassword, cHidden) != VC_OK ||
+		jni_copy_utf(env, filesystem, cFs) != VC_OK)
 		return VC_ERR_ARGUMENT;
 	VcCreateOptions options = {};
 	options.path = cPath.c_str();
@@ -365,6 +367,7 @@ Java_dev_shivampingale_vcport_NativeBridge_createVolume(
 	options.size_bytes = (uint64_t) sizeBytes;
 	options.cipher = cCipher.c_str();
 	options.kdf = cKdf.c_str();
+	options.filesystem = cFs.c_str();
 
 	std::vector<std::string> owned;
 	std::vector<const char *> ptrs;

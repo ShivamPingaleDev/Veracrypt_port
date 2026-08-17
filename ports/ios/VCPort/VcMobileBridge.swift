@@ -244,7 +244,8 @@ enum VcMobileBridge {
         hiddenPassword: String = "",
         hiddenPim: Int32 = 0,
         hiddenSizeBytes: UInt64 = 0,
-        hiddenKeyfiles: [String] = []
+        hiddenKeyfiles: [String] = [],
+        filesystem: String = "FAT"
     ) -> Int32 {
         startCpu()
         return path.withCString { cPath in
@@ -252,6 +253,7 @@ enum VcMobileBridge {
                 cipher.withCString { cCipher in
                     kdf.withCString { cKdf in
                         hiddenPassword.withCString { cHidden in
+                            filesystem.withCString { cFs in
                             withCStringArray(keyfiles) { pointer, count in
                                 withCStringArray(hiddenKeyfiles) { hiddenPointer, hiddenCount in
                                     var options = VcCreateOptions()
@@ -270,8 +272,10 @@ enum VcMobileBridge {
                                     options.hidden_pim = hiddenPim
                                     options.hidden_keyfiles = hiddenPointer
                                     options.hidden_keyfile_count = hiddenCount
+                                    options.filesystem = cFs
                                     return vc_create_volume(&options)
                                 }
+                            }
                             }
                         }
                     }

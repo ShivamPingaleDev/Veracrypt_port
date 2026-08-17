@@ -648,7 +648,6 @@ class CrossPortGuiParityTests(unittest.TestCase):
     def test_wrap_panic_share_stay_offline_on_android(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         self.assertIn("Panic wipe", main)
-        self.assertIn("Encrypt file", main)
         self.assertIn("Decrypt wrap", main)
         self.assertIn("Share encrypted", main)
         self.assertIn("Stay offline", main)
@@ -660,7 +659,6 @@ class CrossPortGuiParityTests(unittest.TestCase):
     def test_wrap_panic_share_stay_offline_on_ios(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("Panic wipe", view)
-        self.assertIn("Encrypt file", view)
         self.assertIn("Decrypt wrap", view)
         self.assertIn("Share encrypted file", view)
         self.assertIn("Stay offline", view)
@@ -717,6 +715,11 @@ class CrossPortGuiParityTests(unittest.TestCase):
             self.assertIn("Add files to basket", blob)
             self.assertIn("Empty basket", blob)
             self.assertIn("from the basket into the volume", blob)
+            self.assertIn("BASKET.sha256", blob)
+            self.assertIn("Inside the volume", blob)
+            self.assertIn("exFAT", blob)
+            self.assertIn("Text password (primary)", blob)
+            self.assertIn("will not ask for superuser", blob)
 
     def test_desktop_file_ops_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
@@ -770,7 +773,9 @@ class CrossPortGuiParityTests(unittest.TestCase):
             self.assertIn("adapter.lora", blob)
         self.assertIn("Opening ignores the extension", main)
         self.assertIn("Opening ignores the extension", view)
-        self.assertIn("Name ideas", main)
+        self.assertIn("File name (any extension)", main)
+        self.assertIn("The name is only a disguise", main)
+        self.assertIn("The name is only a disguise", view)
         self.assertIn("pimState", main)
         self.assertIn('pimState.value = "0"', main)
         self.assertIn("sanitizeDisguiseName", helper)
@@ -799,6 +804,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("TC_IOS", lists)
         self.assertIn('CMAKE_SYSTEM_NAME STREQUAL "iOS"', lists)
         self.assertIn("vc_progress.cpp", lists)
+        self.assertIn("vc_exfat.cpp", lists)
         self.assertIn("vc_crypto_safety_test", lists)
         self.assertIn("VC_ENABLE_ASAN", lists)
         self.assertIn("armv8-a+crypto", lists)

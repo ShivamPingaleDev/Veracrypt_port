@@ -72,7 +72,8 @@ class Phase3FatFolderTests(unittest.TestCase):
         test = read("ports/shared/test_volume_main.cpp")
         self.assertIn("vc_list_dir", test)
         self.assertIn('reject ..', test)
-        self.assertIn("exFAT unsupported", test)
+        self.assertIn("create exFAT volume", test)
+        self.assertIn("invalid exFAT boot is not listed as FAT", test)
         self.assertIn("DOCS", test)
         self.assertIn("vc_list_dir_from", test)
         self.assertIn("negative skip", test)
@@ -135,7 +136,7 @@ class Phase3FatFolderTests(unittest.TestCase):
         self.assertIn("listDir", ios)
         self.assertIn("!truncated!", ios)
         self.assertIn("Load more", ios)
-        self.assertIn("exFAT is not", ios)
+        self.assertIn("FAT and exFAT folders are browsable", ios)
         self.assertNotIn("VolumeDocumentsProvider", read("ports/android/app/src/main/AndroidManifest.xml"))
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("VC_LIST_UI_MAX", jni)
@@ -153,7 +154,7 @@ class Phase4AndroidTests(unittest.TestCase):
 
     def test_open_list_extract_errors_are_explicit(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        self.assertIn("FAT only", main)
+        self.assertIn("FAT and exFAT", main)
         self.assertIn("Wrong password", main)
         self.assertIn("Could not extract", main)
         self.assertIn("NativeBridge.listDir", main)

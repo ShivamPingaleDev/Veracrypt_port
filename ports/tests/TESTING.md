@@ -23,7 +23,7 @@ python3 ports/tests/test_quality.py
 | **Contract** | Clients stay in lockstep | `test_contracts.py` |
 | **Security / tamper** | Ciphertext and leftovers | Wrap HMAC; FLAG_SECURE; no F-Droid INTERNET |
 | **Negative / boundary** | Bad input | Generator length 8/65; import FAT 4 GiB-1; keyfile 1 MiB |
-| **Compatibility** | Same volume on a computer | AES(Twofish(Serpent)) / HMAC-SHA-512; FAT only |
+| **Compatibility** | Same volume on a computer | AES(Twofish(Serpent)) / HMAC-SHA-512; FAT or exFAT |
 | **Recovery** | Header tools | Backup/restore in the volume fixture |
 | **Acceptance** | Ship checklist | Phase 10 public repo + version tag |
 | **Static** | Read source without executing crypto | File greps |
@@ -77,8 +77,8 @@ on NativeBridge: wrap/unwrap (wrong password and a flipped byte fail), create,
 open, FAT mkdir/import/list/export/copy-to-folder/rename/delete, wipe free
 space, dismount/reopen, read-only, backup header, change password, PIM 0
 rejected, hidden-volume write protection, benchmark. Compose UI coverage is
-`MainActivityUiTest` (FLAG_SECURE, tabs Volume/Wrap/Create/Tools, Panic wipe
-visible, Stay offline, Encrypt file / Decrypt wrap, Generate strong password;
+`MainActivityUiTest` (FLAG_SECURE, tabs Volume/Create/Tools, Panic wipe
+visible, Stay offline, Decrypt wrap leftover, Generate strong password;
 does not tap Panic wipe or Check for updates; writes GitHub shots under
 app files for `run_device_sim.sh` to pull into `ports/docs/screenshots/`).
 Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`, no INTERNET)

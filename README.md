@@ -23,7 +23,7 @@ On **iPhone**, you sign the app yourself with **your Apple ID**. We do not sign 
 Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.1). Those are test files, not store files. Installing one Android copy replaces the others.
 
 ![Volume](ports/docs/screenshots/01-volume.png)
-![Wrap](ports/docs/screenshots/02-wrap.png)
+![Create](ports/docs/screenshots/02-wrap.png)
 ![Create](ports/docs/screenshots/03-create.png)
 ![Tools](ports/docs/screenshots/04-tools.png)
 

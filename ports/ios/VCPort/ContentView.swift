@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import CryptoKit
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -30,13 +31,16 @@ struct ContentView: View {
     @State private var selectedNames: Set<String> = []
     @State private var createCipher = VcMobileBridge.defaultCipher
     @State private var createKdf = VcMobileBridge.defaultKdf
-    @State private var createSizeMb = "16"
+    @State private var createSizeAmount = "16"
+    @State private var createSizeUnit = SizeUnit.mib
+    @State private var createFilesystem = "FAT"
+    @State private var createHiddenSizeAmount = "4"
+    @State private var createHiddenSizeUnit = SizeUnit.mib
     @State private var createPassword = ""
     @State private var createPim = "0"
     @State private var createHidden = false
     @State private var createHiddenPassword = ""
     @State private var createHiddenPim = "0"
-    @State private var createHiddenSizeMb = "4"
     @State private var createFileName = "volume.hc"
     @State private var entropyPercent = 0
     @State private var newPassword = ""
@@ -61,7 +65,10 @@ struct ContentView: View {
     @State private var wrapHold = ""
     @State private var holdLock = false
     @State private var basketURLs: [URL] = []
+    @State private var basketHashes: [String: String] = [:]
     @State private var basketImporterPresented = false
+    @State private var hiddenKeyfileURLs: [URL] = []
+    @State private var hiddenKeyfileImporterPresented = false
 
     @State private var selectedTab = 0
 
@@ -69,6 +76,7 @@ struct ContentView: View {
         holdLock || wrapImporterPresented || unwrapImporterPresented || importerPresented
             || shareEncImporterPresented || keyfileImporterPresented || importBioPresented
             || restoreHeaderPresented || copyFromDevicePresented || basketImporterPresented
+            || hiddenKeyfileImporterPresented
     }
 
     var body: some View {
@@ -82,14 +90,11 @@ struct ContentView: View {
                         volumeTab
                             .tag(0)
                             .tabItem { Label("Volume", systemImage: "lock") }
-                        wrapTab
-                            .tag(1)
-                            .tabItem { Label("Wrap", systemImage: "doc") }
                         createTab
-                            .tag(2)
+                            .tag(1)
                             .tabItem { Label("Create", systemImage: "plus.rectangle.on.folder") }
                         toolsTab
-                            .tag(3)
+                            .tag(2)
                             .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
                     }
                 }
@@ -190,7 +195,32 @@ struct ContentView: View {
                     for url in urls where !basketURLs.contains(url) {
                         basketURLs.append(url)
                     }
-                    status = "Basket: \(basketSummary(basketURLs)). Create volume copies these into a new container. Originals stay on the phone."
+                    status = "Basket: \(basketSummary(basketURLs)). SHA-256 runs in this session only."
+                    DispatchQueue.global(qos: .utility).async {
+                        var extra: [String: String] = [:]
+                        for url in urls {
+                            if let hex = sha256File(url) {
+                                extra[url.path] = hex
+                            }
+                        }
+                        DispatchQueue.main.async {
+                            basketHashes.merge(extra) { _, new in new }
+                        }
+                    }
+                }
+            }
+            .fileImporter(
+                isPresented: $hiddenKeyfileImporterPresented,
+                allowedContentTypes: [.item, .data],
+                allowsMultipleSelection: true
+            ) { result in
+                holdLock = false
+                if case .success(let urls) = result {
+                    urls.forEach { _ = $0.startAccessingSecurityScopedResource() }
+                    for url in urls where !hiddenKeyfileURLs.contains(url) {
+                        hiddenKeyfileURLs.append(url)
+                    }
+                    status = "Nested keyfile(s) added. First 1 MiB, same as VeraCrypt."
                 }
             }
             .fileImporter(isPresented: $copyFromDevicePresented, allowedContentTypes: [.item, .data]) { result in
@@ -284,6 +314,8 @@ struct ContentView: View {
                     SystemShare.present(items: [incoming])
                 }
                 if incoming.pathExtension.lowercased() == "vcpw" {
+                    SecureField("Wrap password (never stored)", text: $wrapPassword)
+                        .neverSaveHistory()
                     Button("Decrypt wrap") { unwrapURL(incoming) }
                 }
             }
@@ -323,7 +355,7 @@ struct ContentView: View {
         Form {
             Section("Mounted in this app") {
                 if entries.isEmpty {
-                    Text("This folder is empty. Tap a folder after Copy from device. FAT folders are browsable; exFAT is not.")
+                    Text("This folder is empty. Tap a folder after Copy from device. FAT and exFAT folders are browsable.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -450,7 +482,7 @@ struct ContentView: View {
                     holdLock = true
                     importerPresented = true
                 }
-                Text("USB/OTG: pick any file from Files, including a USB drive — .hc, .jpg, .png, .safetensors, or no extension. iOS cannot talk to a raw USB disk.")
+                Text("USB/OTG: a file on the stick, not the whole disk.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if let url = containerURL {
@@ -486,7 +518,8 @@ struct ContentView: View {
                     TextField("Hidden volume PIM (0 = default)", text: $hiddenProtectPim)
                         .keyboardType(.numberPad)
                 }
-                Toggle("Text password", isOn: $useTextPassword)
+                Toggle("Text password (primary)", isOn: $useTextPassword)
+                    .disabled(useBiometric)
                 if useTextPassword {
                     SecureField("Password", text: $password)
                         .neverSaveHistory()
@@ -495,8 +528,14 @@ struct ContentView: View {
                     .keyboardType(.numberPad)
                 keyfileRows
                 if BiometricStore.isAvailable {
-                    Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
-                    Text("When you tap Open volume, this phone asks for Face ID, Touch ID, or your passcode. Face ID / Touch ID can be compelled.")
+                    Toggle("Face ID, Touch ID, or passcode", isOn: Binding(
+                        get: { useBiometric },
+                        set: { on in
+                            useBiometric = on
+                            if on { useTextPassword = true }
+                        }
+                    ))
+                    Text("Extra keyfile. Can be compelled.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if let biometricKey {
@@ -507,7 +546,7 @@ struct ContentView: View {
                         Text("A saved factor set exists. Unlock with biometrics to load it.")
                             .font(.caption)
                     }
-                    Button("Create biometric password") { createBiometricPassword() }
+                    Button("Create phone-unlock keyfile") { createBiometricPassword() }
                     Button("Import keyfile as biometric password…") { importBioPresented = true }
                     Button("Export biometric keyfile") { exportBiometricKeyfile() }
                     Button("Unlock with Face ID, Touch ID, or passcode") { loadBiometricFactors() }
@@ -532,60 +571,48 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var wrapTab: some View {
-        Form {
-            statusSection
-            incomingSection
-            Section("Wrap") {
-                SecureField("Wrap password (never stored)", text: $wrapPassword)
-                    .neverSaveHistory()
-                Button("Generate strong password") {
-                    if let generated = VcMobileBridge.generatePassword() {
-                        wrapPassword = generated
-                        status = "Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
-                    } else {
-                        status = "Password generator failed."
-                    }
-                }
-                Button("Copy once") {
-                    guard !wrapPassword.isEmpty else { return }
-                    SensitivePaste.copyOnce(wrapPassword)
-                    status = "Copied once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
-                }
-                Button("Forget password") {
-                    wrapPassword = ""
-                    wrapHold = ""
-                    SensitivePaste.forget()
-                    status = "Password forgotten. Clipboard cleared."
-                }
-                Button("Encrypt file…") {
-                    if wrapPassword.count < 16 {
-                        status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
-                    } else {
-                        wrapHold = wrapPassword
-                        holdLock = true
-                        wrapImporterPresented = true
-                    }
-                }
-                Button("Decrypt wrap…") {
-                    if wrapPassword.isEmpty {
-                        status = "Enter the wrap password first. It is not stored."
-                    } else {
-                        wrapHold = wrapPassword
-                        holdLock = true
-                        unwrapImporterPresented = true
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
     private var createTab: some View {
         Form {
             statusSection
+            Section("File basket") {
+                Text("Copied into the new volume. Originals stay. SHA-256 is session-only; BASKET.sha256 is written inside.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if basketURLs.isEmpty {
+                    Text("Basket is empty.")
+                        .font(.caption)
+                } else {
+                    ForEach(basketURLs, id: \.path) { url in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(url.lastPathComponent)
+                                Text(shortHash(basketHashes[url.path]))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Remove") {
+                                basketURLs.removeAll { $0 == url }
+                                basketHashes.removeValue(forKey: url.path)
+                            }
+                        }
+                    }
+                    Text("Basket size \(basketByteCount(basketURLs)) bytes. Volume will be at least that plus 8 MiB.")
+                        .font(.caption)
+                }
+                Button("Add files to basket") {
+                    holdLock = true
+                    basketImporterPresented = true
+                }
+                Button("Empty basket") {
+                    basketURLs.removeAll()
+                    basketHashes.removeAll()
+                    status = "Basket emptied. Hashes wiped from RAM."
+                }
+                .disabled(basketURLs.isEmpty)
+            }
             Section("Encryption Options") {
-                Text("Standard VeraCrypt file. Any name is a disguise — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora. Opening ignores the extension. Opening uses whichever password you type — there is no open-time hidden checkbox.")
+                Text("Opening ignores the extension. Opening uses whichever password you type — there is no open-time hidden checkbox.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Picker("Encryption Algorithm", selection: $createCipher) {
@@ -594,20 +621,39 @@ struct ContentView: View {
                 Picker("KDF", selection: $createKdf) {
                     ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
                 }
-                Picker("File name / disguise", selection: $createFileName) {
-                    ForEach(disguiseChoices, id: \.self) { Text($0).tag($0) }
+                Picker("Inside the volume", selection: $createFilesystem) {
+                    Text("FAT").tag("FAT")
+                    Text("exFAT").tag("exFAT")
                 }
+                Text("exFAT if a file is over 4 GiB.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 TextField("File name (any extension)", text: $createFileName)
-                TextField("Size (MiB)", text: $createSizeMb)
-                    .keyboardType(.numberPad)
+                Text("The name is only a disguise — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    TextField("Size", text: $createSizeAmount)
+                        .keyboardType(.decimalPad)
+                    Picker("Unit", selection: $createSizeUnit) {
+                        ForEach(SizeUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .labelsHidden()
+                }
+                Text("2 MiB–64 GiB.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 SecureField("Volume password (never stored)", text: $createPassword)
                     .neverSaveHistory()
+                Text(PasswordEntropy.label(createPassword))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 TextField("PIM (0 = default)", text: $createPim)
                     .keyboardType(.numberPad)
                 Button("Generate strong password") {
                     if let generated = VcMobileBridge.generatePassword() {
                         createPassword = generated
-                        status = "Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
+                        status = PasswordEntropy.label(generated) + " Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
                     }
                 }
                 Button("Copy once") {
@@ -662,19 +708,52 @@ struct ContentView: View {
                 }
                 Toggle("Nested volume (VeraCrypt hidden volume)", isOn: $createHidden)
                 if createHidden {
-                    Text("Second volume inside this file. Different password. Do not fill the outer volume.")
+                    Text("Same cipher and KDF. Different password. Do not fill the outer volume.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     SecureField("Nested volume password", text: $createHiddenPassword)
                         .neverSaveHistory()
+                    Text(PasswordEntropy.label(createHiddenPassword))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Generate nested password") {
+                        if let generated = VcMobileBridge.generatePassword() {
+                            createHiddenPassword = generated
+                            status = PasswordEntropy.label(generated) + " Nested password generated in memory. It is not saved."
+                        }
+                    }
                     TextField("Nested PIM (0 = default)", text: $createHiddenPim)
                         .keyboardType(.numberPad)
-                    TextField("Nested size (MiB)", text: $createHiddenSizeMb)
-                        .keyboardType(.numberPad)
+                    HStack {
+                        TextField("Nested size", text: $createHiddenSizeAmount)
+                            .keyboardType(.numberPad)
+                        Picker("Unit", selection: $createHiddenSizeUnit) {
+                            ForEach(SizeUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                        }
+                        .labelsHidden()
+                    }
+                    if hiddenKeyfileURLs.isEmpty {
+                        Text("No nested keyfiles.")
+                            .font(.caption)
+                    } else {
+                        ForEach(hiddenKeyfileURLs, id: \.path) { url in
+                            HStack {
+                                Text(url.lastPathComponent)
+                                Spacer()
+                                Button("Remove") {
+                                    hiddenKeyfileURLs.removeAll { $0 == url }
+                                }
+                            }
+                        }
+                    }
+                    Button("Add nested keyfiles…") {
+                        holdLock = true
+                        hiddenKeyfileImporterPresented = true
+                    }
                 }
                 if BiometricStore.isAvailable {
                     Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
-                    Text("When you tap Create volume, this phone asks for Face ID, Touch ID, or your passcode. Mixed as a VeraCrypt keyfile. Face ID / Touch ID can be compelled.")
+                    Text("Extra keyfile. Can be compelled.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if let biometricKey {
@@ -684,37 +763,6 @@ struct ContentView: View {
                     }
                     Button("Import keyfile as biometric password…") { importBioPresented = true }
                     Button("Export biometric keyfile") { exportBiometricKeyfile() }
-                }
-                Section("Basket") {
-                    Text("Pick files first. Create volume copies them into the new container. Originals stay on the phone. Nested volume: these files go in the outer volume — leave room.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if basketURLs.isEmpty {
-                        Text("No files in the basket.")
-                            .font(.caption)
-                    } else {
-                        Text(basketSummary(basketURLs))
-                            .font(.caption)
-                        ForEach(basketURLs, id: \.self) { url in
-                            HStack {
-                                Text(url.lastPathComponent)
-                                Spacer()
-                                Button("Remove") {
-                                    basketURLs.removeAll { $0 == url }
-                                }
-                            }
-                        }
-                    }
-                    Button("Add files to basket") {
-                        holdLock = true
-                        basketImporterPresented = true
-                    }
-                    if !basketURLs.isEmpty {
-                        Button("Empty basket") {
-                            basketURLs = []
-                            status = "Basket emptied. Files on the phone were not deleted."
-                        }
-                    }
                 }
                 Button("Create volume") { createVolume() }
                     .disabled(entropyPercent < 100)
@@ -751,14 +799,33 @@ struct ContentView: View {
                     status = "Wipe cached passwords complete. Volume closed."
                 }
             }
+            Section("Leftover wrap") {
+                Text("Decrypt a leftover .vcpw.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SecureField("Wrap password (never stored)", text: $wrapPassword)
+                    .neverSaveHistory()
+                Button("Decrypt wrap…") {
+                    if wrapPassword.isEmpty {
+                        status = "Enter the wrap password first. It is not stored."
+                    } else {
+                        wrapHold = wrapPassword
+                        holdLock = true
+                        unwrapImporterPresented = true
+                    }
+                }
+            }
             Section("Not on this phone") {
+                Text("Root / jailbreak: this app will not ask for superuser.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Text("Device encryption: this app encrypts VeraCrypt container files (any file name). It cannot encrypt the iPhone operating system. iOS already encrypts the device with your passcode.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text("Security tokens: PKCS#11 smart cards are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
+                Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/ext, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Phone volumes are FAT or exFAT file containers. Online help is not fetched while Stay offline. English UI only.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -808,13 +875,6 @@ struct ContentView: View {
         }
     }
 
-
-    private var disguiseChoices: [String] {
-        if Self.disguiseNames.contains(createFileName) {
-            return Self.disguiseNames
-        }
-        return Self.disguiseNames + [createFileName]
-    }
 
     private var inFrontLabel: String {
         let selected = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
@@ -928,11 +988,15 @@ struct ContentView: View {
             biometricKey = FactorCodec.randomBiometricKey()
         }
         let hasBio = useBiometric && biometricKey != nil && !(biometricKey?.isEmpty ?? true)
-        if createPassword.isEmpty && !hasBio && keyfileURLs.isEmpty {
-            status = "Choose at least one factor: text password, phone unlock keyfile, or a keyfile."
+        if useBiometric && createPassword.isEmpty {
+            status = "Type the volume password first."
             return
         }
-        if !createPassword.isEmpty && createPassword.count < 16 && !hasBio && keyfileURLs.isEmpty {
+        if createPassword.isEmpty && !hasBio && keyfileURLs.isEmpty {
+            status = "Type a volume password, or add a keyfile."
+            return
+        }
+        if !createPassword.isEmpty && createPassword.count < 16 && keyfileURLs.isEmpty {
             status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
             return
         }
@@ -940,38 +1004,41 @@ struct ContentView: View {
             status = "Move your finger in the blank area until the randomness bar is full."
             return
         }
-        var hiddenMb = 0
         var hiddenBytes: UInt64 = 0
         if createHidden {
-            guard createHiddenPassword.count >= 16 else {
+            if createHiddenPassword.isEmpty && hiddenKeyfileURLs.isEmpty {
+                status = "Nested volume needs a password or keyfile, different from the outer volume."
+                return
+            }
+            if !createHiddenPassword.isEmpty && createHiddenPassword.count < 16 && hiddenKeyfileURLs.isEmpty {
                 status = "Nested volume password must be at least 16 characters, and different from the outer password."
                 return
             }
-            guard createHiddenPassword != createPassword else {
+            guard createHiddenPassword != createPassword || createHiddenPassword.isEmpty else {
                 status = "Use a different password for the nested volume."
                 return
             }
-            guard let nested = Int(createHiddenSizeMb), nested >= 2 else {
+            guard let nested = parseSizeBytes(amount: createHiddenSizeAmount, unit: createHiddenSizeUnit),
+                  nested >= SizeUnit.minVolume else {
                 status = "Nested size must be at least 2 MiB and less than half the outer size, so the outer volume has room."
                 return
             }
-            hiddenMb = nested
-            hiddenBytes = UInt64(nested) * 1024 * 1024
+            hiddenBytes = nested
         }
-        let asked = Int(createSizeMb) ?? 0
+        let asked = parseSizeBytes(amount: createSizeAmount, unit: createSizeUnit) ?? 0
         if basketURLs.isEmpty {
-            guard asked >= 2, asked <= 512 else {
-                status = "Size must be 2–512 MiB."
+            guard asked >= SizeUnit.minVolume, asked <= SizeUnit.maxVolume else {
+                status = "Size must be 2 MiB–64 GiB (KiB, MiB, or GiB)."
                 return
             }
         }
-        let mb = volumeMbForBasket(asked: asked, urls: basketURLs, hiddenMb: hiddenMb)
-        if mb > 512 {
-            status = "Basket is too large for a 512 MiB phone volume. Remove files, or wrap them one at a time."
+        let bytes = volumeBytesForBasket(asked: asked, urls: basketURLs, hiddenBytes: hiddenBytes)
+        if bytes > SizeUnit.maxVolume {
+            status = "Basket is too large for a 64 GiB phone volume. Remove files."
             return
         }
         if createHidden {
-            guard mb >= 8, hiddenMb * 2 < mb else {
+            guard bytes >= SizeUnit.minVolume * 4, hiddenBytes * 2 < bytes else {
                 status = "Nested size must be at least 2 MiB and less than half the outer size, so the outer volume has room."
                 return
             }
@@ -982,16 +1049,16 @@ struct ContentView: View {
                     status = "Phone unlock cancelled."
                     return
                 }
-                startCreateVolume(mb: mb, hiddenBytes: hiddenBytes, hasBio: hasBio)
+                startCreateVolume(sizeBytes: bytes, hiddenBytes: hiddenBytes, hasBio: hasBio)
             }
             return
         }
-        startCreateVolume(mb: mb, hiddenBytes: hiddenBytes, hasBio: hasBio)
+        startCreateVolume(sizeBytes: bytes, hiddenBytes: hiddenBytes, hasBio: hasBio)
     }
 
-    private func startCreateVolume(mb: Int, hiddenBytes: UInt64, hasBio: Bool) {
+    private func startCreateVolume(sizeBytes: UInt64, hiddenBytes: UInt64, hasBio: Bool) {
         let dest = FileManager.default.temporaryDirectory.appendingPathComponent(Self.sanitizeDisguiseName(createFileName))
-        beginWork("Creating \(mb) MiB \(createCipher) / \(createKdf) volume…")
+        beginWork("Creating \(SizeUnit.formatBytes(sizeBytes)) \(createCipher) / \(createKdf) volume…")
         let password = createPassword
         let pim = Int32(createPim) ?? 0
         let cipher = createCipher
@@ -1010,18 +1077,24 @@ struct ContentView: View {
         let hiddenPimVal = Int32(createHiddenPim) ?? 0
         let nested = createHidden
         let basket = basketURLs
+        let hashes = basketHashes
+        let hiddenKeys = hiddenKeyfileURLs.map(\.path)
+        var filesystem = createFilesystem
+        if sizeBytes >= 4 * 1024 * 1024 * 1024 { filesystem = "exFAT" }
         DispatchQueue.global(qos: .userInitiated).async {
             let rc = VcMobileBridge.createVolume(
                 path: dest.path,
                 password: password,
                 pim: pim,
-                sizeBytes: UInt64(mb) * 1024 * 1024,
+                sizeBytes: sizeBytes,
                 cipher: cipher,
                 kdf: kdf,
                 keyfiles: keys,
                 hiddenPassword: hiddenPw,
                 hiddenPim: hiddenPimVal,
-                hiddenSizeBytes: hiddenBytes
+                hiddenSizeBytes: hiddenBytes,
+                hiddenKeyfiles: hiddenKeys,
+                filesystem: filesystem
             )
             var packed = 0
             var packFail: String?
@@ -1042,6 +1115,7 @@ struct ContentView: View {
                         }
                         packed += 1
                     }
+                    writeBasketProof(handle, urls: basket, hashes: hashes)
                     VcMobileBridge.close(handle)
                 } else {
                     packFail = "Created the volume, but could not open it to copy the basket."
@@ -1057,11 +1131,12 @@ struct ContentView: View {
                 containerURL = dest
                 self.password = password
                 self.pim = createPim
-                var msg = "Created \(mb) MiB \(cipher) / \(kdf) FAT volume as \(dest.lastPathComponent) (standard VeraCrypt file; the name is only a disguise). Open volume, or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
+                var msg = "Created \(SizeUnit.formatBytes(sizeBytes)) \(cipher) / \(kdf) \(filesystem) volume as \(dest.lastPathComponent) (standard VeraCrypt file; the name is only a disguise). Open volume, or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
                 if packed > 0 {
-                    msg += " Copied \(packed) file(s) from the basket into the volume."
+                    msg += " Copied \(packed) file(s) from the basket into the volume. SHA-256 proof is BASKET.sha256 inside the volume."
                     if packFail == nil {
                         basketURLs = []
+                        basketHashes = [:]
                     }
                 }
                 if let packFail {
@@ -1103,8 +1178,12 @@ struct ContentView: View {
             return
         }
         let text = useTextPassword ? password : ""
-        if text.isEmpty && !useBiometric && keyfileURLs.isEmpty {
-            status = "Choose at least one factor: text password, biometric password, or a keyfile."
+        if useBiometric && text.isEmpty {
+            status = "Type the volume password first."
+            return
+        }
+        if text.isEmpty && keyfileURLs.isEmpty {
+            status = "Type the volume password, or add a keyfile."
             return
         }
         if useBiometric && (biometricKey == nil || biometricKey?.isEmpty == true) {
@@ -1336,20 +1415,29 @@ struct ContentView: View {
         (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map { Int64($0) } ?? 0
     }
 
-    private func volumeMbForBasket(asked: Int, urls: [URL], hiddenMb: Int) -> Int {
-        var bytes: Int64 = 0
+    private func parseSizeBytes(amount: String, unit: SizeUnit) -> UInt64? {
+        let digits = amount.filter(\.isNumber)
+        guard let n = UInt64(digits), n > 0 else { return nil }
+        return SizeUnit.toBytes(amount: n, unit: unit)
+    }
+
+    private func volumeBytesForBasket(asked: UInt64, urls: [URL], hiddenBytes: UInt64) -> UInt64 {
+        var payload: UInt64 = 0
         for url in urls {
             let n = fileSize(url)
-            bytes += n > 0 ? n : (1 << 20)
+            payload += n > 0 ? UInt64(n) : (1 << 20)
         }
-        let overhead: Int64 = urls.isEmpty ? 0 : (5 << 20)
-        let hiddenBytes = Int64(hiddenMb) * 1024 * 1024
-        let need = Int((bytes + overhead + hiddenBytes + (1 << 20) - 1) / (1 << 20))
-        var mb = max(max(asked, 2), max(need, 2))
-        if hiddenMb > 0 {
-            mb = max(mb, hiddenMb * 2 + 2)
+        let overhead: UInt64 = urls.isEmpty ? 0 : (5 << 20)
+        let need = payload + overhead + hiddenBytes
+        var bytes = max(max(asked, need), SizeUnit.minVolume)
+        if hiddenBytes > 0 {
+            bytes = max(bytes, hiddenBytes * 2 + SizeUnit.minVolume)
         }
-        return mb
+        return bytes
+    }
+
+    private func basketByteCount(_ urls: [URL]) -> Int64 {
+        urls.reduce(Int64(0)) { $0 + max(fileSize($1), 0) }
     }
 
     private func basketSummary(_ urls: [URL]) -> String {
@@ -1359,11 +1447,53 @@ struct ContentView: View {
             let n = fileSize(url)
             if n > 0 { bytes += n } else { unknown = true }
         }
-        let about = Int((bytes + (1 << 20) - 1) / (1 << 20))
-        let size = (unknown && bytes == 0) ? "size unknown" : "\(max(about, bytes == 0 ? 0 : 1)) MiB"
+        let size = (unknown && bytes == 0) ? "size unknown" : SizeUnit.formatBytes(UInt64(max(bytes, 0)))
         let files = urls.count == 1 ? "1 file" : "\(urls.count) files"
-        let need = volumeMbForBasket(asked: 2, urls: urls, hiddenMb: 0)
-        return "\(files), about \(size). Volume will be at least \(need) MiB."
+        let need = volumeBytesForBasket(asked: SizeUnit.minVolume, urls: urls, hiddenBytes: 0)
+        return "\(files), about \(size). Volume will be at least \(SizeUnit.formatBytes(need))."
+    }
+
+    private func shortHex(_ hex: String) -> String {
+        guard hex.count >= 12 else { return hex }
+        return "\(hex.prefix(8))…\(hex.suffix(4))"
+    }
+
+    private func shortHash(_ hex: String?) -> String {
+        guard let hex else { return "SHA-256 …" }
+        return "SHA-256 \(shortHex(hex))"
+    }
+
+    private func sha256Path(_ path: String) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: URL(fileURLWithPath: path)) else { return nil }
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let data = handle.readData(ofLength: 64 * 1024)
+            if data.isEmpty { break }
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func sha256File(_ url: URL) -> String? {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessed { url.stopAccessingSecurityScopedResource() }
+        }
+        return sha256Path(url.path)
+    }
+
+    private func writeBasketProof(_ handle: OpaquePointer, urls: [URL], hashes: [String: String]) {
+        let lines = urls.compactMap { url -> String? in
+            let hex = hashes[url.path] ?? sha256File(url)
+            guard let hex else { return nil }
+            return "\(hex)  \(url.lastPathComponent)"
+        }
+        guard !lines.isEmpty else { return }
+        let proof = FileManager.default.temporaryDirectory.appendingPathComponent("BASKET.sha256")
+        try? (lines.joined(separator: "\n") + "\n").write(to: proof, atomically: true, encoding: .utf8)
+        _ = VcMobileBridge.importFile(handle, destDir: "/", src: proof.path, destName: "BASKET.sha256")
+        wipeFile(proof)
     }
 
     private func uniqueDestName(_ raw: String, used: inout Set<String>) -> String {
@@ -1425,6 +1555,8 @@ struct ContentView: View {
         hiddenProtectPim = "0"
         newPim = "0"
         keyfileURLs = []
+        hiddenKeyfileURLs = []
+        basketHashes = [:]
         entries = []
         dirPath = ""
         listTruncated = false
@@ -1474,6 +1606,8 @@ struct ContentView: View {
         }
         status = "Panic wipe complete. Keychain factors and clipboard are gone."
         basketURLs = []
+        basketHashes = [:]
+        hiddenKeyfileURLs = []
     }
 
     private func shareVaultFile(_ entry: VaultEntry) {
@@ -1529,6 +1663,7 @@ struct ContentView: View {
                     return
                 }
             }
+            let hex = sha256Path(srcPath)
             let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
             var deletedOriginal = false
             if rc == 0 && move {
@@ -1542,6 +1677,7 @@ struct ContentView: View {
             if let temp {
                 try? FileManager.default.removeItem(at: temp)
             }
+            let proof = hex.map { " SHA-256 \(shortHex($0)) (session only)." } ?? ""
             DispatchQueue.main.async {
                 endWork()
                 if rc != 0 {
@@ -1549,11 +1685,11 @@ struct ContentView: View {
                     return
                 }
                 if move && !deletedOriginal {
-                    status = "Copied \(name) into the volume. Could not delete the original; remove it in Files if you meant a move."
+                    status = "Copied \(name) into the volume. Could not delete the original; remove it in Files if you meant a move.\(proof)"
                 } else if move {
-                    status = "Moved \(name) into the volume."
+                    status = "Moved \(name) into the volume.\(proof)"
                 } else {
-                    status = "Copied \(name) from the device into this folder."
+                    status = "Copied \(name) from the device into this folder.\(proof)"
                 }
                 reloadDir()
             }
@@ -1643,7 +1779,7 @@ struct ContentView: View {
     private func openErrorMessage(_ code: Int32) -> String {
         switch code {
         case -2: return "Wrong password, PIM, or keyfile mix."
-        case -6: return "This container uses exFAT or another filesystem VC Port does not open. FAT only."
+        case -6: return "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported."
         case -1: return "Could not read the container file."
         case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
         case -4: return "Missing path or password argument."
@@ -1654,7 +1790,7 @@ struct ContentView: View {
 
     private func listErrorMessage(_ code: Int32) -> String {
         switch code {
-        case -6: return "Opened the volume, but the filesystem is exFAT or otherwise unsupported. FAT only."
+        case -6: return "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here."
         case -4: return "Could not list that folder path."
         case -5: return "Not enough memory to list the folder."
         case -1: return "Could not read the folder from the volume."
@@ -1664,7 +1800,7 @@ struct ContentView: View {
 
     private func extractErrorMessage(_ name: String, _ rc: Int32) -> String {
         switch rc {
-        case -6: return "Could not extract \(name). FAT only; exFAT is unsupported."
+        case -6: return "Could not extract \(name). NTFS/ext are unsupported; FAT and exFAT work."
         case -4: return "Could not extract \(name). Bad path."
         case -5: return "Could not extract \(name). Not enough memory."
         case -1: return "Could not extract \(name). Read failed."
@@ -1678,7 +1814,7 @@ struct ContentView: View {
             return "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
         }
         switch rc {
-        case -6: return "Could not copy \(name). FAT only; folders are not created this way."
+        case -6: return "Could not copy \(name). Folders are not created this way."
         case -4: return "Could not copy \(name). Bad name or path."
         case -5: return "Could not copy \(name). Volume is full, or the file is larger than 4 GiB (FAT limit)."
         case -3: return "A file named \(name) already exists in this folder."
@@ -1937,7 +2073,7 @@ struct ContentView: View {
         }
         let kind = entry.isDir ? "Folder" : "File"
         let size = entry.isDir ? "" : ", \(byteCount(entry.size))"
-        status = "\(kind) \(entry.name)\(size), modified \(formatFatStamp(entry.dosDate, entry.dosTime)). FAT only; this is not a mounted drive."
+        status = "\(kind) \(entry.name)\(size), modified \(formatFatStamp(entry.dosDate, entry.dosTime)). Browsed in this app; this is not a mounted drive."
     }
 
     private func wipeFreeSpace() {

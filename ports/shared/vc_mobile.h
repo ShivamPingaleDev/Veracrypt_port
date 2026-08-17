@@ -70,6 +70,8 @@ typedef struct VcCreateOptions
 	int hidden_pim;
 	const char *const *hidden_keyfiles;
 	size_t hidden_keyfile_count;
+	/* "FAT", "exFAT", or empty: FAT below 4 GiB, exFAT at 4 GiB and above. */
+	const char *filesystem;
 } VcCreateOptions;
 
 /* Start VeraCrypt EncryptionThreadPool (XTS + auto-detect KDF). Safe to call
