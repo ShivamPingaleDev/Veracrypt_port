@@ -269,6 +269,9 @@ class BlackBoxTests(unittest.TestCase):
             "ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt"
         )
         self.assertIn("fun isOpen", native)
+        keyfile = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
+        self.assertIn("fun openReadable", keyfile)
+        self.assertIn("MAX_KEYFILE", keyfile)
         header = read("ports/shared/vc_mobile.h")
         self.assertIn("vc_runtime_start", header)
         life = read("ports/shared/test_lifecycle_main.cpp")

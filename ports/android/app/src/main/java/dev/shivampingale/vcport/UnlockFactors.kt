@@ -2,8 +2,11 @@ package dev.shivampingale.vcport
 
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.util.Base64
 import java.io.File
+import java.io.FileInputStream
+import java.io.InputStream
 import java.security.SecureRandom
 
 data class FactorBundle(
@@ -80,26 +83,55 @@ object KeyfileIo {
 
     fun keyfileDir(context: Context): File = File(context.cacheDir, "keyfiles").apply { mkdirs() }
 
+    /** Any file the user picks. VeraCrypt only mixes the first 1 MiB. */
+    fun openReadable(context: Context, uri: Uri): InputStream? {
+        try {
+            context.contentResolver.openInputStream(uri)?.let { return it }
+        } catch (_: Exception) {
+        }
+        try {
+            val pfd = context.contentResolver.openFileDescriptor(uri, "r") ?: return null
+            return ParcelFileDescriptor.AutoCloseInputStream(pfd)
+        } catch (_: Exception) {
+        }
+        if (uri.scheme == "file") {
+            val path = uri.path ?: return null
+            val file = File(path)
+            if (file.canRead()) return FileInputStream(file)
+        }
+        return null
+    }
+
     fun copyUri(context: Context, uri: Uri): File? {
         val dest = File.createTempFile("vckf", ".bin", keyfileDir(context))
-        context.contentResolver.openInputStream(uri)?.use { input ->
+        val input = openReadable(context, uri) ?: run {
+            dest.delete()
+            return null
+        }
+        try {
             dest.outputStream().use { output ->
                 val buf = ByteArray(8192)
                 var total = 0
                 while (true) {
                     val n = input.read(buf)
                     if (n <= 0) break
-                    total += n
-                    if (total > MAX_KEYFILE) {
-                        dest.delete()
-                        return null
+                    val room = MAX_KEYFILE - total
+                    if (n > room) {
+                        if (room > 0) output.write(buf, 0, room)
+                        break
                     }
                     output.write(buf, 0, n)
+                    total += n
                 }
             }
-        } ?: run {
+        } catch (_: Exception) {
             dest.delete()
             return null
+        } finally {
+            try {
+                input.close()
+            } catch (_: Exception) {
+            }
         }
         return dest
     }
@@ -118,19 +150,23 @@ object KeyfileIo {
     }
 
     fun readLimited(context: Context, uri: Uri): ByteArray? {
-        context.contentResolver.openInputStream(uri)?.use { input ->
+        val input = openReadable(context, uri) ?: return null
+        input.use { stream ->
             val out = java.io.ByteArrayOutputStream()
             val buf = ByteArray(8192)
             var total = 0
             while (true) {
-                val n = input.read(buf)
+                val n = stream.read(buf)
                 if (n <= 0) break
-                total += n
-                if (total > MAX_KEYFILE) return null
+                val room = MAX_KEYFILE - total
+                if (n > room) {
+                    if (room > 0) out.write(buf, 0, room)
+                    break
+                }
                 out.write(buf, 0, n)
+                total += n
             }
             return out.toByteArray()
         }
-        return null
     }
 }

@@ -376,8 +376,20 @@ struct ContentView: View {
                         SensitivePaste.forget()
                         status = "Password forgotten. Clipboard cleared."
                     }
-                    Button("Encrypt file…") { wrapImporterPresented = true }
-                    Button("Decrypt wrap…") { unwrapImporterPresented = true }
+                    Button("Encrypt file…") {
+                        if wrapPassword.count < 16 {
+                            status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
+                        } else {
+                            wrapImporterPresented = true
+                        }
+                    }
+                    Button("Decrypt wrap…") {
+                        if wrapPassword.isEmpty {
+                            status = "Enter the wrap password first. It is not stored."
+                        } else {
+                            unwrapImporterPresented = true
+                        }
+                    }
                 }
                 Section("Container") {
                     Button("Choose container") { importerPresented = true }
@@ -1076,6 +1088,11 @@ struct ContentView: View {
         closeVolume()
         password = ""
         wrapPassword = ""
+        pim = "0"
+        createPim = "0"
+        createHiddenPim = "0"
+        hiddenProtectPim = "0"
+        keyfileURLs = []
         entries = []
         dirPath = ""
         listTruncated = false
@@ -1652,10 +1669,17 @@ struct ContentView: View {
         }
         beginWork("Wrapping \(url.lastPathComponent)…")
         DispatchQueue.global(qos: .userInitiated).async {
+            guard let src = copyScopedFile(url) else {
+                DispatchQueue.main.async {
+                    endWork()
+                    status = "Could not read \(url.lastPathComponent). Pick it again from Files."
+                }
+                return
+            }
             let dest = FileManager.default.temporaryDirectory
                 .appendingPathComponent(url.lastPathComponent + ".vcpw")
             let rc = VcMobileBridge.wrapFile(
-                src: url.path,
+                src: src.path,
                 dest: dest.path,
                 password: wrapPassword,
                 originalName: url.lastPathComponent
@@ -1667,6 +1691,7 @@ struct ContentView: View {
                     return
                 }
                 status = "Wrapped \(url.lastPathComponent). Password was not saved."
+                incomingFile = dest
                 SystemShare.present(items: [dest])
             }
         }
@@ -1679,9 +1704,16 @@ struct ContentView: View {
         }
         beginWork("Unwrapping \(url.lastPathComponent)…")
         DispatchQueue.global(qos: .userInitiated).async {
+            guard let src = copyScopedFile(url) else {
+                DispatchQueue.main.async {
+                    endWork()
+                    status = "Could not read \(url.lastPathComponent). Pick it again from Files."
+                }
+                return
+            }
             let dir = FileManager.default.temporaryDirectory.appendingPathComponent("unwrapped", isDirectory: true)
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let out = VcMobileBridge.unwrapFile(src: url.path, destDir: dir.path, password: wrapPassword)
+            let out = VcMobileBridge.unwrapFile(src: src.path, destDir: dir.path, password: wrapPassword)
             DispatchQueue.main.async {
                 endWork()
                 guard let out else {
@@ -1693,6 +1725,33 @@ struct ContentView: View {
                 status = "Unwrapped \(file.lastPathComponent). Password was not saved."
                 SystemShare.present(items: [file])
             }
+        }
+    }
+
+    private func copyScopedFile(_ url: URL) -> URL? {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessed { url.stopAccessingSecurityScopedResource() }
+        }
+        if url.isFileURL, FileManager.default.isReadableFile(atPath: url.path) {
+            let dest = FileManager.default.temporaryDirectory
+                .appendingPathComponent("vc-in-\(UUID().uuidString)-\(url.lastPathComponent)")
+            do {
+                try? FileManager.default.removeItem(at: dest)
+                try FileManager.default.copyItem(at: url, to: dest)
+                return dest
+            } catch {
+                return url
+            }
+        }
+        let dest = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vc-in-\(UUID().uuidString)-\(url.lastPathComponent)")
+        do {
+            try? FileManager.default.removeItem(at: dest)
+            try FileManager.default.copyItem(at: url, to: dest)
+            return dest
+        } catch {
+            return nil
         }
     }
 

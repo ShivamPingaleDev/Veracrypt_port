@@ -92,6 +92,13 @@ class MainActivity : AppCompatActivity() {
     private val incomingState = mutableStateOf<File?>(null)
     private val passwordState = mutableStateOf("")
     private val wrapPasswordState = mutableStateOf("")
+    private val pimState = mutableStateOf("0")
+    private val createPimState = mutableStateOf("0")
+    private val createHiddenPimState = mutableStateOf("0")
+    private val newPimState = mutableStateOf("0")
+    private val hiddenProtectPimState = mutableStateOf("0")
+    private val keyfileUrisState = mutableStateOf(listOf<Uri>())
+    private val containerLabelState = mutableStateOf("")
     private val handleState = mutableStateOf(0L)
     private val entriesState = mutableStateOf(listOf<VaultEntry>())
     private val dirPathState = mutableStateOf("")
@@ -127,20 +134,21 @@ class MainActivity : AppCompatActivity() {
                 var path by pathState
                 var containerUri by containerUriState
                 var password by passwordState
-                var pim by remember { mutableStateOf("0") }
+                var pim by pimState
+                var wrapPassword by wrapPasswordState
+                var keyfileUris by keyfileUrisState
+                var containerLabel by containerLabelState
                 var useTextPassword by remember { mutableStateOf(true) }
                 var useBiometric by remember { mutableStateOf(false) }
                 var rememberBio by remember { mutableStateOf(false) }
                 var rememberConfirmOpen by remember { mutableStateOf(false) }
                 var rememberConfirmText by remember { mutableStateOf("") }
                 var bioSecret by remember { mutableStateOf<ByteArray?>(null) }
-                var keyfileUris by remember { mutableStateOf(listOf<Uri>()) }
                 var status by statusState
                 var entries by entriesState
                 var handle by handleState
                 var dirPath by dirPathState
                 var listTruncated by listTruncatedState
-                var wrapPassword by wrapPasswordState
                 var busy by busyState
                 var tab by tabState
                 val tabScroll = rememberScrollState()
@@ -150,22 +158,22 @@ class MainActivity : AppCompatActivity() {
                 var createKdf by remember { mutableStateOf(NativeBridge.DEFAULT_KDF) }
                 var createSizeMb by remember { mutableStateOf("16") }
                 var createPassword by remember { mutableStateOf("") }
-                var createPim by remember { mutableStateOf("0") }
+                var createPim by createPimState
                 var createHidden by remember { mutableStateOf(false) }
                 var createHiddenPassword by remember { mutableStateOf("") }
-                var createHiddenPim by remember { mutableStateOf("0") }
+                var createHiddenPim by createHiddenPimState
                 var createHiddenSizeMb by remember { mutableStateOf("4") }
                 var createFileName by remember { mutableStateOf("volume.hc") }
                 var entropyPercent by remember { mutableIntStateOf(0) }
                 var newPassword by remember { mutableStateOf("") }
-                var newPim by remember { mutableStateOf("0") }
+                var newPim by newPimState
                 var headerKdf by remember { mutableStateOf("(keep current)") }
                 var useBackupHeader by remember { mutableStateOf(false) }
                 var readOnlyOpen by remember { mutableStateOf(false) }
                 var trueCryptMode by remember { mutableStateOf(false) }
                 var protectHidden by remember { mutableStateOf(false) }
                 var hiddenProtectPassword by remember { mutableStateOf("") }
-                var hiddenProtectPim by remember { mutableStateOf("0") }
+                var hiddenProtectPim by hiddenProtectPimState
                 var namePrompt by remember { mutableStateOf<String?>(null) }
                 var namePromptValue by remember { mutableStateOf("") }
                 var pendingExportFile by remember { mutableStateOf<File?>(null) }
@@ -174,7 +182,7 @@ class MainActivity : AppCompatActivity() {
                 var pendingFromDeviceMove by remember { mutableStateOf(false) }
                 var selectedNames by remember { mutableStateOf(setOf<String>()) }
                 var lastPlainFiles by lastPlainFilesState
-                val incoming by incomingState
+                var incoming by incomingState
                 val colors = MaterialTheme.colorScheme
                 LaunchedEffect(dirPath, handle) {
                     selectedNames = emptySet()
@@ -211,12 +219,14 @@ class MainActivity : AppCompatActivity() {
                     if (uri != null) {
                         ShareHelper.persistRead(this@MainActivity, uri)
                         containerUri = uri
+                        containerLabel = ShareHelper.displayName(this@MainActivity, uri) ?: "container"
+                        pim = "0"
                         copyContainerAsync(uri) { copied ->
                             path = copied
                             status = if (copied.isEmpty())
                                 "Could not open the container. Not enough free space, or the Files picker could not be read."
                             else
-                                "Container: ${ShareHelper.displayName(this@MainActivity, uri) ?: File(copied).name}. Open volume to browse folders here."
+                                "Container: $containerLabel. Open volume to browse folders here."
                         }
                     }
                 }
@@ -233,8 +243,22 @@ class MainActivity : AppCompatActivity() {
                 val keyfilePicker = rememberLauncherForActivityResult(
                     ActivityResultContracts.OpenMultipleDocuments()
                 ) { uris: List<Uri> ->
-                    uris.forEach { ShareHelper.persistRead(this@MainActivity, it) }
-                    keyfileUris = (keyfileUris + uris).distinct()
+                    val kept = keyfileUris.toMutableList()
+                    var failed: String? = null
+                    for (uri in uris) {
+                        ShareHelper.persistRead(this@MainActivity, uri)
+                        val copied = KeyfileIo.copyUri(this@MainActivity, uri)
+                        if (copied == null) {
+                            failed = ShareHelper.displayName(this@MainActivity, uri) ?: "keyfile"
+                        } else {
+                            if (uri !in kept) kept += uri
+                        }
+                    }
+                    keyfileUris = kept
+                    status = if (failed != null)
+                        "Could not read $failed. Pick it again, or open it from the Files app with VC Port. Any file can be a keyfile; VeraCrypt uses the first 1 MiB."
+                    else
+                        "Keyfile(s) added. Any file works; only the first 1 MiB is mixed, same as VeraCrypt on a computer."
                 }
                 val importBioPicker = rememberLauncherForActivityResult(
                     ActivityResultContracts.OpenDocument()
@@ -250,12 +274,6 @@ class MainActivity : AppCompatActivity() {
                             status = "Imported ${bytes.size} bytes as the biometric password (VeraCrypt keyfile)."
                         }
                     }
-                }
-                val wrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-                    if (uri != null) wrapSelectedFile(uri, wrapPassword) { status = it }
-                }
-                val unwrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-                    if (uri != null) unwrapSelectedFile(uri, wrapPassword) { status = it }
                 }
                 val createSaver = rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -286,6 +304,24 @@ class MainActivity : AppCompatActivity() {
                             status = "Saved ${file.name}."
                         } catch (_: Exception) {
                             status = "Could not save ${file.name}."
+                        }
+                    }
+                }
+                val wrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                    if (uri != null) {
+                        wrapSelectedFile(uri, wrapPassword, { status = it }) { wrapped ->
+                            pendingExportFile = wrapped
+                            incoming = wrapped
+                            toolSaver.launch(wrapped.name)
+                        }
+                    }
+                }
+                val unwrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                    if (uri != null) {
+                        unwrapSelectedFile(uri, wrapPassword, { status = it }) { plain ->
+                            pendingExportFile = plain
+                            lastPlainFiles = listOf(plain)
+                            toolSaver.launch(plain.name)
                         }
                     }
                 }
@@ -413,8 +449,9 @@ class MainActivity : AppCompatActivity() {
                         val incomingFile = incoming
                         val selectedFiles = entries.filter { it.name in selectedNames && !it.isDir }
                         val cipherName = incomingFile?.name
+                            ?: containerLabel.takeIf { it.isNotEmpty() }
                             ?: containerUri?.let { ShareHelper.displayName(this@MainActivity, it) }
-                            ?: path.takeIf { it.isNotEmpty() }?.let { File(it).name }
+                            ?: path.takeIf { it.isNotEmpty() && !it.startsWith("/proc/self/fd/") }?.let { File(it).name }
                         val inFrontLabel = when {
                             selectedFiles.isNotEmpty() ->
                                 selectedFiles.joinToString { it.name } + " — decrypted from the open volume"
@@ -674,12 +711,24 @@ class MainActivity : AppCompatActivity() {
                                                 ) { Text("Forget password") }
                                             }
                                             Button(
-                                                onClick = { wrapPicker.launch(arrayOf("*/*")) },
+                                                onClick = {
+                                                    if (wrapPassword.length < 16) {
+                                                        status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
+                                                    } else {
+                                                        wrapPicker.launch(arrayOf("*/*"))
+                                                    }
+                                                },
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Encrypt file") }
                                             OutlinedButton(
-                                                onClick = { unwrapPicker.launch(arrayOf("*/*")) },
+                                                onClick = {
+                                                    if (wrapPassword.isEmpty()) {
+                                                        status = "Enter the wrap password first. It is not stored."
+                                                    } else {
+                                                        unwrapPicker.launch(arrayOf("*/*"))
+                                                    }
+                                                },
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Decrypt wrap") }
@@ -713,9 +762,12 @@ class MainActivity : AppCompatActivity() {
                                                 enabled = !busy
                                             )
                                             OptionDropdown(
-                                                "File name / disguise",
-                                                ShareHelper.DISGUISE_NAMES,
-                                                if (createFileName in ShareHelper.DISGUISE_NAMES) createFileName else "volume.hc",
+                                                "Name ideas",
+                                                if (createFileName in ShareHelper.DISGUISE_NAMES)
+                                                    ShareHelper.DISGUISE_NAMES
+                                                else
+                                                    ShareHelper.DISGUISE_NAMES + createFileName,
+                                                createFileName,
                                                 { createFileName = it },
                                                 enabled = !busy
                                             )
@@ -728,7 +780,7 @@ class MainActivity : AppCompatActivity() {
                                                 singleLine = true
                                             )
                                             Text(
-                                                "Opening ignores the extension. The volume is detected only if the password, PIM, and keyfiles decrypt the header.",
+                                                "That name is only a disguise so the container can look like a photo or a model file. It is still a VeraCrypt volume. Opening ignores the extension.",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = colors.onSurfaceVariant
                                             )
@@ -916,6 +968,7 @@ class MainActivity : AppCompatActivity() {
                                                         entropyPercent = entropyPercent,
                                                         onPath = {
                                                             path = it
+                                                            containerLabel = File(it).name
                                                             password = createPassword
                                                             pim = createPim
                                                         },
@@ -1767,6 +1820,12 @@ class MainActivity : AppCompatActivity() {
         dirPathState.value = ""
         passwordState.value = ""
         wrapPasswordState.value = ""
+        pimState.value = "0"
+        createPimState.value = "0"
+        createHiddenPimState.value = "0"
+        newPimState.value = "0"
+        hiddenProtectPimState.value = "0"
+        keyfileUrisState.value = emptyList()
         lastPlainFilesState.value = emptyList()
         endWork()
         Hardening.wipeSessionFiles(this)
@@ -1909,7 +1968,8 @@ class MainActivity : AppCompatActivity() {
                     if (copied == null) {
                         runOnUiThread {
                             endWork()
-                            onStatus("Could not read a keyfile.")
+                            val name = ShareHelper.displayName(this, uri) ?: "keyfile"
+                            onStatus("Could not read $name. Pick it again, or open it from the Files app with VC Port. Any file can be a keyfile.")
                         }
                         return@Thread
                     }
@@ -2009,7 +2069,7 @@ class MainActivity : AppCompatActivity() {
             val copied = KeyfileIo.copyUri(this, uri)
             if (copied == null) {
                 temps.forEach { KeyfileIo.wipe(it) }
-                return Pair(mutableListOf(), "Could not read a keyfile.")
+                return Pair(mutableListOf(), "Could not read a keyfile. Pick it again, or open it from the Files app with VC Port. Any file can be a keyfile.")
             }
             temps.add(copied)
         }
@@ -2260,8 +2320,8 @@ class MainActivity : AppCompatActivity() {
             if (!p.isNullOrEmpty() && File(p).canRead()) return p
         }
         val len = uriLength(uri)
-        val preferFd = len < 0L || len > (32L shl 20)
-        if (preferFd) {
+        val huge = len > (32L shl 20)
+        if (huge) {
             val fdPath = bindContainerFd(uri)
             if (fdPath.isNotEmpty()) return fdPath
         }
@@ -2332,7 +2392,8 @@ class MainActivity : AppCompatActivity() {
                     if (copied == null) {
                         runOnUiThread {
                             endWork()
-                            onStatus("Could not read a keyfile.")
+                            val name = ShareHelper.displayName(this, uri) ?: "keyfile"
+                            onStatus("Could not read $name. Pick it again, or open it from the Files app with VC Port. Any file can be a keyfile.")
                         }
                         return@Thread
                     }
@@ -2441,6 +2502,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             tabState.intValue = 0
             pathState.value = copyIncomingAsContainer(first)
+            containerLabelState.value = first.name
             statusState.value = "Received ${first.name}. Any extension can be a volume. Open with the correct password, PIM, and keyfiles, or share as-is."
         }
     }
@@ -2469,7 +2531,12 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun wrapSelectedFile(uri: Uri, password: String, onStatus: (String) -> Unit) {
+    private fun wrapSelectedFile(
+        uri: Uri,
+        password: String,
+        onStatus: (String) -> Unit,
+        onSaved: (File) -> Unit
+    ) {
         if (password.length < 16) {
             onStatus("Use Generate strong password, or type at least 16 characters. Nothing is saved.")
             return
@@ -2480,16 +2547,18 @@ class MainActivity : AppCompatActivity() {
             val plain = File(cacheDir, "wrap-in-${ShareHelper.safeName(name)}")
             val wrapped = File(ShareHelper.shareDir(this), ShareHelper.safeName(name) + ".vcpw")
             try {
-                contentResolver.openInputStream(uri)?.use { input ->
-                    plain.outputStream().use { output ->
-                        copyStreamProgress(input, output, uriLength(uri), "Reading file")
-                    }
-                } ?: run {
+                val input = KeyfileIo.openReadable(this, uri)
+                if (input == null) {
                     runOnUiThread {
                         endWork()
-                        onStatus("Could not read the file.")
+                        onStatus("Could not read $name. Pick it again, or open it from the Files app with VC Port.")
                     }
                     return@Thread
+                }
+                input.use { stream ->
+                    plain.outputStream().use { output ->
+                        copyStreamProgress(stream, output, uriLength(uri), "Reading file")
+                    }
                 }
                 val rc = NativeBridge.wrapFile(plain.absolutePath, wrapped.absolutePath, password, name)
                 KeyfileIo.wipe(plain)
@@ -2498,9 +2567,8 @@ class MainActivity : AppCompatActivity() {
                     if (rc != 0 || !wrapped.exists()) {
                         onStatus("Wrap failed (code $rc).")
                     } else {
-                        onStatus("Wrapped $name. Share the .vcpw file. The password was not saved.")
-                        beginShare()
-                        ShareHelper.shareFiles(this, listOf(wrapped), "Share wrapped file")
+                        onStatus("Wrapped $name. Save the .vcpw copy, then share it from the bar. The password was not saved.")
+                        onSaved(wrapped)
                     }
                 }
             } catch (e: Exception) {
@@ -2513,7 +2581,12 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun unwrapSelectedFile(uri: Uri, password: String, onStatus: (String) -> Unit) {
+    private fun unwrapSelectedFile(
+        uri: Uri,
+        password: String,
+        onStatus: (String) -> Unit,
+        onSaved: (File) -> Unit
+    ) {
         if (password.isEmpty()) {
             onStatus("Enter the wrap password first. It is not stored.")
             return
@@ -2524,16 +2597,18 @@ class MainActivity : AppCompatActivity() {
             val wrapped = File(cacheDir, ShareHelper.safeName(name))
             val destDir = File(cacheDir, "unwrapped").apply { mkdirs() }
             try {
-                contentResolver.openInputStream(uri)?.use { input ->
-                    wrapped.outputStream().use { output ->
-                        copyStreamProgress(input, output, uriLength(uri), "Reading wrap")
-                    }
-                } ?: run {
+                val input = KeyfileIo.openReadable(this, uri)
+                if (input == null) {
                     runOnUiThread {
                         endWork()
-                        onStatus("Could not read the wrap.")
+                        onStatus("Could not read $name. Pick it again, or open it from the Files app with VC Port.")
                     }
                     return@Thread
+                }
+                input.use { stream ->
+                    wrapped.outputStream().use { output ->
+                        copyStreamProgress(stream, output, uriLength(uri), "Reading wrap")
+                    }
                 }
                 val outPath = NativeBridge.unwrapFile(wrapped.absolutePath, destDir.absolutePath, password)
                 wrapped.delete()
@@ -2544,9 +2619,8 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         val file = File(outPath)
                         lastPlainFilesState.value = listOf(file)
-                        onStatus("Unwrapped ${file.name}. Password was not saved.")
-                        beginShare()
-                        ShareHelper.shareFiles(this, listOf(file), "Share unwrapped file")
+                        onStatus("Unwrapped ${file.name}. Save a copy. The password was not saved.")
+                        onSaved(file)
                     }
                 }
             } catch (e: Exception) {
@@ -3150,7 +3224,7 @@ class MainActivity : AppCompatActivity() {
         if (len > 0 && cacheDir.usableSpace < len + (32L shl 20)) {
             return ""
         }
-        val input = contentResolver.openInputStream(uri) ?: return ""
+        val input = KeyfileIo.openReadable(this, uri) ?: return ""
         val outFile = File(cacheDir, name)
         outFile.outputStream().use { output ->
             copyStreamProgress(input, output, len, "Copying container")
