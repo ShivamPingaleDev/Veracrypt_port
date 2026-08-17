@@ -513,7 +513,7 @@ class MainActivity : AppCompatActivity() {
                     ) {
                         StatusBanner(
                             status = status,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
                         incoming?.let { file ->
                             VcCard(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
@@ -672,18 +672,13 @@ class MainActivity : AppCompatActivity() {
                             Column(
                                 Modifier
                                     .verticalScroll(tabScroll)
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 when (tab) {
                                     1 -> {
                                         VcCard {
-                                            Text("Wrap a single file", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "Encrypt one file with a password. The result is a .vcpw wrap you can share. Unwrap it later in this app.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
+                                            Text("Wrap", style = MaterialTheme.typography.titleMedium)
                                             SecretField(
                                                 wrapPassword,
                                                 { wrapPassword = it },
@@ -749,16 +744,7 @@ class MainActivity : AppCompatActivity() {
                                     2 -> {
                                         VcCard {
                                             Text("Encryption Options", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "Creates a standard VeraCrypt container. The file name can be anything — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora. That name is only a disguise: a .jpg volume is not a photo. Open it in VeraCrypt on Windows, macOS, Linux, or another phone with the same password, PIM, and keyfiles. Fingerprint, face, or screen lock only unlock those factors on THIS phone — they are not stored in the volume header.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                "Same cipher and KDF list as the desktop volume wizard. Default is AES(Twofish(Serpent)) with HMAC-SHA-512, XTS, FAT. Opening uses whichever password you type (outer or nested) — there is no open-time hidden checkbox.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
+                                            VcHint("Standard VeraCrypt file. Any name is a disguise — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora. Opening ignores the extension. Opening uses whichever password you type — there is no open-time hidden checkbox.")
                                             OptionDropdown(
                                                 "Encryption Algorithm",
                                                 NativeBridge.CIPHERS,
@@ -790,11 +776,6 @@ class MainActivity : AppCompatActivity() {
                                                 modifier = Modifier.fillMaxWidth(),
                                                 enabled = !busy,
                                                 singleLine = true
-                                            )
-                                            Text(
-                                                "That name is only a disguise so the container can look like a photo or a model file. It is still a VeraCrypt volume. Opening ignores the extension.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
                                             )
                                             OutlinedTextField(
                                                 createSizeMb,
@@ -882,7 +863,7 @@ class MainActivity : AppCompatActivity() {
                                             }
                                             if (createHidden) {
                                                 Text(
-                                                    "Creates a second volume inside this container, like the desktop hidden-volume wizard. Use a different password. Do not fill the outer volume or you will overwrite the nested one. A PC/Mac opens the outer or nested volume depending only on which password you type.",
+                                                    "Second volume inside this file. Different password. Do not fill the outer volume.",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = colors.onSurfaceVariant
                                                 )
@@ -922,11 +903,7 @@ class MainActivity : AppCompatActivity() {
                                                     }, enabled = !busy)
                                                     Text("Fingerprint, face, or screen lock")
                                                 }
-                                                Text(
-                                                    "When you tap Create volume, this phone asks for fingerprint, face, or your screen lock PIN / password. Mixed as a VeraCrypt keyfile. Export it to open this volume on a PC, Mac, or another phone. Do not use phone unlock as the only factor in a danger-state — biometrics can be compelled.",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = colors.onSurfaceVariant
-                                                )
+                                                VcHint("Mixed as a VeraCrypt keyfile. Biometrics can be compelled — not the only factor.")
                                                 Text(
                                                     bioSecret?.let { "Phone-unlock keyfile ready (${it.size} bytes)." }
                                                         ?: "Check the box to create a random keyfile, or import one you already use on a computer.",
@@ -997,11 +974,7 @@ class MainActivity : AppCompatActivity() {
                                         if (BuildConfig.ENABLE_SKINS) {
                                             VcCard {
                                                 Text("Looks (this phone)", style = MaterialTheme.typography.titleMedium)
-                                                Text(
-                                                    "This APK includes Looks (Desktop plus Cyberpunk, Matrix, MAGI, original Signal). Same app id as the Desktop-only APK \u2014 installing this one replaces it. Inspired drawing, not affiliated.",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = colors.onSurfaceVariant
-                                                )
+                                                VcHint("Desktop, Cyberpunk, Matrix, MAGI, Signal. Same app id — this APK replaces the Desktop-only install. Inspired drawing, not affiliated.")
                                                 VcSkin.entries.forEach { option ->
                                                     val selected = skin == option
                                                     if (selected) {
@@ -1036,11 +1009,6 @@ class MainActivity : AppCompatActivity() {
                                         }
                                         VcCard {
                                             Text("Volume header", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "Uses the container and unlock factors from the Volume tab. Close the volume first — these rewrite the header. Keyfiles and biometrics are mixed into the password; they are not stored in the header.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
                                             SecretField(
                                                 newPassword,
                                                 { newPassword = it },
@@ -1231,11 +1199,6 @@ class MainActivity : AppCompatActivity() {
                                         }
                                         VcCard {
                                             Text("Keyfile generator", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "Writes 128 random bytes — same size as the desktop Keyfile Generator default. Share or save the file, then add it as a keyfile.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
                                             Button(
                                                 onClick = {
                                                     val dest = File(cacheDir, "random.key")
@@ -1294,11 +1257,6 @@ class MainActivity : AppCompatActivity() {
                                         }
                                         VcCard {
                                             Text("Wipe cached passwords", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "Clears passwords in memory, closes the volume, and wipes the plaintext cache. Same as Lock. Panic wipe also destroys Keystore copies.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
                                             OutlinedButton(
                                                 onClick = {
                                                     lockSession()
@@ -1313,27 +1271,28 @@ class MainActivity : AppCompatActivity() {
                                             ) { Text("Wipe cached passwords") }
                                         }
                                         VcCard {
-                                            Text("Device encryption", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "This app encrypts VeraCrypt container files (any file name). It cannot encrypt the phone's operating system the way VeraCrypt system encryption does on Windows. Android already encrypts the device with your screen lock.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
+                                            Text("Not on this phone", style = MaterialTheme.typography.titleMedium)
+                                            VcHint("Device encryption: this app encrypts VeraCrypt container files (any file name). It cannot encrypt the phone's operating system. Android already encrypts the device with your screen lock.")
+                                            VcHint("Security tokens: PKCS#11 smart cards are not available here. Export a keyfile on a computer, then Add keyfiles.")
+                                            VcHint("Desktop leftovers: mount as a drive, Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, PKCS#11 tokens, and a DocumentsProvider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
                                         }
                                         VcCard {
-                                            Text("Security tokens", style = MaterialTheme.typography.titleMedium)
+                                            Text("About / licenses", style = MaterialTheme.typography.titleMedium)
                                             Text(
-                                                "PKCS#11 smart cards and hardware tokens are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.",
-                                                style = MaterialTheme.typography.bodySmall,
+                                                "“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)",
+                                                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                                                 color = colors.onSurfaceVariant
                                             )
-                                        }
-                                        VcCard {
-                                            Text("Desktop leftovers", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "This is the full file-container port. These desktop items stay on a computer: mount as a drive letter (no FUSE here), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext filesystems, PKCS#11 tokens, and a DocumentsProvider / Files.app browse of an unlocked volume (that was a seizure leak). Online help is not fetched while Stay offline. English UI only.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
+                                            VcHint("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
+                                            VcHint("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.")
+                                            VcHint("Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
+                                            VcHint("Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.")
+                                            VcHint(SourcePin.describeBuild())
+                                            VcHint(
+                                                if (BuildConfig.ENABLE_UPDATE_CHECK)
+                                                    "No ads, analytics, or crash reporters. Passwords stay on this device. GitHub flavor may make one HTTPS request if you tap Check for updates. The app does not install itself. Merge with scripts/sync-upstream.sh and rebuild."
+                                                else
+                                                    "No ads, analytics, crash reporters, or INTERNET permission. Passwords stay on this device. Updates come from F-Droid. The app does not install itself."
                                             )
                                         }
                                     }
@@ -1341,28 +1300,11 @@ class MainActivity : AppCompatActivity() {
                                         VcCard {
                                             Text(
                                                 if (BuildConfig.ENABLE_UPDATE_CHECK)
-                                                    "VeraCrypt-compatible Android client. Offline until you check for updates."
+                                                    "VeraCrypt-compatible. Offline until you check for updates."
                                                 else
-                                                    "VeraCrypt-compatible Android client. F-Droid build: no network."
+                                                    "VeraCrypt-compatible. F-Droid: no network."
                                             )
-                                            Text(
-                                                SourcePin.describeBuild(),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                if (BuildConfig.ENABLE_UPDATE_CHECK)
-                                                    "Tap Check for updates for a 20-second HTTPS window to our version.json, official VeraCrypt's latest GitHub release, and GitHub's status page. No other hosts. No redirects. This app does not download or install APKs, never listens, and never fetches src/. Offline again after."
-                                                else
-                                                    "This APK has no INTERNET permission. F-Droid updates you after the source is tagged. The app never installs itself.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                "Stay offline by default. High-threat: screenshots blocked, recents hidden, no backups, no user CAs. Wrap a file, share ciphertext as-is, or panic wipe. Biometrics can be compelled — prefer a long password + keyfile, not Remember. This is not unbreakable.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
+                                            VcHint("Stay offline by default. Biometrics can be compelled — prefer a long password + keyfile. This is not unbreakable.")
                                             if (BuildConfig.ENABLE_UPDATE_CHECK) {
                                                 OutlinedButton(
                                                     onClick = {
@@ -1384,27 +1326,20 @@ class MainActivity : AppCompatActivity() {
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Choose container") }
-                                            Text(
-                                                "USB/OTG: pick any file on the stick through Android's file picker — .hc, .jpg, .png, .safetensors, or no extension. This app cannot mount a raw USB disk or auto-mount /dev block devices without root.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            OutlinedTextField(
-                                                path,
-                                                { path = it },
-                                                label = { Text("Container path") },
-                                                modifier = Modifier.fillMaxWidth(),
-                                                enabled = !busy,
-                                                singleLine = true
-                                            )
-                                        }
-                                        VcCard {
-                                            Text("Share encrypted file", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "Sends the encrypted file as-is, including disguised names (.jpg, .png, .safetensors). No password, no decrypt. WhatsApp, Gmail, Drive, and the rest of the share sheet.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
+                                            if (containerLabel.isNotEmpty()) {
+                                                Text(containerLabel, style = MaterialTheme.typography.bodySmall)
+                                            }
+                                            VcHint("USB/OTG: pick any file through the Files picker — .hc, .jpg, or no extension. This app cannot mount a raw USB disk.")
+                                            if (path.isNotEmpty()) {
+                                                OutlinedTextField(
+                                                    path,
+                                                    { path = it },
+                                                    label = { Text("Container path") },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    enabled = !busy,
+                                                    singleLine = true
+                                                )
+                                            }
                                             Button(
                                                 onClick = { shareEncPicker.launch(arrayOf("*/*")) },
                                                 modifier = Modifier.fillMaxWidth()
@@ -1423,12 +1358,7 @@ class MainActivity : AppCompatActivity() {
                                             }
                                         }
                                         VcCard {
-                                            Text("Unlock factors", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "Combine any of: fingerprint / face / screen lock, text password, keyfiles, and PIM. The volume itself is a normal VeraCrypt file — same mix a computer uses. Any file name works; the header is detected only if those credentials are correct.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
+                                            Text("Unlock", style = MaterialTheme.typography.titleMedium)
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Checkbox(useTextPassword, { useTextPassword = it }, enabled = !busy)
                                                 Text("Text password")
@@ -1472,38 +1402,18 @@ class MainActivity : AppCompatActivity() {
                                                 Checkbox(useBackupHeader, { useBackupHeader = it }, enabled = !busy)
                                                 Text("Use backup header")
                                             }
-                                            Text(
-                                                "If the first header is damaged, open using the copy stored at the end of the container.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Checkbox(readOnlyOpen, { readOnlyOpen = it }, enabled = !busy)
                                                 Text("Read-only")
                                             }
-                                            Text(
-                                                "Same as desktop Mount Options → Read-only. Import, delete, rename, and wipe free space are refused.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Checkbox(trueCryptMode, { trueCryptMode = it }, enabled = !busy)
                                                 Text("TrueCrypt Mode")
                                             }
-                                            Text(
-                                                "TrueCrypt 6/7 volumes have no PIM — this forces PIM 0. Creating new TrueCrypt volumes is not offered; create a VeraCrypt volume.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Checkbox(protectHidden, { protectHidden = it }, enabled = !busy)
                                                 Text("Protect hidden volume against damage caused by writing to outer volume")
                                             }
-                                            Text(
-                                                "Same as desktop Mount Options. Enter the nested volume password. Writes that would overwrite the nested volume are refused. Do not enable this if someone is compelling you to open the outer volume — that would show that a nested volume exists. There is no open-time hidden checkbox; opening still uses whichever password you type.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
                                             if (protectHidden) {
                                                 SecretField(
                                                     hiddenProtectPassword,
@@ -1559,16 +1469,7 @@ class MainActivity : AppCompatActivity() {
                                                         }, enabled = !busy)
                                                         Text("Fingerprint, face, or screen lock")
                                                     }
-                                                    Text(
-                                                        "When you tap Open volume, this phone asks for fingerprint, face, or your screen lock PIN / password. Do not use biometrics as the only factor in a danger-state. Fingerprints can be compelled. Mix a password and a keyfile you do not keep on this phone.",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = colors.onSurfaceVariant
-                                                    )
-                                                    Text(
-                                                        "Stored in the Android Keystore (StrongBox when present). Mixed as a VeraCrypt keyfile so the same file opens on a PC or Mac.",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = colors.onSurfaceVariant
-                                                    )
+                                                    VcHint("Phone unlock is mixed as a keyfile. Biometrics can be compelled — not the only factor.")
                                                     Text(
                                                         bioSecret?.let { "Biometric password ready (${it.size} bytes)." }
                                                             ?: if (path.isNotEmpty() && vault.hasFactors(path))
@@ -1659,11 +1560,7 @@ class MainActivity : AppCompatActivity() {
                                                         )
                                                         Text("Remember this combination")
                                                     }
-                                                    Text(
-                                                        "Off by default. Type REMEMBER to store factors this session. Compelled biometrics can still open a remembered set.",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = colors.onSurfaceVariant
-                                                    )
+                                                    VcHint("Off by default. Type REMEMBER to store this session.")
                                                     if (path.isNotEmpty() && vault.hasFactors(path)) {
                                                         OutlinedButton(
                                                             onClick = {
@@ -1675,42 +1572,6 @@ class MainActivity : AppCompatActivity() {
                                                     }
                                                 }
                                             }
-                                        }
-                                        VcCard {
-                                            Text("About / licenses", style = MaterialTheme.typography.titleMedium)
-                                            Text(
-                                                "“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)",
-                                                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                "Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                "VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                "Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                "Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                if (BuildConfig.ENABLE_UPDATE_CHECK)
-                                                    "No ads, analytics, or crash reporters. Passwords stay on this device. GitHub flavor may make one HTTPS request if you tap Check for updates. Source updates become a new app only after a rebuild."
-                                                else
-                                                    "No ads, analytics, crash reporters, or INTERNET permission. Passwords stay on this device. Updates come from F-Droid.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = colors.onSurfaceVariant
-                                            )
                                         }
                                     }
                                 }
@@ -3400,7 +3261,7 @@ private fun VaultPane(
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
         Text(
-            "Mounted in this app — folders and files. Not a system drive. Copy to device to open a file in Files.",
+            "Mounted in this app",
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
@@ -3432,53 +3293,51 @@ private fun VaultPane(
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(
                     onClick = onCopyFromDevice,
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("Copy from device") }
+                ) { Text("Copy from device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
                 OutlinedButton(
                     onClick = onMoveFromDevice,
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("Move from device") }
+                ) { Text("Move from device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(
                     onClick = onCopyToDevice,
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("Copy to device") }
+                ) { Text("Copy to device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
                 OutlinedButton(
                     onClick = onMoveToDevice,
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("Move to device") }
+                ) { Text("Move to device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedButton(
                     onClick = onNewFolder,
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("New folder") }
+                ) { Text("New folder", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
                 OutlinedButton(
                     onClick = onRename,
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("Rename") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ) { Text("Rename", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
                 OutlinedButton(
                     onClick = onDelete,
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("Delete") }
+                ) { Text("Delete", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
                 OutlinedButton(
                     onClick = onProperties,
                     enabled = !busy,
                     modifier = Modifier.weight(1f)
-                ) { Text("Properties") }
+                ) { Text("Properties", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
             }
             OutlinedButton(
                 onClick = onWipeFreeSpace,
@@ -3505,7 +3364,7 @@ private fun VaultPane(
             ) {
                 Text("This folder is empty.", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Tap Copy from device to add a file. Copy to device writes a file Files can open. The unlocked volume stays in this app.",
+                    "Tap a folder to open it, or Copy from device to add a file. Copy to device writes a file Files can open.",
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant
                 )

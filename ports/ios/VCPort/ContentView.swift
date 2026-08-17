@@ -59,520 +59,28 @@ struct ContentView: View {
     @State private var workPercent = -1
     @State private var entropyMarks: [CGPoint] = []
 
+    @State private var selectedTab = 0
+
     var body: some View {
         ZStack {
         NavigationStack {
-            Form {
+            Group {
                 if volumeHandle != nil {
-                    Section("Mounted in this app") {
-                        Text("Folders and files from the open volume. This is not a system drive. Copy to device puts a file in Files. Files.app cannot browse the unlocked volume.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if entries.isEmpty {
-                            Text("This folder is empty. Copy from device to add a file. FAT folders are browsable; exFAT is not.")
-                        }
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 4) {
-                                if !dirPath.isEmpty {
-                                    Button("Up") {
-                                        dirPath = parentDir(dirPath)
-                                        reloadDir()
-                                    }
-                                }
-                                Button("/") {
-                                    dirPath = ""
-                                    reloadDir()
-                                }
-                                .disabled(dirPath.isEmpty)
-                                ForEach(Array(dirPath.split(separator: "/").map(String.init).enumerated()), id: \.offset) { index, part in
-                                    HStack(spacing: 4) {
-                                        Text("›")
-                                            .foregroundStyle(.secondary)
-                                        Button(part) {
-                                            dirPath = dirPath.split(separator: "/").map(String.init).prefix(index + 1).joined(separator: "/")
-                                            reloadDir()
-                                        }
-                                        .disabled(index == dirPath.split(separator: "/").count - 1)
-                                    }
-                                }
-                            }
-                        }
-                        HStack {
-                            Button("Copy from device") {
-                                moveFromDevice = false
-                                copyFromDevicePresented = true
-                            }
-                            Button("Move from device") {
-                                moveFromDevice = true
-                                copyFromDevicePresented = true
-                            }
-                        }
-                        HStack {
-                            Button("Copy to device") { copySelectedToDevice(move: false) }
-                            Button("Move to device") { copySelectedToDevice(move: true) }
-                        }
-                        HStack {
-                            Button("New folder") {
-                                namePromptValue = ""
-                                newFolderPresented = true
-                            }
-                            Button("Rename") {
-                                guard let name = selectedNames.first else {
-                                    status = "Tap a file or folder, then Rename."
-                                    return
-                                }
-                                namePromptValue = name
-                                renamePresented = true
-                            }
-                        }
-                        HStack {
-                            Button("Delete") { deleteSelected() }
-                            Button("Properties") { showEntryProperties() }
-                        }
-                        Button("Wipe free space") { wipeFreeSpace() }
-                        ForEach(entries) { entry in
-                            HStack {
-                                ZStack {
-                                    Circle()
-                                        .fill(selectedNames.contains(entry.name) ? Color.accentColor : Color.secondary.opacity(0.18))
-                                        .frame(width: 28, height: 28)
-                                    if selectedNames.contains(entry.name) {
-                                        Image(systemName: "checkmark")
-                                            .font(.caption.weight(.bold))
-                                            .foregroundStyle(.white)
-                                    } else {
-                                        Image(systemName: entry.isDir ? "folder" : "doc")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                VStack(alignment: .leading) {
-                                    Text(entry.name)
-                                    Text(entry.isDir ? "Folder — tap Open" : byteCount(entry.size))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if entry.isDir {
-                                    Button("Open") {
-                                        dirPath = joinDir(dirPath, entry.name)
-                                        selectedNames = []
-                                        reloadDir()
-                                    }
-                                } else {
-                                    Button(selectedNames.contains(entry.name) ? "Selected" : "Select") {
-                                        if selectedNames.contains(entry.name) {
-                                            selectedNames.remove(entry.name)
-                                        } else {
-                                            selectedNames.insert(entry.name)
-                                        }
-                                    }
-                                    Button("Share decrypted") { shareVaultFile(entry) }
-                                }
-                            }
-                        }
-                        if listTruncated {
-                            Button("Load more") { reloadDir(append: true) }
-                        }
-                        Button("Dismount") { lockSession() }
-                    }
-                    Section("In front of you") {
-                        Text(inFrontLabel)
-                            .font(.caption)
-                        Button("Share encrypted") { shareInFrontEncrypted() }
-                        Button("Share decrypted") { shareInFrontDecrypted() }
-                            .disabled(!canShareDecrypted)
-                    }
-                    Section("High-threat") {
-                        Button("Panic wipe", role: .destructive) {
-                            panicWipe()
-                        }
-                    }
+                    mountedVolumeForm
                 } else {
-                Section("High-threat") {
-                    Text("Stay offline by default. Screenshots are treated as sensitive. Wrap a file, share ciphertext as-is, or panic wipe. Biometrics can be compelled — prefer a long password and a keyfile not stored on this phone. This is not unbreakable.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Button("Panic wipe", role: .destructive) {
-                        panicWipe()
-                    }
-                }
-                Section("In front of you") {
-                    Text(inFrontLabel)
-                        .font(.caption)
-                    Button("Share encrypted") { shareInFrontEncrypted() }
-                    Button("Share decrypted") { shareInFrontDecrypted() }
-                        .disabled(!canShareDecrypted)
-                }
-                Section("Encryption Options") {
-                    Text("Creates a standard VeraCrypt container. The file name can be anything — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora. That name is only a disguise: a .jpg volume is not a photo. Open that same file in VeraCrypt on Windows, macOS, Linux, or another phone with the same password, PIM, and keyfiles. Face ID, Touch ID, or the device passcode only unlock those factors on THIS phone — they are not stored in the volume header.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Same cipher and KDF list as the desktop volume wizard. Default is AES(Twofish(Serpent)) with HMAC-SHA-512. Opening uses whichever password you type (outer or nested).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Picker("Encryption Algorithm", selection: $createCipher) {
-                        ForEach(VcMobileBridge.ciphers, id: \.self) { Text($0).tag($0) }
-                    }
-                    Picker("KDF", selection: $createKdf) {
-                        ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
-                    }
-                    Picker("File name / disguise", selection: $createFileName) {
-                        ForEach(disguiseChoices, id: \.self) { Text($0).tag($0) }
-                    }
-                    TextField("File name (any extension)", text: $createFileName)
-                    Text("Opening ignores the extension. The volume is detected only if the password, PIM, and keyfiles decrypt the header.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    TextField("Size (MiB)", text: $createSizeMb)
-                        .keyboardType(.numberPad)
-                    SecureField("Volume password (never stored)", text: $createPassword)
-                        .neverSaveHistory()
-                    TextField("PIM (0 = default)", text: $createPim)
-                        .keyboardType(.numberPad)
-                    Button("Generate strong password") {
-                        if let generated = VcMobileBridge.generatePassword() {
-                            createPassword = generated
-                            status = "Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
-                        }
-                    }
-                    Button("Copy once") {
-                        guard !createPassword.isEmpty else { return }
-                        SensitivePaste.copyOnce(createPassword)
-                        status = "Copied once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
-                    }
-                    Button("Forget password") {
-                        createPassword = ""
-                        SensitivePaste.forget()
-                        status = "Password forgotten. Clipboard cleared."
-                    }
-                    ForEach(keyfileURLs, id: \.self) { url in
-                        HStack {
-                            Text(url.lastPathComponent)
-                            Spacer()
-                            Button("Remove") {
-                                keyfileURLs.removeAll { $0 == url }
-                            }
-                        }
-                    }
-                    Button("Add keyfiles…") { keyfileImporterPresented = true }
-                    if BiometricStore.isAvailable {
-                        Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
-                        Text("When you tap Create volume, this phone asks for Face ID, Touch ID, or your passcode. Mixed as a VeraCrypt keyfile. Export it to open this volume on a PC, Mac, or another phone. Do not use phone unlock as the only factor in a danger-state — Face ID / Touch ID can be compelled.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if let biometricKey {
-                            let keyBytes = biometricKey.count
-                            Text("Phone-unlock keyfile ready (\(keyBytes) bytes).")
-                                .font(.caption)
-                        }
-                        Button("Import keyfile as biometric password…") { importBioPresented = true }
-                        Button("Export biometric keyfile") { exportBiometricKeyfile() }
-                    }
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Randomness (move your finger)")
-                        Text("Same idea as moving the mouse in the VeraCrypt volume wizard. Keep scribbling in the blank area until the bar is full. This takes longer on purpose.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ProgressView(value: Double(entropyPercent), total: 100)
-                            .tint(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
-                            .animation(.easeInOut(duration: 0.12), value: entropyPercent)
-                        Text("\(entropyPercent)%")
-                            .font(.caption)
-                            .monospacedDigit()
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color(white: 0.97))
-                                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.secondary.opacity(0.4)))
-                            Path { path in
-                                guard let first = entropyMarks.first else { return }
-                                path.move(to: first)
-                                for point in entropyMarks.dropFirst() {
-                                    path.addLine(to: point)
-                                }
-                            }
-                            .stroke(
-                                Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255).opacity(0.72),
-                                style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
-                            )
-                            if let tip = entropyMarks.last {
-                                Circle()
-                                    .fill(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
-                                    .frame(width: 12, height: 12)
-                                    .position(tip)
-                            }
-                            Text(entropyPercent >= 100 ? "Entropy ready" : "Move your finger randomly here")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 240)
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { collectCreateEntropy($0) }
-                        )
-                    }
-                    Toggle("Nested volume (VeraCrypt hidden volume)", isOn: $createHidden)
-                    if createHidden {
-                        Text("Creates a second volume inside this container. Use a different password. Do not fill the outer volume or you will overwrite the nested one. A computer opens outer or nested depending only on which password you type.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        SecureField("Nested volume password", text: $createHiddenPassword)
-                            .neverSaveHistory()
-                        TextField("Nested PIM (0 = default)", text: $createHiddenPim)
-                            .keyboardType(.numberPad)
-                        TextField("Nested size (MiB)", text: $createHiddenSizeMb)
-                            .keyboardType(.numberPad)
-                    }
-                    Button("Create volume") { createVolume() }
-                        .disabled(entropyPercent < 100)
-                }
-                if let incoming = incomingFile {
-                    Section("Received from another app") {
-                        Text(incoming.lastPathComponent)
-                        Button("Open as container") {
-                            containerURL = incoming
-                            status = "Selected \(incoming.lastPathComponent)"
-                        }
-                        Button("Share encrypted file") {
-                            SystemShare.present(items: [incoming])
-                        }
-                        if incoming.pathExtension.lowercased() == "vcpw" {
-                            Button("Decrypt wrap") { unwrapURL(incoming) }
-                        }
-                    }
-                }
-                Section("Share encrypted file") {
-                    Button("Share encrypted file…") { shareEncImporterPresented = true }
-                    Text("Sends the encrypted file as-is, including disguised names (.jpg, .png, .safetensors). No password, no decrypt. WhatsApp, Mail, Drive, AirDrop, and the rest of the share sheet.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let url = containerURL {
-                        Button("Share this encrypted file") {
-                            SystemShare.present(items: [url])
-                        }
-                    }
-                }
-                Section("Wrap a single file") {
-                    Text("Encrypt one file with a password. Share the .vcpw wrap. The generator never writes history.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    SecureField("Wrap password (never stored)", text: $wrapPassword)
-                        .neverSaveHistory()
-                    Button("Generate strong password") {
-                        if let generated = VcMobileBridge.generatePassword() {
-                            wrapPassword = generated
-                            status = "Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
-                        } else {
-                            status = "Password generator failed."
-                        }
-                    }
-                    Button("Copy once") {
-                        guard !wrapPassword.isEmpty else { return }
-                        SensitivePaste.copyOnce(wrapPassword)
-                        status = "Copied once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
-                    }
-                    Button("Forget password") {
-                        wrapPassword = ""
-                        SensitivePaste.forget()
-                        status = "Password forgotten. Clipboard cleared."
-                    }
-                    Button("Encrypt file…") {
-                        if wrapPassword.count < 16 {
-                            status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
-                        } else {
-                            wrapImporterPresented = true
-                        }
-                    }
-                    Button("Decrypt wrap…") {
-                        if wrapPassword.isEmpty {
-                            status = "Enter the wrap password first. It is not stored."
-                        } else {
-                            unwrapImporterPresented = true
-                        }
-                    }
-                }
-                Section("Container") {
-                    Button("Choose container") { importerPresented = true }
-                    Text("USB/OTG: pick any file from Files, including a USB drive — .hc, .jpg, .png, .safetensors, or no extension. iOS cannot talk to a raw USB disk.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(containerURL?.lastPathComponent ?? "No file selected")
-                    Toggle("Use backup header", isOn: $useBackupHeader)
-                    Text("If the first header is damaged, open using the copy stored at the end of the container.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Toggle("Read-only", isOn: $readOnlyOpen)
-                    Text("Same as desktop Mount Options → Read-only. Import, delete, rename, and wipe free space are refused.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Toggle("TrueCrypt Mode", isOn: $trueCryptMode)
-                    Text("TrueCrypt 6/7 volumes have no PIM — this forces PIM 0. Creating new TrueCrypt volumes is not offered; create a VeraCrypt volume.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Toggle("Protect hidden volume against damage caused by writing to outer volume", isOn: $protectHidden)
-                    Text("Same as desktop Mount Options. Enter the nested volume password. Writes that would overwrite the nested volume are refused. Do not enable this if someone is compelling you to open the outer volume — that would show that a nested volume exists.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if protectHidden {
-                        SecureField("Password to hidden volume", text: $hiddenProtectPassword)
-                            .neverSaveHistory()
-                        TextField("Hidden volume PIM (0 = default)", text: $hiddenProtectPim)
-                            .keyboardType(.numberPad)
-                    }
-                }
-                Section("Unlock factors") {
-                    Text("Combine any of: Face ID / Touch ID / passcode, text password, keyfiles, and PIM. The volume itself is a normal VeraCrypt file — same mix a computer uses. Any file name works; the header is detected only if those credentials are correct.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Toggle("Text password", isOn: $useTextPassword)
-                    if useTextPassword {
-                        SecureField("Password", text: $password)
-                            .neverSaveHistory()
-                    }
-                    TextField("PIM (0 = default)", text: $pim)
-                        .keyboardType(.numberPad)
-                    ForEach(keyfileURLs, id: \.self) { url in
-                        HStack {
-                            Text(url.lastPathComponent)
-                            Spacer()
-                            Button("Remove") {
-                                keyfileURLs.removeAll { $0 == url }
-                            }
-                        }
-                    }
-                    Button("Add keyfiles…") { keyfileImporterPresented = true }
-                    if BiometricStore.isAvailable {
-                        Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
-                        Text("When you tap Open volume, this phone asks for Face ID, Touch ID, or your passcode. Do not use biometrics as the only factor in a danger-state. Face ID / Touch ID can be compelled. Mix a password and a keyfile you do not keep on this phone.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        if let biometricKey {
-                            let keyBytes = biometricKey.count
-                            Text("Biometric password ready (\(keyBytes) bytes).")
-                                .font(.caption)
-                        } else if let path = containerURL?.path, BiometricStore.hasFactors(for: path) {
-                            Text("A saved factor set exists. Unlock with biometrics to load it.")
-                                .font(.caption)
-                        } else {
-                            Text("Create a random biometric password, or import a keyfile you already use.")
-                                .font(.caption)
-                        }
-                        Button("Create biometric password") { createBiometricPassword() }
-                        Button("Import keyfile as biometric password…") { importBioPresented = true }
-                        Button("Export biometric keyfile") { exportBiometricKeyfile() }
-                        Button("Unlock with Face ID, Touch ID, or passcode") { loadBiometricFactors() }
-                        Toggle("Remember this combination", isOn: Binding(
-                            get: { rememberBiometrics },
-                            set: { on in
-                                if on {
-                                    rememberConfirmText = ""
-                                    rememberConfirmPresented = true
-                                } else {
-                                    rememberBiometrics = false
-                                }
-                            }
-                        ))
-                        Text("Off by default. Type REMEMBER to store factors this session. Compelled Face ID / Touch ID can still open a remembered set.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Button("Open volume") { openVolume() }
-                }
-                Section("Updates") {
-                    if FossConfig.enableUpdateCheck {
-                        Button("Check for updates") {
-                            beginWork("Checking for updates (≤20s HTTPS window)...")
-                            DispatchQueue.global(qos: .userInitiated).async {
-                                do {
-                                    let result = try UpdateChecker.check()
-                                    DispatchQueue.main.async {
-                                        endWork()
-                                        status = Self.formatUpdateStatus(result)
-                                    }
-                                } catch {
-                                    DispatchQueue.main.async {
-                                        endWork()
-                                        status = "Update check failed. Offline again."
-                                    }
-                                }
-                            }
-                        }
-                        Text("The app never listens and stays offline until you tap this. Check for updates opens a 20-second HTTPS window to our version.json, official VeraCrypt on GitHub, and GitHub status — then disconnects. It does not install an IPA.")
-                    } else {
-                        Text("This build does not contact the network. Install updates from AltStore, SideStore, or a new source build.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Section("Tools") {
-                    Text("Uses the container and unlock factors above. These rewrite the volume header — the volume is closed first. Keyfiles and Face ID are mixed into the password; they are not stored in the header.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    SecureField("New password (empty = keep current)", text: $newPassword)
-                        .neverSaveHistory()
-                    TextField("New PIM (0 = VeraCrypt default)", text: $newPim)
-                        .keyboardType(.numberPad)
-                    Button("Change volume password") { changeVolumePassword() }
-                    Picker("Header KDF", selection: $headerKdf) {
-                        Text("(keep current)").tag("(keep current)")
-                        ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
-                    }
-                    Button("Set header key derivation algorithm") { setHeaderKdf() }
-                    Button("Add/Remove keyfiles to/from volume") { applyKeyfilesToVolume() }
-                    Button("Remove all keyfiles from volume") { removeAllKeyfiles() }
-                    Button("Backup volume header") { backupVolumeHeader() }
-                    Button("Restore volume header") { restoreHeaderPresented = true }
-                    Button("Restore from embedded backup header") { restoreEmbeddedHeader() }
-                    Button("Volume properties") { showVolumeProperties() }
-                    Button("Keyfile generator") { generateKeyfile() }
-                    Button("Benchmark") { runBenchmark() }
-                    Button("Test vectors") { runTestVectors() }
-                    Button("Wipe cached passwords") {
-                        lockSession()
-                        status = "Wipe cached passwords complete. Volume closed."
-                    }
-                    Text("Device encryption: this app encrypts VeraCrypt container files (any file name). It cannot encrypt the iPhone operating system. iOS already encrypts the device with your passcode.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Security tokens: PKCS#11 smart cards are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Section("About / licenses") {
-                    Text("“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)")
-                        .font(.caption)
-                        .italic()
-                        .foregroundStyle(.secondary)
-                    Text("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
-                    Link("http://www.truecrypt.org/", destination: URL(string: "http://www.truecrypt.org/")!)
-                    Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.")
-                        .font(.caption)
-                    Text(SourcePin.describeBuild())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Tap Check for updates only if this build allows it; that reads ports/version.json from the public source. The app does not install itself. AltStore or a rebuild from that source is how a new IPA arrives.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("No ads, analytics, or crash reporters. Volume passwords stay on this device. Face ID / Touch ID never leave the Secure Enclave-backed Keychain.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                }
-                Section("Status") {
-                    HStack(alignment: .top, spacing: 10) {
-                        Capsule()
-                            .fill(statusTone)
-                            .frame(width: 4, height: 36)
-                        Text(status)
+                    TabView(selection: $selectedTab) {
+                        volumeTab
+                            .tag(0)
+                            .tabItem { Label("Volume", systemImage: "lock") }
+                        wrapTab
+                            .tag(1)
+                            .tabItem { Label("Wrap", systemImage: "doc") }
+                        createTab
+                            .tag(2)
+                            .tabItem { Label("Create", systemImage: "plus.rectangle.on.folder") }
+                        toolsTab
+                            .tag(3)
+                            .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
                     }
                 }
             }
@@ -582,6 +90,16 @@ struct ContentView: View {
             .toolbarBackground(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                if volumeHandle != nil {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Dismount") { lockSession() }
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Panic wipe", role: .destructive) { panicWipe() }
+                }
+            }
             .fileImporter(isPresented: $importerPresented, allowedContentTypes: [.item, .data]) { result in
                 if case .success(let url) = result {
                     _ = url.startAccessingSecurityScopedResource()
@@ -701,6 +219,502 @@ struct ContentView: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var statusSection: some View {
+        Section("Status") {
+            HStack(alignment: .top, spacing: 10) {
+                Capsule()
+                    .fill(statusTone)
+                    .frame(width: 4, height: 36)
+                Text(status)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var incomingSection: some View {
+        if let incoming = incomingFile {
+            Section("Received from another app") {
+                Text(incoming.lastPathComponent)
+                Button("Open as container") {
+                    containerURL = incoming
+                    selectedTab = 0
+                    status = "Selected \(incoming.lastPathComponent)"
+                }
+                Button("Share encrypted file") {
+                    SystemShare.present(items: [incoming])
+                }
+                if incoming.pathExtension.lowercased() == "vcpw" {
+                    Button("Decrypt wrap") { unwrapURL(incoming) }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var inFrontSection: some View {
+        Section("In front of you") {
+            Text(inFrontLabel)
+                .font(.caption)
+            Button("Share encrypted") { shareInFrontEncrypted() }
+            Button("Share decrypted") { shareInFrontDecrypted() }
+                .disabled(!canShareDecrypted)
+        }
+    }
+
+    @ViewBuilder
+    private var keyfileRows: some View {
+        ForEach(keyfileURLs, id: \.self) { url in
+            HStack {
+                Text(url.lastPathComponent)
+                Spacer()
+                Button("Remove") {
+                    keyfileURLs.removeAll { $0 == url }
+                }
+            }
+        }
+        Button("Add keyfiles…") { keyfileImporterPresented = true }
+    }
+
+    @ViewBuilder
+    private var mountedVolumeForm: some View {
+        Form {
+            Section("Mounted in this app") {
+                if entries.isEmpty {
+                    Text("This folder is empty. Tap a folder after Copy from device. FAT folders are browsable; exFAT is not.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 4) {
+                        if !dirPath.isEmpty {
+                            Button("Up") {
+                                dirPath = parentDir(dirPath)
+                                reloadDir()
+                            }
+                        }
+                        Button("/") {
+                            dirPath = ""
+                            reloadDir()
+                        }
+                        .disabled(dirPath.isEmpty)
+                        ForEach(Array(dirPath.split(separator: "/").map(String.init).enumerated()), id: \.offset) { index, part in
+                            HStack(spacing: 4) {
+                                Text("›")
+                                    .foregroundStyle(.secondary)
+                                Button(part) {
+                                    dirPath = dirPath.split(separator: "/").map(String.init).prefix(index + 1).joined(separator: "/")
+                                    reloadDir()
+                                }
+                                .disabled(index == dirPath.split(separator: "/").count - 1)
+                            }
+                        }
+                    }
+                }
+                HStack {
+                    Button("Copy from device") {
+                        moveFromDevice = false
+                        copyFromDevicePresented = true
+                    }
+                    Button("Move from device") {
+                        moveFromDevice = true
+                        copyFromDevicePresented = true
+                    }
+                }
+                HStack {
+                    Button("Copy to device") { copySelectedToDevice(move: false) }
+                    Button("Move to device") { copySelectedToDevice(move: true) }
+                }
+                HStack {
+                    Button("New folder") {
+                        namePromptValue = ""
+                        newFolderPresented = true
+                    }
+                    Button("Rename") {
+                        guard let name = selectedNames.first else {
+                            status = "Tap a file or folder, then Rename."
+                            return
+                        }
+                        namePromptValue = name
+                        renamePresented = true
+                    }
+                    Button("Delete") { deleteSelected() }
+                    Button("Properties") { showEntryProperties() }
+                }
+                Button("Wipe free space") { wipeFreeSpace() }
+                ForEach(entries) { entry in
+                    HStack {
+                        ZStack {
+                            Circle()
+                                .fill(selectedNames.contains(entry.name) ? Color.accentColor : Color.secondary.opacity(0.18))
+                                .frame(width: 28, height: 28)
+                            if selectedNames.contains(entry.name) {
+                                Image(systemName: "checkmark")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.white)
+                            } else {
+                                Image(systemName: entry.isDir ? "folder" : "doc")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        VStack(alignment: .leading) {
+                            Text(entry.name)
+                            Text(entry.isDir ? "Folder — tap Open" : byteCount(entry.size))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if entry.isDir {
+                            Button("Open") {
+                                dirPath = joinDir(dirPath, entry.name)
+                                selectedNames = []
+                                reloadDir()
+                            }
+                        } else {
+                            Button(selectedNames.contains(entry.name) ? "Selected" : "Select") {
+                                if selectedNames.contains(entry.name) {
+                                    selectedNames.remove(entry.name)
+                                } else {
+                                    selectedNames.insert(entry.name)
+                                }
+                            }
+                            Button("Share decrypted") { shareVaultFile(entry) }
+                        }
+                    }
+                }
+                if listTruncated {
+                    Button("Load more") { reloadDir(append: true) }
+                }
+            }
+            inFrontSection
+            statusSection
+        }
+    }
+
+    @ViewBuilder
+    private var volumeTab: some View {
+        Form {
+            statusSection
+            incomingSection
+            Section {
+                Text("Stay offline by default. Biometrics can be compelled — prefer a long password and a keyfile. This is not unbreakable.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if FossConfig.enableUpdateCheck {
+                    Button("Check for updates") { checkForUpdates() }
+                }
+                Button("Choose container") { importerPresented = true }
+                Text("USB/OTG: pick any file from Files, including a USB drive — .hc, .jpg, .png, .safetensors, or no extension. iOS cannot talk to a raw USB disk.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(containerURL?.lastPathComponent ?? "No file selected")
+                Button("Share encrypted file…") { shareEncImporterPresented = true }
+                if let url = containerURL {
+                    Button("Share this encrypted file") {
+                        SystemShare.present(items: [url])
+                    }
+                }
+            }
+            inFrontSection
+            Section("Unlock") {
+                Toggle("Use backup header", isOn: $useBackupHeader)
+                Toggle("Read-only", isOn: $readOnlyOpen)
+                Toggle("TrueCrypt Mode", isOn: $trueCryptMode)
+                Toggle("Protect hidden volume against damage caused by writing to outer volume", isOn: $protectHidden)
+                if protectHidden {
+                    SecureField("Password to hidden volume", text: $hiddenProtectPassword)
+                        .neverSaveHistory()
+                    TextField("Hidden volume PIM (0 = default)", text: $hiddenProtectPim)
+                        .keyboardType(.numberPad)
+                }
+                Toggle("Text password", isOn: $useTextPassword)
+                if useTextPassword {
+                    SecureField("Password", text: $password)
+                        .neverSaveHistory()
+                }
+                TextField("PIM (0 = default)", text: $pim)
+                    .keyboardType(.numberPad)
+                keyfileRows
+                if BiometricStore.isAvailable {
+                    Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
+                    Text("When you tap Open volume, this phone asks for Face ID, Touch ID, or your passcode. Face ID / Touch ID can be compelled.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let biometricKey {
+                        let keyBytes = biometricKey.count
+                        Text("Biometric password ready (\(keyBytes) bytes).")
+                            .font(.caption)
+                    } else if let path = containerURL?.path, BiometricStore.hasFactors(for: path) {
+                        Text("A saved factor set exists. Unlock with biometrics to load it.")
+                            .font(.caption)
+                    }
+                    Button("Create biometric password") { createBiometricPassword() }
+                    Button("Import keyfile as biometric password…") { importBioPresented = true }
+                    Button("Export biometric keyfile") { exportBiometricKeyfile() }
+                    Button("Unlock with Face ID, Touch ID, or passcode") { loadBiometricFactors() }
+                    Toggle("Remember this combination", isOn: Binding(
+                        get: { rememberBiometrics },
+                        set: { on in
+                            if on {
+                                rememberConfirmText = ""
+                                rememberConfirmPresented = true
+                            } else {
+                                rememberBiometrics = false
+                            }
+                        }
+                    ))
+                    Text("Off by default. Type REMEMBER to store this session.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Button("Open volume") { openVolume() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var wrapTab: some View {
+        Form {
+            statusSection
+            incomingSection
+            Section("Wrap") {
+                SecureField("Wrap password (never stored)", text: $wrapPassword)
+                    .neverSaveHistory()
+                Button("Generate strong password") {
+                    if let generated = VcMobileBridge.generatePassword() {
+                        wrapPassword = generated
+                        status = "Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
+                    } else {
+                        status = "Password generator failed."
+                    }
+                }
+                Button("Copy once") {
+                    guard !wrapPassword.isEmpty else { return }
+                    SensitivePaste.copyOnce(wrapPassword)
+                    status = "Copied once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
+                }
+                Button("Forget password") {
+                    wrapPassword = ""
+                    SensitivePaste.forget()
+                    status = "Password forgotten. Clipboard cleared."
+                }
+                Button("Encrypt file…") {
+                    if wrapPassword.count < 16 {
+                        status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
+                    } else {
+                        wrapImporterPresented = true
+                    }
+                }
+                Button("Decrypt wrap…") {
+                    if wrapPassword.isEmpty {
+                        status = "Enter the wrap password first. It is not stored."
+                    } else {
+                        unwrapImporterPresented = true
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var createTab: some View {
+        Form {
+            statusSection
+            Section("Encryption Options") {
+                Text("Standard VeraCrypt file. Any name is a disguise — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora. Opening ignores the extension. Opening uses whichever password you type — there is no open-time hidden checkbox.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("Encryption Algorithm", selection: $createCipher) {
+                    ForEach(VcMobileBridge.ciphers, id: \.self) { Text($0).tag($0) }
+                }
+                Picker("KDF", selection: $createKdf) {
+                    ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
+                }
+                Picker("File name / disguise", selection: $createFileName) {
+                    ForEach(disguiseChoices, id: \.self) { Text($0).tag($0) }
+                }
+                TextField("File name (any extension)", text: $createFileName)
+                TextField("Size (MiB)", text: $createSizeMb)
+                    .keyboardType(.numberPad)
+                SecureField("Volume password (never stored)", text: $createPassword)
+                    .neverSaveHistory()
+                TextField("PIM (0 = default)", text: $createPim)
+                    .keyboardType(.numberPad)
+                Button("Generate strong password") {
+                    if let generated = VcMobileBridge.generatePassword() {
+                        createPassword = generated
+                        status = "Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
+                    }
+                }
+                Button("Copy once") {
+                    guard !createPassword.isEmpty else { return }
+                    SensitivePaste.copyOnce(createPassword)
+                    status = "Copied once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
+                }
+                Button("Forget password") {
+                    createPassword = ""
+                    SensitivePaste.forget()
+                    status = "Password forgotten. Clipboard cleared."
+                }
+                keyfileRows
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Randomness (move your finger)")
+                    ProgressView(value: Double(entropyPercent), total: 100)
+                        .tint(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
+                        .animation(.easeInOut(duration: 0.12), value: entropyPercent)
+                    Text("\(entropyPercent)%")
+                        .font(.caption)
+                        .monospacedDigit()
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color(white: 0.97))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.secondary.opacity(0.4)))
+                        Path { path in
+                            guard let first = entropyMarks.first else { return }
+                            path.move(to: first)
+                            for point in entropyMarks.dropFirst() {
+                                path.addLine(to: point)
+                            }
+                        }
+                        .stroke(
+                            Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255).opacity(0.72),
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                        )
+                        if let tip = entropyMarks.last {
+                            Circle()
+                                .fill(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
+                                .frame(width: 12, height: 12)
+                                .position(tip)
+                        }
+                        Text(entropyPercent >= 100 ? "Entropy ready" : "Move your finger randomly here")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 240)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { collectCreateEntropy($0) }
+                    )
+                }
+                Toggle("Nested volume (VeraCrypt hidden volume)", isOn: $createHidden)
+                if createHidden {
+                    Text("Second volume inside this file. Different password. Do not fill the outer volume.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    SecureField("Nested volume password", text: $createHiddenPassword)
+                        .neverSaveHistory()
+                    TextField("Nested PIM (0 = default)", text: $createHiddenPim)
+                        .keyboardType(.numberPad)
+                    TextField("Nested size (MiB)", text: $createHiddenSizeMb)
+                        .keyboardType(.numberPad)
+                }
+                if BiometricStore.isAvailable {
+                    Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
+                    Text("When you tap Create volume, this phone asks for Face ID, Touch ID, or your passcode. Mixed as a VeraCrypt keyfile. Face ID / Touch ID can be compelled.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let biometricKey {
+                        let keyBytes = biometricKey.count
+                        Text("Phone-unlock keyfile ready (\(keyBytes) bytes).")
+                            .font(.caption)
+                    }
+                    Button("Import keyfile as biometric password…") { importBioPresented = true }
+                    Button("Export biometric keyfile") { exportBiometricKeyfile() }
+                }
+                Button("Create volume") { createVolume() }
+                    .disabled(entropyPercent < 100)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var toolsTab: some View {
+        Form {
+            statusSection
+            Section("Tools") {
+                SecureField("New password (empty = keep current)", text: $newPassword)
+                    .neverSaveHistory()
+                TextField("New PIM (0 = VeraCrypt default)", text: $newPim)
+                    .keyboardType(.numberPad)
+                Button("Change volume password") { changeVolumePassword() }
+                Picker("Header KDF", selection: $headerKdf) {
+                    Text("(keep current)").tag("(keep current)")
+                    ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
+                }
+                Button("Set header key derivation algorithm") { setHeaderKdf() }
+                Button("Add/Remove keyfiles to/from volume") { applyKeyfilesToVolume() }
+                Button("Remove all keyfiles from volume") { removeAllKeyfiles() }
+                Button("Backup volume header") { backupVolumeHeader() }
+                Button("Restore volume header") { restoreHeaderPresented = true }
+                Button("Restore from embedded backup header") { restoreEmbeddedHeader() }
+                Button("Volume properties") { showVolumeProperties() }
+                Button("Keyfile generator") { generateKeyfile() }
+                Button("Benchmark") { runBenchmark() }
+                Button("Test vectors") { runTestVectors() }
+                Button("Wipe cached passwords") {
+                    lockSession()
+                    status = "Wipe cached passwords complete. Volume closed."
+                }
+            }
+            Section("Not on this phone") {
+                Text("Device encryption: this app encrypts VeraCrypt container files (any file name). It cannot encrypt the iPhone operating system. iOS already encrypts the device with your passcode.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Security tokens: PKCS#11 smart cards are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/exFAT/ext, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Online help is not fetched while Stay offline. English UI only.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("About / licenses") {
+                Text("“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)")
+                    .font(.caption)
+                    .italic()
+                    .foregroundStyle(.secondary)
+                Text("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
+                Link("http://www.truecrypt.org/", destination: URL(string: "http://www.truecrypt.org/")!)
+                Text("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.")
+                    .font(.caption)
+                Text(SourcePin.describeBuild())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Tap Check for updates only if this build allows it; that reads ports/version.json from the public source. The app does not install itself. AltStore or a rebuild from that source is how a new IPA arrives.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("No ads, analytics, or crash reporters. Volume passwords stay on this device. Face ID / Touch ID never leave the Secure Enclave-backed Keychain.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func checkForUpdates() {
+        beginWork("Checking for updates (≤20s HTTPS window)...")
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let result = try UpdateChecker.check()
+                DispatchQueue.main.async {
+                    endWork()
+                    status = Self.formatUpdateStatus(result)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    endWork()
+                    status = "Update check failed. Offline again."
+                }
+            }
+        }
+    }
+
 
     private var disguiseChoices: [String] {
         if Self.disguiseNames.contains(createFileName) {

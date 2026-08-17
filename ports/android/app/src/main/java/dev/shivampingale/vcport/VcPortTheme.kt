@@ -1408,13 +1408,23 @@ fun VcCard(
     ) {
         Column {
             SkinCardCap()
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                content = content
-            )
+        Column(
+            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            content = content
+        )
         }
     }
+}
+
+@Composable
+fun VcHint(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+    )
 }
 
 /** Password field that never writes IME or Autofill history. */
