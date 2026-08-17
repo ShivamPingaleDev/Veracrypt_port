@@ -440,6 +440,26 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("BiometricVault.KEY_ALIAS", hard)
         self.assertNotIn("takePersistableUriPermission", hard)
 
+    def test_wrap_keeps_password_across_file_picker(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertIn("holdLockForPicker()", main)
+        self.assertIn("wrapHold", main)
+        self.assertIn("override fun onResume()", main)
+        self.assertIn("holdingForPicker", view)
+        self.assertIn("wrapHold", view)
+        self.assertIn("holdLock", view)
+
+    def test_choose_container_keeps_session_and_shows_name(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertIn("Selected: $containerLabel", main)
+        self.assertNotIn('label = { Text("Container path") }', main)
+        self.assertIn('bindContainerFd(uri, "rw")', main)
+        self.assertIn("Selected: \\(url.lastPathComponent)", view)
+        self.assertIn("That file is selected", main)
+        self.assertIn("That file is selected", view)
+
     def test_biometric_strong_only(self) -> None:
         vault = read("ports/android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt")
         ios = read("ports/ios/VCPort/BiometricStore.swift")

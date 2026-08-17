@@ -113,7 +113,13 @@ class MainActivity : AppCompatActivity() {
     private val newPasswordState = mutableStateOf("")
     private val hiddenProtectPasswordState = mutableStateOf("")
     private var suppressLock = false
+    private var wrapHold = ""
     private var containerPfd: ParcelFileDescriptor? = null
+
+    /** File pickers stop this activity. Do not wipe the wrap password in that gap. */
+    private fun holdLockForPicker() {
+        suppressLock = true
+    }
 
     private fun lookPrefs() = getSharedPreferences("vc_port_look", MODE_PRIVATE)
 
@@ -224,15 +230,15 @@ class MainActivity : AppCompatActivity() {
                 val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                     if (uri != null) {
                         ShareHelper.persistRead(this@MainActivity, uri)
+                        incoming = null
                         containerUri = uri
                         containerLabel = ShareHelper.displayName(this@MainActivity, uri) ?: "container"
-                        pim = "0"
                         copyContainerAsync(uri) { copied ->
                             path = copied
                             status = if (copied.isEmpty())
                                 "Could not open the container. Not enough free space, or the Files picker could not be read."
                             else
-                                "Container: $containerLabel. Open volume to browse folders here."
+                                "Selected $containerLabel. Open volume to browse folders here."
                         }
                     }
                 }
@@ -290,8 +296,15 @@ class MainActivity : AppCompatActivity() {
                             contentResolver.openOutputStream(uri)?.use { out ->
                                 File(path).inputStream().use { input -> input.copyTo(out) }
                             }
+                            incoming = null
                             containerUri = uri
-                            status = "Saved encrypted container. Share encrypted from the bar below, or Open volume."
+                            containerLabel = ShareHelper.displayName(this@MainActivity, uri)
+                                ?: File(path).name
+                            holdLockForPicker()
+                            copyContainerAsync(uri) { copied ->
+                                if (copied.isNotEmpty()) path = copied
+                                status = "Saved $containerLabel. That file is selected. Open volume, or Share encrypted."
+                            }
                         } catch (_: Exception) {
                             status = "Created in app cache, but could not save a copy."
                         }
@@ -314,20 +327,30 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 val wrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                    val secret = wrapHold.ifEmpty { wrapPassword }
                     if (uri != null) {
-                        wrapSelectedFile(uri, wrapPassword, { status = it }) { wrapped ->
+                        wrapSelectedFile(uri, secret, { status = it }) { wrapped ->
                             pendingExportFile = wrapped
                             incoming = wrapped
-                            toolSaver.launch(wrapped.name)
+                            holdLockForPicker()
+                            window.decorView.post {
+                                holdLockForPicker()
+                                toolSaver.launch(wrapped.name)
+                            }
                         }
                     }
                 }
                 val unwrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+                    val secret = wrapHold.ifEmpty { wrapPassword }
                     if (uri != null) {
-                        unwrapSelectedFile(uri, wrapPassword, { status = it }) { plain ->
+                        unwrapSelectedFile(uri, secret, { status = it }) { plain ->
                             pendingExportFile = plain
                             lastPlainFiles = listOf(plain)
-                            toolSaver.launch(plain.name)
+                            holdLockForPicker()
+                            window.decorView.post {
+                                holdLockForPicker()
+                                toolSaver.launch(plain.name)
+                            }
                         }
                     }
                 }
@@ -460,10 +483,14 @@ class MainActivity : AppCompatActivity() {
                     bottomBar = {
                         val incomingFile = incoming
                         val selectedFiles = entries.filter { it.name in selectedNames && !it.isDir }
-                        val cipherName = incomingFile?.name
-                            ?: containerLabel.takeIf { it.isNotEmpty() }
-                            ?: containerUri?.let { ShareHelper.displayName(this@MainActivity, it) }
-                            ?: path.takeIf { it.isNotEmpty() && !it.startsWith("/proc/self/fd/") }?.let { File(it).name }
+                        val cipherName = when {
+                            incomingFile != null && ShareHelper.looksLikeWrap(incomingFile.name) ->
+                                incomingFile.name
+                            containerLabel.isNotEmpty() -> containerLabel
+                            incomingFile != null -> incomingFile.name
+                            else -> containerUri?.let { ShareHelper.displayName(this@MainActivity, it) }
+                                ?: path.takeIf { it.isNotEmpty() && !nativePathIsInternal(it) }?.let { File(it).name }
+                        }
                         val inFrontLabel = when {
                             selectedFiles.isNotEmpty() ->
                                 selectedFiles.joinToString { it.name } + " — decrypted from the open volume"
@@ -489,7 +516,10 @@ class MainActivity : AppCompatActivity() {
                                     incoming = incomingFile,
                                     containerUri = containerUri,
                                     path = path,
-                                    pickEncrypted = { shareEncPicker.launch(arrayOf("*/*")) },
+                                    pickEncrypted = {
+                                        holdLockForPicker()
+                                        shareEncPicker.launch(arrayOf("*/*"))
+                                    },
                                     onStatus = { status = it }
                                 )
                             },
@@ -521,8 +551,10 @@ class MainActivity : AppCompatActivity() {
                                 FilledTonalButton(
                                     onClick = {
                                         path = copyIncomingAsContainer(file)
+                                        containerLabel = file.name
+                                        containerUri = null
                                         tab = 0
-                                        status = "Using ${file.name} as container."
+                                        status = "Selected ${file.name}. Open volume to browse folders here."
                                     },
                                     enabled = !busy,
                                     modifier = Modifier.fillMaxWidth()
@@ -712,6 +744,7 @@ class MainActivity : AppCompatActivity() {
                                                     onClick = {
                                                         SensitiveClipboard.forget(this@MainActivity)
                                                         wrapPassword = ""
+                                                        wrapHold = ""
                                                         status = "Password forgotten. Clipboard cleared."
                                                     },
                                                     modifier = Modifier.weight(1f)
@@ -722,6 +755,8 @@ class MainActivity : AppCompatActivity() {
                                                     if (wrapPassword.length < 16) {
                                                         status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
                                                     } else {
+                                                        wrapHold = wrapPassword
+                                                        holdLockForPicker()
                                                         wrapPicker.launch(arrayOf("*/*"))
                                                     }
                                                 },
@@ -733,6 +768,8 @@ class MainActivity : AppCompatActivity() {
                                                     if (wrapPassword.isEmpty()) {
                                                         status = "Enter the wrap password first. It is not stored."
                                                     } else {
+                                                        wrapHold = wrapPassword
+                                                        holdLockForPicker()
                                                         unwrapPicker.launch(arrayOf("*/*"))
                                                     }
                                                 },
@@ -845,7 +882,10 @@ class MainActivity : AppCompatActivity() {
                                                 }
                                             }
                                             OutlinedButton(
-                                                onClick = { keyfilePicker.launch(arrayOf("*/*")) },
+                                                onClick = {
+                                                    holdLockForPicker()
+                                                    keyfilePicker.launch(arrayOf("*/*"))
+                                                },
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Add keyfiles") }
@@ -910,7 +950,10 @@ class MainActivity : AppCompatActivity() {
                                                     style = MaterialTheme.typography.bodySmall
                                                 )
                                                 OutlinedButton(
-                                                    onClick = { importBioPicker.launch(arrayOf("*/*")) },
+                                                    onClick = {
+                                                        holdLockForPicker()
+                                                        importBioPicker.launch(arrayOf("*/*"))
+                                                    },
                                                     enabled = !busy,
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) { Text("Import keyfile") }
@@ -962,7 +1005,13 @@ class MainActivity : AppCompatActivity() {
                                                             pim = createPim
                                                         },
                                                         onStatus = { status = it },
-                                                        onSaved = { createSaver.launch(ShareHelper.sanitizeDisguiseName(createFileName)) }
+                                                        onSaved = {
+                                                            holdLockForPicker()
+                                                            window.decorView.post {
+                                                                holdLockForPicker()
+                                                                createSaver.launch(ShareHelper.sanitizeDisguiseName(createFileName))
+                                                            }
+                                                        }
                                                     )
                                                 },
                                                 enabled = !busy && entropyPercent >= 100,
@@ -1153,7 +1202,11 @@ class MainActivity : AppCompatActivity() {
                                                         onStatus = { status = it },
                                                         onSaved = { file ->
                                                             pendingExportFile = file
-                                                            toolSaver.launch("volume-header.bak")
+                                                            holdLockForPicker()
+                                                            window.decorView.post {
+                                                                holdLockForPicker()
+                                                                toolSaver.launch("volume-header.bak")
+                                                            }
                                                         }
                                                     )
                                                 },
@@ -1161,7 +1214,10 @@ class MainActivity : AppCompatActivity() {
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Backup volume header") }
                                             OutlinedButton(
-                                                onClick = { restoreHeaderPicker.launch(arrayOf("*/*")) },
+                                                onClick = {
+                                                    holdLockForPicker()
+                                                    restoreHeaderPicker.launch(arrayOf("*/*"))
+                                                },
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Restore volume header") }
@@ -1212,7 +1268,11 @@ class MainActivity : AppCompatActivity() {
                                                             } else {
                                                                 pendingExportFile = dest
                                                                 status = "Generated a 128-byte keyfile. Save a copy, then Add keyfiles."
-                                                                toolSaver.launch("random.key")
+                                                                holdLockForPicker()
+                                                                window.decorView.post {
+                                                                    holdLockForPicker()
+                                                                    toolSaver.launch("random.key")
+                                                                }
                                                             }
                                                         }
                                                     }.start()
@@ -1322,26 +1382,26 @@ class MainActivity : AppCompatActivity() {
                                                 ) { Text("Check for updates") }
                                             }
                                             Button(
-                                                onClick = { picker.launch(arrayOf("*/*")) },
+                                                onClick = {
+                                                    holdLockForPicker()
+                                                    picker.launch(arrayOf("*/*"))
+                                                },
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Choose container") }
                                             if (containerLabel.isNotEmpty()) {
-                                                Text(containerLabel, style = MaterialTheme.typography.bodySmall)
+                                                Text("Selected: $containerLabel", style = MaterialTheme.typography.bodyMedium)
+                                                val shownPath = path.takeIf { it.isNotEmpty() && !nativePathIsInternal(it) }
+                                                if (shownPath != null) {
+                                                    Text(shownPath, style = MaterialTheme.typography.bodySmall)
+                                                }
                                             }
                                             VcHint("USB/OTG: pick any file through the Files picker — .hc, .jpg, or no extension. This app cannot mount a raw USB disk.")
-                                            if (path.isNotEmpty()) {
-                                                OutlinedTextField(
-                                                    path,
-                                                    { path = it },
-                                                    label = { Text("Container path") },
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    enabled = !busy,
-                                                    singleLine = true
-                                                )
-                                            }
                                             Button(
-                                                onClick = { shareEncPicker.launch(arrayOf("*/*")) },
+                                                onClick = {
+                                                    holdLockForPicker()
+                                                    shareEncPicker.launch(arrayOf("*/*"))
+                                                },
                                                 modifier = Modifier.fillMaxWidth()
                                             ) {
                                                 Icon(Icons.Filled.Share, contentDescription = null)
@@ -1458,7 +1518,10 @@ class MainActivity : AppCompatActivity() {
                                                     }
                                                 }
                                                 OutlinedButton(
-                                                    onClick = { keyfilePicker.launch(arrayOf("*/*")) },
+                                                    onClick = {
+                                                        holdLockForPicker()
+                                                        keyfilePicker.launch(arrayOf("*/*"))
+                                                    },
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) { Text("Add keyfiles") }
                                                 if (vault.isAvailable()) {
@@ -1506,7 +1569,10 @@ class MainActivity : AppCompatActivity() {
                                                         modifier = Modifier.fillMaxWidth()
                                                     ) { Text("Create") }
                                                     OutlinedButton(
-                                                        onClick = { importBioPicker.launch(arrayOf("*/*")) },
+                                                        onClick = {
+                                                            holdLockForPicker()
+                                                            importBioPicker.launch(arrayOf("*/*"))
+                                                        },
                                                         modifier = Modifier.fillMaxWidth()
                                                     ) { Text("Import keyfile") }
                                                     OutlinedButton(
@@ -1676,10 +1742,18 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    override fun onResume() {
+        super.onResume()
+        window.decorView.post {
+            if (!busyState.value) {
+                suppressLock = false
+            }
+        }
+    }
+
     override fun onStop() {
         super.onStop()
         if (suppressLock) {
-            suppressLock = false
             return
         }
         lockSession()
@@ -1708,6 +1782,7 @@ class MainActivity : AppCompatActivity() {
         newPasswordState.value = ""
         passwordState.value = ""
         wrapPasswordState.value = ""
+        wrapHold = ""
         pimState.value = "0"
         createPimState.value = "0"
         createHiddenPimState.value = "0"
@@ -2238,27 +2313,28 @@ class MainActivity : AppCompatActivity() {
         containerPfd = null
     }
 
+    private fun nativePathIsInternal(nativePath: String): Boolean {
+        return nativePath.startsWith("/proc/self/fd/") ||
+            nativePath.startsWith(cacheDir.absolutePath) ||
+            nativePath.startsWith(filesDir.absolutePath)
+    }
+
     private fun bindContainer(uri: Uri): String {
         releaseContainerPfd()
         if (uri.scheme == "file") {
             val p = uri.path
             if (!p.isNullOrEmpty() && File(p).canRead()) return p
         }
-        val len = uriLength(uri)
-        val huge = len > (32L shl 20)
-        if (huge) {
-            val fdPath = bindContainerFd(uri)
-            if (fdPath.isNotEmpty()) return fdPath
-        }
+        val writable = bindContainerFd(uri, "rw")
+        if (writable.isNotEmpty()) return writable
         val copied = copyToCache(uri)
         if (copied.isNotEmpty()) return copied
-        return bindContainerFd(uri)
+        return bindContainerFd(uri, "r")
     }
 
-    private fun bindContainerFd(uri: Uri): String {
+    private fun bindContainerFd(uri: Uri, mode: String): String {
         return try {
-            val pfd = contentResolver.openFileDescriptor(uri, "rw")
-                ?: contentResolver.openFileDescriptor(uri, "r")
+            val pfd = contentResolver.openFileDescriptor(uri, mode)
             if (pfd != null && pfd.statSize >= 0L) {
                 containerPfd = pfd
                 "/proc/self/fd/${pfd.fd}"

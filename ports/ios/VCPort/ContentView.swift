@@ -58,8 +58,16 @@ struct ContentView: View {
     @State private var workTitle = ""
     @State private var workPercent = -1
     @State private var entropyMarks: [CGPoint] = []
+    @State private var wrapHold = ""
+    @State private var holdLock = false
 
     @State private var selectedTab = 0
+
+    private var holdingForPicker: Bool {
+        holdLock || wrapImporterPresented || unwrapImporterPresented || importerPresented
+            || shareEncImporterPresented || keyfileImporterPresented || importBioPresented
+            || restoreHeaderPresented || copyFromDevicePresented
+    }
 
     var body: some View {
         ZStack {
@@ -101,10 +109,15 @@ struct ContentView: View {
                 }
             }
             .fileImporter(isPresented: $importerPresented, allowedContentTypes: [.item, .data]) { result in
-                if case .success(let url) = result {
+                switch result {
+                case .success(let url):
                     _ = url.startAccessingSecurityScopedResource()
+                    incomingFile = nil
                     containerURL = url
+                    holdLock = false
                     status = "Selected \(url.lastPathComponent)"
+                case .failure:
+                    holdLock = false
                 }
             }
             .fileImporter(
@@ -119,16 +132,24 @@ struct ContentView: View {
                     SystemShare.present(items: urls)
                 }
             }
-            .fileImporter(isPresented: $wrapImporterPresented, allowedContentTypes: [.data]) { result in
-                if case .success(let url) = result {
+            .fileImporter(isPresented: $wrapImporterPresented, allowedContentTypes: [.item, .data]) { result in
+                switch result {
+                case .success(let url):
                     _ = url.startAccessingSecurityScopedResource()
-                    wrapURL(url)
+                    wrapURL(url, password: wrapHold.count >= 16 ? wrapHold : wrapPassword)
+                case .failure:
+                    holdLock = false
+                    wrapHold = ""
                 }
             }
-            .fileImporter(isPresented: $unwrapImporterPresented, allowedContentTypes: [.data]) { result in
-                if case .success(let url) = result {
+            .fileImporter(isPresented: $unwrapImporterPresented, allowedContentTypes: [.item, .data]) { result in
+                switch result {
+                case .success(let url):
                     _ = url.startAccessingSecurityScopedResource()
-                    unwrapURL(url)
+                    unwrapURL(url, password: wrapHold.isEmpty ? wrapPassword : wrapHold)
+                case .failure:
+                    holdLock = false
+                    wrapHold = ""
                 }
             }
             .fileImporter(
@@ -136,6 +157,7 @@ struct ContentView: View {
                 allowedContentTypes: [.data],
                 allowsMultipleSelection: true
             ) { result in
+                holdLock = false
                 if case .success(let urls) = result {
                     urls.forEach { _ = $0.startAccessingSecurityScopedResource() }
                     for url in urls where !keyfileURLs.contains(url) {
@@ -186,7 +208,7 @@ struct ContentView: View {
                 Text("A compelled Face ID / Touch ID can open a remembered set. Type REMEMBER to store factors this session. Volume-path history is never written.")
             }
             .onChange(of: scenePhase) { phase in
-                if phase == .background {
+                if phase == .background && !holdingForPicker && !busy {
                     lockSession()
                 }
             }
@@ -274,7 +296,10 @@ struct ContentView: View {
                 }
             }
         }
-        Button("Add keyfiles…") { keyfileImporterPresented = true }
+        Button("Add keyfiles…") {
+            holdLock = true
+            keyfileImporterPresented = true
+        }
     }
 
     @ViewBuilder
@@ -405,11 +430,27 @@ struct ContentView: View {
                 if FossConfig.enableUpdateCheck {
                     Button("Check for updates") { checkForUpdates() }
                 }
-                Button("Choose container") { importerPresented = true }
+                Button("Choose container") {
+                    holdLock = true
+                    importerPresented = true
+                }
                 Text("USB/OTG: pick any file from Files, including a USB drive — .hc, .jpg, .png, .safetensors, or no extension. iOS cannot talk to a raw USB disk.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(containerURL?.lastPathComponent ?? "No file selected")
+                if let url = containerURL {
+                    Text("Selected: \(url.lastPathComponent)")
+                    if isTemporaryContainer(url) {
+                        Text("On this phone until you save it to Files.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(url.path)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("No file selected")
+                }
                 Button("Share encrypted file…") { shareEncImporterPresented = true }
                 if let url = containerURL {
                     Button("Share this encrypted file") {
@@ -497,6 +538,7 @@ struct ContentView: View {
                 }
                 Button("Forget password") {
                     wrapPassword = ""
+                    wrapHold = ""
                     SensitivePaste.forget()
                     status = "Password forgotten. Clipboard cleared."
                 }
@@ -504,6 +546,8 @@ struct ContentView: View {
                     if wrapPassword.count < 16 {
                         status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
                     } else {
+                        wrapHold = wrapPassword
+                        holdLock = true
                         wrapImporterPresented = true
                     }
                 }
@@ -511,6 +555,8 @@ struct ContentView: View {
                     if wrapPassword.isEmpty {
                         status = "Enter the wrap password first. It is not stored."
                     } else {
+                        wrapHold = wrapPassword
+                        holdLock = true
                         unwrapImporterPresented = true
                     }
                 }
@@ -734,11 +780,11 @@ struct ContentView: View {
         if let incoming = incomingFile, incoming.pathExtension.lowercased() == "vcpw" {
             return "\(incoming.lastPathComponent) — encrypted wrap in front"
         }
-        if let incoming = incomingFile {
-            return "\(incoming.lastPathComponent) — encrypted file in front"
-        }
         if let containerURL {
             return "\(containerURL.lastPathComponent) — encrypted file in front"
+        }
+        if let incoming = incomingFile {
+            return "\(incoming.lastPathComponent) — encrypted file in front"
         }
         return "Nothing in front. Select a container or file, then share from here."
     }
@@ -944,6 +990,16 @@ struct ContentView: View {
                     )
                 }
                 status = msg
+                holdLock = true
+                SystemFiles.exportCopy(url: dest) { saved in
+                    holdLock = false
+                    if let saved {
+                        _ = saved.startAccessingSecurityScopedResource()
+                        incomingFile = nil
+                        containerURL = saved
+                        status = "Saved \(saved.lastPathComponent). That file is selected. Open volume, or Share encrypted."
+                    }
+                }
             }
         }
     }
@@ -1175,10 +1231,20 @@ struct ContentView: View {
         selectedNames = []
     }
 
+    private func isTemporaryContainer(_ url: URL) -> Bool {
+        let path = url.path
+        return path.contains("/tmp/") ||
+            path.contains("/Caches/") ||
+            path.contains("/TemporaryItems/") ||
+            path.contains(FileManager.default.temporaryDirectory.path)
+    }
+
     private func lockSession() {
         closeVolume()
         password = ""
         wrapPassword = ""
+        wrapHold = ""
+        holdLock = false
         createPassword = ""
         createHiddenPassword = ""
         hiddenProtectPassword = ""
@@ -1212,6 +1278,8 @@ struct ContentView: View {
         closeVolume()
         password = ""
         wrapPassword = ""
+        wrapHold = ""
+        holdLock = false
         createPassword = ""
         createHiddenPassword = ""
         hiddenProtectPassword = ""
@@ -1354,8 +1422,8 @@ struct ContentView: View {
                     status = extractErrorMessage(entry.name, rc)
                     return
                 }
-                SystemFiles.exportCopy(url: dest) { ok in
-                    if !ok {
+                SystemFiles.exportCopy(url: dest) { saved in
+                    if saved == nil {
                         status = "Cancelled saving \(entry.name)."
                         return
                     }
@@ -1774,12 +1842,16 @@ struct ContentView: View {
         }
     }
 
-    private func wrapURL(_ url: URL) {
-        guard wrapPassword.count >= 16 else {
+    private func wrapURL(_ url: URL, password: String? = nil) {
+        let secret = password ?? (wrapHold.count >= 16 ? wrapHold : wrapPassword)
+        guard secret.count >= 16 else {
+            holdLock = false
+            wrapHold = ""
             status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
             return
         }
         beginWork("Wrapping \(url.lastPathComponent)…")
+        holdLock = false
         DispatchQueue.global(qos: .userInitiated).async {
             guard let src = copyScopedFile(url) else {
                 DispatchQueue.main.async {
@@ -1793,7 +1865,7 @@ struct ContentView: View {
             let rc = VcMobileBridge.wrapFile(
                 src: src.path,
                 dest: dest.path,
-                password: wrapPassword,
+                password: secret,
                 originalName: url.lastPathComponent
             )
             DispatchQueue.main.async {
@@ -1809,12 +1881,16 @@ struct ContentView: View {
         }
     }
 
-    private func unwrapURL(_ url: URL) {
-        guard !wrapPassword.isEmpty else {
+    private func unwrapURL(_ url: URL, password: String? = nil) {
+        let secret = password ?? (wrapHold.isEmpty ? wrapPassword : wrapHold)
+        guard !secret.isEmpty else {
+            holdLock = false
+            wrapHold = ""
             status = "Enter the wrap password first. It is not stored."
             return
         }
         beginWork("Unwrapping \(url.lastPathComponent)…")
+        holdLock = false
         DispatchQueue.global(qos: .userInitiated).async {
             guard let src = copyScopedFile(url) else {
                 DispatchQueue.main.async {
@@ -1825,7 +1901,7 @@ struct ContentView: View {
             }
             let dir = FileManager.default.temporaryDirectory.appendingPathComponent("unwrapped", isDirectory: true)
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let out = VcMobileBridge.unwrapFile(src: src.path, destDir: dir.path, password: wrapPassword)
+            let out = VcMobileBridge.unwrapFile(src: src.path, destDir: dir.path, password: secret)
             DispatchQueue.main.async {
                 endWork()
                 guard let out else {

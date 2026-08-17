@@ -24,22 +24,22 @@ enum SystemShare {
 
 private final class FilesExportController: NSObject, UIDocumentPickerDelegate {
     static var current: FilesExportController?
-    let onFinish: (Bool) -> Void
-    init(onFinish: @escaping (Bool) -> Void) {
+    let onFinish: (URL?) -> Void
+    init(onFinish: @escaping (URL?) -> Void) {
         self.onFinish = onFinish
     }
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        onFinish(true)
+        onFinish(urls.first)
         FilesExportController.current = nil
     }
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-        onFinish(false)
+        onFinish(nil)
         FilesExportController.current = nil
     }
 }
 
 enum SystemFiles {
-    static func exportCopy(url: URL, onFinish: @escaping (Bool) -> Void) {
+    static func exportCopy(url: URL, onFinish: @escaping (URL?) -> Void) {
         let controller = FilesExportController(onFinish: onFinish)
         FilesExportController.current = controller
         let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
@@ -49,7 +49,7 @@ enum SystemFiles {
             .flatMap({ $0.windows })
             .first(where: { $0.isKeyWindow })?
             .rootViewController else {
-            onFinish(false)
+            onFinish(nil)
             FilesExportController.current = nil
             return
         }
