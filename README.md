@@ -1,11 +1,44 @@
-**VC Port** (this checkout): Android/iOS clients and Apple silicon extras on top of VeraCrypt. It is a **derived work**, **not named VeraCrypt**, and **not unbreakable**. GitHub Actions APKs are debug-signed previews. iPhone users sign the unsigned IPA themselves. Mobile UI shots: [ports/docs/screenshots/](ports/docs/screenshots/). How to keep the repos public: [ports/PUBLIC.md](ports/PUBLIC.md). The macOS GUI has not been built on a machine with wxWidgets in this project’s remote setup. Licenses: [LICENSE](LICENSE), [NOTICE](NOTICE), full texts in [License.txt](License.txt).
+> “We must defend our own privacy if we expect to have any.”
+> — Eric Hughes, *A Cypherpunk’s Manifesto* (1993)
 
-Looks (Cyberpunk, Matrix, MAGI, Signal) — same `applicationId` as the Desktop APK:
+# VC Port
 
-![VC Port Looks Cyberpunk](ports/docs/screenshots/05-skin-cyberpunk.png)
-![VC Port Looks Matrix](ports/docs/screenshots/06-skin-matrix.png)
-![VC Port Looks MAGI](ports/docs/screenshots/07-skin-eva.png)
-![VC Port Looks Signal](ports/docs/screenshots/08-skin-signal.png)
+VC Port lets you open the same locked files on your **phone** that you already use on a computer.
+
+This app is **not** called VeraCrypt. We are not allowed to use that name. It is **not unbreakable**.
+
+## Phones (the main thing)
+
+**Android** and **iPhone**. That is what this project is for.
+
+- Open a locked file and look at the folders inside
+- Make a new locked file
+- Send the locked file as-is (no password on the send)
+- Lock one extra file with its own password
+- Stay offline
+- Wipe this phone’s secrets if you need to
+
+On **iPhone**, you sign the app yourself with **your Apple ID**. We do not sign it for you.
+
+Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.1). Those are test files, not store files. Installing one Android copy replaces the others.
+
+![Volume](ports/docs/screenshots/01-volume.png)
+![Wrap](ports/docs/screenshots/02-wrap.png)
+![Create](ports/docs/screenshots/03-create.png)
+![Tools](ports/docs/screenshots/04-tools.png)
+
+## Mac (extra)
+
+There is extra Mac computer work here too (Apple chip, Touch ID). It is not the main thing. The usual computer program is still the one from VeraCrypt. Details: [PORTING.md](PORTING.md).
+
+## Looks (least important)
+
+Same phone app. Optional paint: Cyberpunk, Matrix, MAGI, Signal. Not required. Not the point of the app.
+
+![Cyberpunk](ports/docs/screenshots/05-skin-cyberpunk.png)
+![Matrix](ports/docs/screenshots/06-skin-matrix.png)
+![MAGI](ports/docs/screenshots/07-skin-eva.png)
+![Signal](ports/docs/screenshots/08-skin-signal.png)
 
 **Contact:** Shivam Mangesh Pingale — [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me) · [shivampingaledev@gmail.com](mailto:shivampingaledev@gmail.com)
 
@@ -13,268 +46,9 @@ Looks (Cyberpunk, Matrix, MAGI, Signal) — same `applicationId` as the Desktop 
 
 If this work is useful to you and you have room to **teach**, offer an **internship**, or **hire**: I am looking for that. Same email as Contact. No pressure.
 
-Security reports: [SECURITY.md](SECURITY.md).
+Problems that can hurt people: [SECURITY.md](SECURITY.md). How to talk about this in public: [ports/PUBLIC.md](ports/PUBLIC.md).
 
-This archive contains the source code of VeraCrypt.
-It is based on the original TrueCrypt 7.1a with security enhancements and modifications.
+This folder also has the original VeraCrypt source. Use it only if you accept [License.txt](License.txt). A copy must not be called VeraCrypt or TrueCrypt.
 
-This checkout also contains the **VC Port** work: Apple silicon / FUSE-T
-improvements, Touch ID volume unlock, native macOS administrator
-authentication for standard users, and Android/iOS clients. See
-[PORTING.md](PORTING.md).
-
-# Important
-
-You may use the source code contained in this archive only if you accept and
-agree to the license terms contained in the file 'License.txt', which is
-included in this archive.
-
-Note that the license specifies, for example, that a derived work must not be
-called 'TrueCrypt' or 'VeraCrypt'
-
-# Contents
-
-[I. Windows](#i-windows)
-
-[II. Linux and Mac OS X](#ii-linux-and-mac-os-x)
-
-[III. FreeBSD and OpenBSD](#iii-freebsd-and-openbsd)
-
-[IV. Third-Party Developers (Contributors)](#iv-third-party-developers-contributors)
-
-[V. Legal Information](#v-legal-information)
-
-[VI. Further Information](#vi-further-information)
-
-# I. Windows
-
-## Requirements for Building VeraCrypt for Windows:
-
-A detailed guide on how to build VeraCrypt on Windows can be found in
-the [documentation](./doc/html/en/CompilingGuidelineWin.html) in the repository and
-it is also available [online](https://veracrypt.jp/en/CompilingGuidelineWin.html) or on the [mirror](https://veracrypt.io/en/CompilingGuidelineWin.html).
-
-IMPORTANT:
-
-The 64-bit editions of Windows Vista and later versions of Windows, and in
-some cases (e.g. playback of HD DVD content) also the 32-bit editions do not
-allow the VeraCrypt driver to run without an appropriate digital signature.
-Therefore, all .sys files in official VeraCrypt binary packages are digitally
-signed with the digital certificate of the IDRIX, which was issued by
-GlobalSign certification authority. At the end of each official .exe and
-.sys file, there are embedded digital signatures and all related certificates
-(i.e. all certificates in the relevant certification chain, such as the
-certification authority certificates, CA-MS cross-certificate, and the
-IDRIX certificate).
-
-Keep this in mind if you compile VeraCrypt and compare your binaries with the
-official binaries. If your binaries are unsigned, the sizes of the official
-binaries will usually be approximately 10 KiB greater than the sizes of your
-binaries (there may be further differences if you use a different version of
-the compiler, or if you install a different or no service pack for Visual
-Studio, or different hotfixes for it, or if you use different versions of
-the required SDKs).
-
-## Instructions for Signing and Packaging VeraCrypt for Windows:
-
-First, create an environment variable 'WSDK81' pointing to the Windows SDK
-for Windows 8.1 installation directory.
-
-The folder "Signing" contains a batch file (sign.bat) that will sign all
-VeraCrypt components using a code signing certificate present on the
-certificate store and build the final installation setup and MSI package.
-The batch file assumes that the code signing certificate is issued by
-GlobalSign. This is the case for IDRIX's certificate. If yours is issued by
-another CA, then you should put its intermediate certificates in the "Signing"
-folder and modify sign.bat accordingly.
-
-To generate MSI packages, WiX Toolset v3.11 must be installed.
-
-## VeraCrypt EFI Boot Loader:
-
-VeraCrypt source code contains pre-built EFI binaries under src\Boot\EFI.
-The source code of VeraCrypt EFI Boot Loader is licensed under LGPL and
-it is available at https://github.com/veracrypt/VeraCrypt-DCS.
-For build instructions, please refer to the file src\Boot\EFI\Readme.txt.
-
-# II. Linux and Mac OS X
-
-A detailed guide on how to build VeraCrypt on Linux can be found in
-the [documentation](./doc/html/en/CompilingGuidelineLinux.html) in the repository and
-it is also available [online](https://veracrypt.jp/en/CompilingGuidelineLinux.html) or on the [mirror](https://veracrypt.io/en/CompilingGuidelineLinux.html).
-
-## Requirements for Building VeraCrypt for Linux and Mac OS X:
-
-- GNU Make
-- GNU C++ Compiler 4.0 or compatible
-- Apple Xcode or Xcode command line tools (Mac OS X only)
-- YASM 1.3.0 or newer (Linux only, x86/x64 architecture only)
-- pkg-config
-- wxWidgets 3.0 shared library and header files installed or
-  wxWidgets 3.0 library source code (available at https://www.wxwidgets.org)
-- FUSE library and header files (available at https://github.com/libfuse/libfuse
-  and https://macfuse.github.io/)
-- PCSC-lite library and header files (available at https://github.com/LudovicRousseau/PCSC)
-
-## Instructions for Building VeraCrypt for Linux and Mac OS X:
-
-1. Change the current directory to the root of the VeraCrypt source code.
-
-2. If you have no wxWidgets shared library installed, run the following
-   command to configure the wxWidgets static library for VeraCrypt and to
-   build it:
-
-   `$ make WXSTATIC=1 WX_ROOT=/usr/src/wxWidgets wxbuild`
-
-   The variable `WX_ROOT` must point to the location of the source code of the
-   wxWidgets library. Output files will be placed in the './wxrelease/'
-   directory.
-
-3. To build VeraCrypt, run the following command:
-
-   `$ make`
-
-   or if you have no wxWidgets shared library installed:
-
-   `$ make WXSTATIC=1`
-
-4. If successful, the VeraCrypt executable should be located in the directory
-   'Main'.
-
-Reproducible build note: when `SOURCE_DATE_EPOCH` is not set, a build from a
-git checkout uses the HEAD commit timestamp, while a build from a release
-tarball uses the release date in `src/Common/Tcdefs.h` at 00:00 UTC. To
-reproduce official release artifacts from a git checkout, set
-`SOURCE_DATE_EPOCH` explicitly or build from the release tarball. Vendored
-VeraCrypt sources tracked in another git checkout are treated the same way and
-use that checkout's HEAD timestamp.
-
-Both the generated `.deb` and `.rpm` packages are reproducible, including on older rpm (e.g. CentOS/RHEL 7) that lacks the `SOURCE_DATE_EPOCH`/`_buildhost` build macros.
-
-By default, a universal executable supporting both graphical and text user
-interface (through the switch --text) is built.
-On Linux, a console-only executable, which requires no GUI library, can be
-built using the 'NOGUI' parameter:
-
-`$ make NOGUI=1 WXSTATIC=1 WX_ROOT=/usr/src/wxWidgets wxbuild`
-
-`$ make NOGUI=1 WXSTATIC=1`
-
-## Arch Linux package build:
-
-Arch Linux users can build and install a package from the current checkout with
-makepkg:
-
-`$ cd src/Build/Packaging/arch`
-
-`$ makepkg -si`
-
-On MacOSX, building a console-only executable is not supported.
-
-## Mac OS X specifics:
-
-Under MacOSX, the latest installed SDK is used by default. To use a different version
-of the SDK when building using make, you can export the environment variable VC_OSX_SDK:
-
-`$ export VC_OSX_SDK=13.0`
-
-For development dependencies management, you can use [homebrew](https://brew.sh).
-
-`$ brew install pkg-config yasm wxwidgets`
-
-You also need system dependencies
-
-`$ brew install --cask macfuse packages`
-
-After installing dependencies via brew, you can build a local development build
-
-`$ ./src/Build/build_veracrypt_macosx.sh -b`
-
-If you want to build the package, you must pass `-p` to the build script above. The built
-executable will be in `.src/Main`
-
-If you prefer to build from sources, or without homebrew, pkg-config and packages must be installed.
-
-Get pkg-config from https://pkgconfig.freedesktop.org/releases/pkg-config-0.29.2.tar.gz and
-compile using the following commands:
-
-`$ CFLAGS="-Wno-int-conversion" CXXFLAGS="-Wno-int-conversion" ./configure --with-internal-glib`
-
-`$ make`
-
-`$ sudo make install`
-
-After making sure pkg-config is available, download and install macFUSE from
-https://macfuse.github.io/
-
-The [build_veracrypt_macosx.sh](./src/Build/build_veracrypt_macosx.sh) script performs the
-full build of VeraCrypt including the creation of the installer pkg. It expects
-to find the wxWidgets 3.2.5 sources at the same level as where you put
-VeraCrypt sources (i.e. if "src" path is "/Users/joe/Projects/VeraCrypt/src"
-then wxWidgets should be at "/Users/joe/Projects/wxWidgets-3.2.5")
-
-The make build process uses Code Signing certificates whose ID is specified in
-src/Main/Main.make (look for lines containing "Developer ID Application" and
-"Developer ID Installer"). You'll have to modify these lines to put the ID of
-your Code Signing certificates or comment them out if you don't have one.
-
-Because of incompatibility issues with macFUSE, the SDK 10.9 generates a
-VeraCrypt binary that has issues communicating with the macFUSE kernel extension.
-Thus, we recommend using a different macOS SDK version for building VeraCrypt.
-
-The Packages installer that is used for the VeraCrypt official build has been notarized by IDRIX and it is available at
-https://github.com/idrassi/packages/releases
-
-# III. FreeBSD and OpenBSD
-
-FreeBSD is supported starting from version 14.
-OpenBSD is supported starting from version 7.8.
-The build requirements and instructions are the same as Linux except that gmake
-should be used instead of make.
-
-# IV. Third-Party Developers (Contributors)
-
-If you intend to implement a feature, please contact us first to make sure:
-
-1. That the feature has not been implemented (we may have already implemented
-   it, but haven't released the code yet).
-2. That the feature is acceptable.
-3. Whether we need the help of third-party developers with implementing the feature.
-
-Information on how to contact us can be found at:
-https://veracrypt.jp or
-https://veracrypt.io (mirror)
-
-# V. Legal Information
-
-## Copyright Information
-
-This software as a whole:  
-Copyright (c) 2026 AM Crypto. All rights reserved.  
-
-Portions of this software:  
-Copyright (c) 2026 AM Crypto. All rights reserved.  
-Copyright (c) 2013-2025 IDRIX. All rights reserved.  
-Copyright (c) 2003-2012 TrueCrypt Developers Association. All rights reserved.  
-Copyright (c) 1998-2000 Paul Le Roux. All rights reserved.  
-Copyright (c) 1998-2008 Brian Gladman, Worcester, UK. All rights reserved.  
-Copyright (c) 1995-2023 Jean-loup Gailly and Mark Adler.  
-Copyright (c) 2016 Disk Cryptography Services for EFI (DCS), Alex Kolotnikov  
-Copyright (c) 1999-2023 Dieter Baron and Thomas Klausner.  
-Copyright (c) 2013, Alexey Degtyarev. All rights reserved.  
-Copyright (c) 1999-2016 Jack Lloyd. All rights reserved.  
-Copyright (c) 2013-2019 Stephan Mueller <smueller@chronox.de>  
-Copyright (c) 1999-2023 Igor Pavlov  
-
-For more information, please see the legal notices attached to parts of the
-source code.
-
-## Trademark Information
-
-Any trademarks contained in the source code, binaries, and/or in the
-documentation, are the sole property of their respective owners.
-
-# VI. Further Information
-
-https://veracrypt.jp  
-https://veracrypt.io (mirror)
+> “Cypherpunks write code.”
+> — Eric Hughes, *A Cypherpunk’s Manifesto* (1993)

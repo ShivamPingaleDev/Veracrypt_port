@@ -9,6 +9,7 @@
 - Wrap, PIM, keyfile, and container-name fixes: wrap copies then Save-as; Lock clears PIM; custom disguise names stay; any file can be a keyfile (first 1 MiB); container label is the Files name, not `/proc/self/fd`.
 - Create/Open with phone unlock selected shows the system PIN / fingerprint / face prompt. Dismount wipes passwords, RAM keyfiles, and decrypted copies; remembered Keystore/Keychain factors stay until Panic wipe.
 - Phone UI: same skins and honest copy, less essay. Volume / Wrap / Create / Tools first; About and desktop leftovers live under Tools. Mounted folders keep Copy/Move on two rows.
+- GitHub README: Hughes quote first, phones first, Mac extra, Looks last, footnote, then “Cypherpunks write code.”
 - Host crypto-safety suite: AES-256 FIPS-197 known-answer, CTR partial blocks, `vc_secure_wipe`, wrap reject-before-Argon2, JNI/enclave mocks, ASan/UBSan. Optional libFuzzer harness `fuzz_wrap.cc`.
 - Host Linux CI links wrap/volume tests without SHA-NI objects or PCSC; overlay inventories refreshed.
 
