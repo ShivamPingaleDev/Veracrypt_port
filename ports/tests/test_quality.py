@@ -199,6 +199,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("close volume again", life)
         self.assertIn("vc_lifecycle_test", cmake)
         self.assertIn("run_lifecycle_test.sh", runner)
+        self.assertIn("run_crypto_safety_test.sh", runner)
         self.assertIn("std::thread", life)
         self.assertIn("parallel CPU", life)
         self.assertIn("VeraCrypt AES/Twofish/Serpent/HMAC test vectors", life)
@@ -337,6 +338,9 @@ class IntegrationTests(unittest.TestCase):
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("Java_dev_shivampingale_vcport_NativeBridge_progressPercent", jni)
         self.assertIn("Java_dev_shivampingale_vcport_NativeBridge_resetProgress", jni)
+        self.assertIn("JNI_UTF_MAX = 4096", jni)
+        self.assertIn("jni_wipe_string", jni)
+        self.assertIn("VC_HOST_JNI", jni)
 
 
 class FunctionalTests(unittest.TestCase):
@@ -610,6 +614,14 @@ class BoundedFuzzTests(unittest.TestCase):
         self.assertIn("unwrap rejects bit flips", wrap)
         self.assertIn("unwrap rejects garbage", wrap)
         self.assertIn("unwrap rejects header mutation", wrap)
+        safety = read("ports/shared/test_crypto_safety_main.cpp")
+        fuzz = read("ports/shared/fuzz_wrap.cc")
+        mk = read("ports/shared/Makefile.crypto-safety")
+        self.assertIn("FIPS-197", safety)
+        self.assertIn("vc_secure_wipe", safety)
+        self.assertIn("LLVMFuzzerTestOneInput", fuzz)
+        self.assertIn("-fsanitize=address,undefined", mk)
+        self.assertIn("valgrind", mk)
 
 
 class StaticContractTests(unittest.TestCase):
@@ -626,6 +638,7 @@ class StaticContractTests(unittest.TestCase):
             "Smoke",
             "Property",
             "Bounded fuzz",
+            "libFuzzer",
         ):
             self.assertIn(word, doc)
 

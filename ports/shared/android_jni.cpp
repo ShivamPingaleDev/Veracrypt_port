@@ -2,7 +2,11 @@
  Copyright (c) 2026 Shivam Mangesh Pingale. All rights reserved.
 */
 
+#ifdef VC_HOST_JNI
+#include "host_jni.h"
+#else
 #include <jni.h>
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <string>

@@ -771,6 +771,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("TC_IOS", lists)
         self.assertIn('CMAKE_SYSTEM_NAME STREQUAL "iOS"', lists)
         self.assertIn("vc_progress.cpp", lists)
+        self.assertIn("vc_crypto_safety_test", lists)
+        self.assertIn("VC_ENABLE_ASAN", lists)
         self.assertIn("armv8-a+crypto", lists)
         self.assertIn("mfpu=neon", lists)
         self.assertIn("-ftree-vectorize", lists)

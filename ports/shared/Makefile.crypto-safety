@@ -1,0 +1,30 @@
+# Debian/macOS crypto-safety tests.
+# ASan and Valgrind are mutually exclusive. Do not combine them.
+#
+#   make -f ports/shared/Makefile.crypto-safety test
+#   make -f ports/shared/Makefile.crypto-safety test-valgrind
+#   make -f ports/shared/Makefile.crypto-safety fuzz-afl-file
+#   make -f ports/shared/Makefile.crypto-safety fuzz
+
+SHARED := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+OBJ ?= /tmp/vcport-crypto-safety-make
+SAN ?= -fsanitize=address,undefined -fno-omit-frame-pointer
+
+.PHONY: test test-valgrind fuzz fuzz-afl-file clean
+
+test:
+	VC_SANITIZE="$(SAN)" VC_CRYPTO_OBJ="$(OBJ)" $(SHARED)run_crypto_safety_test.sh
+
+test-valgrind:
+	VC_SANITIZE= VC_CRYPTO_OBJ="$(OBJ)-valgrind" $(SHARED)run_crypto_safety_test.sh
+	valgrind --error-exitcode=99 --leak-check=full --track-origins=yes \
+		"$(OBJ)-valgrind/vcport-crypto-safety-test"
+
+fuzz:
+	$(SHARED)run_fuzz_wrap.sh libfuzzer
+
+fuzz-afl-file:
+	$(SHARED)run_fuzz_wrap.sh afl
+
+clean:
+	rm -rf $(OBJ) $(OBJ)-valgrind /tmp/vcport-fuzz-obj

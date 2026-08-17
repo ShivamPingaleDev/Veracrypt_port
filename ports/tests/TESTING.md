@@ -11,8 +11,8 @@ python3 ports/tests/test_quality.py
 
 | Kind | Question it answers | What actually runs |
 | --- | --- | --- |
-| **Unit** | Does one function do the right thing? | `test_factors.py` (VCF2), `test_wipe.py`, tag/version tables in `test_quality.py`, password generator in `test_wrap_main.cpp` |
-| **Module** | Does one C/Kotlin/Swift unit keep its contract? | `run_wrap_test.sh`, `run_volume_test.sh`, `run_lifecycle_test.sh`, SourcePin / UpdateChecker |
+| **Unit** | Does one function do the right thing? | `test_factors.py` (VCF2), `test_wipe.py`, tag/version tables in `test_quality.py`, password generator in `test_wrap_main.cpp`, AES-256 FIPS-197 + wipe in `run_crypto_safety_test.sh` |
+| **Module** | Does one C/Kotlin/Swift unit keep its contract? | `run_wrap_test.sh`, `run_crypto_safety_test.sh` (ASan/UBSan), `run_volume_test.sh`, `run_lifecycle_test.sh`, SourcePin / UpdateChecker |
 | **White-box** | Do we look at the code paths? | Wrap wrong password / tamper MAC, F-Droid `check()` throws |
 | **Black-box** | Does it behave from the outside? | Wrap in → unwrap out; create → open → list → export; create → store → close → reopen |
 | **Integration** | Do two layers talk? | JNI/C API; Kotlin/Swift VCF2; version.json → PortVersion.h / Info.plist |
@@ -40,6 +40,7 @@ No Hypothesis, no wall-clock, no network. Seeded RNG and tables only.
 | **Metamorphic** | Prefix strip is identity on a numeric version |
 | **Differential** | Python / Kotlin / Swift share tag prefixes |
 | **Bounded fuzz** | Random tags never throw; wrap garbage fails before a pile of Argon2 |
+| **libFuzzer / AFL++** | `ports/shared/fuzz_wrap.cc` `LLVMFuzzerTestOneInput`; malformed `.vcpw` bytes. See `Makefile.crypto-safety` |
 
 A corrupted biometric vault must decode to empty factors, not crash.
 
