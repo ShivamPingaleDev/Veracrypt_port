@@ -60,13 +60,15 @@ struct ContentView: View {
     @State private var entropyMarks: [CGPoint] = []
     @State private var wrapHold = ""
     @State private var holdLock = false
+    @State private var basketURLs: [URL] = []
+    @State private var basketImporterPresented = false
 
     @State private var selectedTab = 0
 
     private var holdingForPicker: Bool {
         holdLock || wrapImporterPresented || unwrapImporterPresented || importerPresented
             || shareEncImporterPresented || keyfileImporterPresented || importBioPresented
-            || restoreHeaderPresented || copyFromDevicePresented
+            || restoreHeaderPresented || copyFromDevicePresented || basketImporterPresented
     }
 
     var body: some View {
@@ -175,6 +177,20 @@ struct ContentView: View {
                 if case .success(let url) = result {
                     _ = url.startAccessingSecurityScopedResource()
                     restoreVolumeHeader(url)
+                }
+            }
+            .fileImporter(
+                isPresented: $basketImporterPresented,
+                allowedContentTypes: [.item, .data],
+                allowsMultipleSelection: true
+            ) { result in
+                holdLock = false
+                if case .success(let urls) = result {
+                    urls.forEach { _ = $0.startAccessingSecurityScopedResource() }
+                    for url in urls where !basketURLs.contains(url) {
+                        basketURLs.append(url)
+                    }
+                    status = "Basket: \(basketSummary(basketURLs)). Create volume copies these into a new container. Originals stay on the phone."
                 }
             }
             .fileImporter(isPresented: $copyFromDevicePresented, allowedContentTypes: [.item, .data]) { result in
@@ -669,6 +685,37 @@ struct ContentView: View {
                     Button("Import keyfile as biometric password…") { importBioPresented = true }
                     Button("Export biometric keyfile") { exportBiometricKeyfile() }
                 }
+                Section("Basket") {
+                    Text("Pick files first. Create volume copies them into the new container. Originals stay on the phone. Nested volume: these files go in the outer volume — leave room.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if basketURLs.isEmpty {
+                        Text("No files in the basket.")
+                            .font(.caption)
+                    } else {
+                        Text(basketSummary(basketURLs))
+                            .font(.caption)
+                        ForEach(basketURLs, id: \.self) { url in
+                            HStack {
+                                Text(url.lastPathComponent)
+                                Spacer()
+                                Button("Remove") {
+                                    basketURLs.removeAll { $0 == url }
+                                }
+                            }
+                        }
+                    }
+                    Button("Add files to basket") {
+                        holdLock = true
+                        basketImporterPresented = true
+                    }
+                    if !basketURLs.isEmpty {
+                        Button("Empty basket") {
+                            basketURLs = []
+                            status = "Basket emptied. Files on the phone were not deleted."
+                        }
+                    }
+                }
                 Button("Create volume") { createVolume() }
                     .disabled(entropyPercent < 100)
             }
@@ -889,20 +936,13 @@ struct ContentView: View {
             status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
             return
         }
-        guard let mb = Int(createSizeMb), mb >= 2, mb <= 512 else {
-            status = "Size must be 2–512 MiB."
-            return
-        }
         if entropyPercent < 100 {
             status = "Move your finger in the blank area until the randomness bar is full."
             return
         }
+        var hiddenMb = 0
         var hiddenBytes: UInt64 = 0
         if createHidden {
-            guard mb >= 8 else {
-                status = "Nested volume needs an outer size of at least 8 MiB."
-                return
-            }
             guard createHiddenPassword.count >= 16 else {
                 status = "Nested volume password must be at least 16 characters, and different from the outer password."
                 return
@@ -911,11 +951,30 @@ struct ContentView: View {
                 status = "Use a different password for the nested volume."
                 return
             }
-            guard let hiddenMb = Int(createHiddenSizeMb), hiddenMb >= 2, hiddenMb * 2 < mb else {
+            guard let nested = Int(createHiddenSizeMb), nested >= 2 else {
                 status = "Nested size must be at least 2 MiB and less than half the outer size, so the outer volume has room."
                 return
             }
-            hiddenBytes = UInt64(hiddenMb) * 1024 * 1024
+            hiddenMb = nested
+            hiddenBytes = UInt64(nested) * 1024 * 1024
+        }
+        let asked = Int(createSizeMb) ?? 0
+        if basketURLs.isEmpty {
+            guard asked >= 2, asked <= 512 else {
+                status = "Size must be 2–512 MiB."
+                return
+            }
+        }
+        let mb = volumeMbForBasket(asked: asked, urls: basketURLs, hiddenMb: hiddenMb)
+        if mb > 512 {
+            status = "Basket is too large for a 512 MiB phone volume. Remove files, or wrap them one at a time."
+            return
+        }
+        if createHidden {
+            guard mb >= 8, hiddenMb * 2 < mb else {
+                status = "Nested size must be at least 2 MiB and less than half the outer size, so the outer volume has room."
+                return
+            }
         }
         if useBiometric {
             BiometricStore.confirm(reason: "Confirm Face ID, Touch ID, or passcode to create the volume") { ok in
@@ -950,6 +1009,7 @@ struct ContentView: View {
         let hiddenPw = createHidden ? createHiddenPassword : ""
         let hiddenPimVal = Int32(createHiddenPim) ?? 0
         let nested = createHidden
+        let basket = basketURLs
         DispatchQueue.global(qos: .userInitiated).async {
             let rc = VcMobileBridge.createVolume(
                 path: dest.path,
@@ -963,6 +1023,30 @@ struct ContentView: View {
                 hiddenPim: hiddenPimVal,
                 hiddenSizeBytes: hiddenBytes
             )
+            var packed = 0
+            var packFail: String?
+            if rc == 0 && !basket.isEmpty {
+                var error: Int32 = 0
+                if let handle = VcMobileBridge.open(
+                    path: dest.path,
+                    password: password,
+                    pim: pim,
+                    keyfiles: keys,
+                    error: &error
+                ) {
+                    var used = Set<String>()
+                    for url in basket {
+                        if let err = importURLIntoVolume(handle, url, used: &used) {
+                            packFail = err
+                            break
+                        }
+                        packed += 1
+                    }
+                    VcMobileBridge.close(handle)
+                } else {
+                    packFail = "Created the volume, but could not open it to copy the basket."
+                }
+            }
             temps.forEach { try? FileManager.default.removeItem(at: $0) }
             DispatchQueue.main.async {
                 endWork()
@@ -974,6 +1058,15 @@ struct ContentView: View {
                 self.password = password
                 self.pim = createPim
                 var msg = "Created \(mb) MiB \(cipher) / \(kdf) FAT volume as \(dest.lastPathComponent) (standard VeraCrypt file; the name is only a disguise). Open volume, or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
+                if packed > 0 {
+                    msg += " Copied \(packed) file(s) from the basket into the volume."
+                    if packFail == nil {
+                        basketURLs = []
+                    }
+                }
+                if let packFail {
+                    msg += " \(packFail)"
+                }
                 if nested {
                     msg += " Nested volume is inside; open it with the nested password. Do not fill the outer volume."
                 }
@@ -1239,6 +1332,83 @@ struct ContentView: View {
             path.contains(FileManager.default.temporaryDirectory.path)
     }
 
+    private func fileSize(_ url: URL) -> Int64 {
+        (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map { Int64($0) } ?? 0
+    }
+
+    private func volumeMbForBasket(asked: Int, urls: [URL], hiddenMb: Int) -> Int {
+        var bytes: Int64 = 0
+        for url in urls {
+            let n = fileSize(url)
+            bytes += n > 0 ? n : (1 << 20)
+        }
+        let overhead: Int64 = urls.isEmpty ? 0 : (5 << 20)
+        let hiddenBytes = Int64(hiddenMb) * 1024 * 1024
+        let need = Int((bytes + overhead + hiddenBytes + (1 << 20) - 1) / (1 << 20))
+        var mb = max(max(asked, 2), max(need, 2))
+        if hiddenMb > 0 {
+            mb = max(mb, hiddenMb * 2 + 2)
+        }
+        return mb
+    }
+
+    private func basketSummary(_ urls: [URL]) -> String {
+        var bytes: Int64 = 0
+        var unknown = false
+        for url in urls {
+            let n = fileSize(url)
+            if n > 0 { bytes += n } else { unknown = true }
+        }
+        let about = Int((bytes + (1 << 20) - 1) / (1 << 20))
+        let size = (unknown && bytes == 0) ? "size unknown" : "\(max(about, bytes == 0 ? 0 : 1)) MiB"
+        let files = urls.count == 1 ? "1 file" : "\(urls.count) files"
+        let need = volumeMbForBasket(asked: 2, urls: urls, hiddenMb: 0)
+        return "\(files), about \(size). Volume will be at least \(need) MiB."
+    }
+
+    private func uniqueDestName(_ raw: String, used: inout Set<String>) -> String {
+        var name = raw.replacingOccurrences(of: "/", with: "_")
+        if name.isEmpty { name = "file" }
+        if !used.contains(name) {
+            used.insert(name)
+            return name
+        }
+        let ns = name as NSString
+        let ext = ns.pathExtension
+        let stem = ext.isEmpty ? name : ns.deletingPathExtension
+        var n = 2
+        while true {
+            let cand = ext.isEmpty ? "\(stem)-\(n)" : "\(stem)-\(n).\(ext)"
+            if !used.contains(cand) {
+                used.insert(cand)
+                return cand
+            }
+            n += 1
+        }
+    }
+
+    private func importURLIntoVolume(_ handle: OpaquePointer, _ url: URL, used: inout Set<String>) -> String? {
+        let name = uniqueDestName(url.lastPathComponent, used: &used)
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessed { url.stopAccessingSecurityScopedResource() }
+        }
+        var temp: URL?
+        let srcPath: String
+        if url.isFileURL, FileManager.default.isReadableFile(atPath: url.path) {
+            srcPath = url.path
+        } else if let copied = copyScopedFile(url) {
+            temp = copied
+            srcPath = copied.path
+        } else {
+            return "Could not read \(url.lastPathComponent). Pick it again from Files."
+        }
+        let rc = VcMobileBridge.importFile(handle, destDir: "/", src: srcPath, destName: name)
+        if let temp { try? FileManager.default.removeItem(at: temp) }
+        if rc == 0 { return nil }
+        return importErrorMessage(name, rc, handle: handle)
+    }
+
     private func lockSession() {
         closeVolume()
         password = ""
@@ -1303,6 +1473,7 @@ struct ContentView: View {
             }
         }
         status = "Panic wipe complete. Keychain factors and clipboard are gone."
+        basketURLs = []
     }
 
     private func shareVaultFile(_ entry: VaultEntry) {

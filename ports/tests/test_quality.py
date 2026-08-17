@@ -352,6 +352,7 @@ class FunctionalTests(unittest.TestCase):
             self.assertIn("Wipe free space", blob)
             self.assertIn("Panic wipe", blob)
             self.assertIn("Add keyfiles", blob)
+            self.assertIn("Add files to basket", blob)
             self.assertIn("Keyfile generator", blob)
 
     def test_progress_is_in_front_of_the_user(self) -> None:

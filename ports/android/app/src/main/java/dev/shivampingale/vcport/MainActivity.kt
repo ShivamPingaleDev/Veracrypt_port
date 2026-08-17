@@ -98,6 +98,7 @@ class MainActivity : AppCompatActivity() {
     private val newPimState = mutableStateOf("0")
     private val hiddenProtectPimState = mutableStateOf("0")
     private val keyfileUrisState = mutableStateOf(listOf<Uri>())
+    private val basketUrisState = mutableStateOf(listOf<Uri>())
     private val containerLabelState = mutableStateOf("")
     private val handleState = mutableStateOf(0L)
     private val entriesState = mutableStateOf(listOf<VaultEntry>())
@@ -149,6 +150,7 @@ class MainActivity : AppCompatActivity() {
                 var pim by pimState
                 var wrapPassword by wrapPasswordState
                 var keyfileUris by keyfileUrisState
+                var basketUris by basketUrisState
                 var containerLabel by containerLabelState
                 var useTextPassword by remember { mutableStateOf(true) }
                 var useBiometric by useBiometricState
@@ -271,6 +273,19 @@ class MainActivity : AppCompatActivity() {
                         "Could not read $failed. Pick it again, or open it from the Files app with VC Port. Any file can be a keyfile; VeraCrypt uses the first 1 MiB."
                     else
                         "Keyfile(s) added. Any file works; only the first 1 MiB is mixed, same as VeraCrypt on a computer."
+                }
+                val basketPicker = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenMultipleDocuments()
+                ) { uris: List<Uri> ->
+                    if (uris.isEmpty()) return@rememberLauncherForActivityResult
+                    val kept = basketUris.toMutableList()
+                    for (uri in uris) {
+                        ShareHelper.persistRead(this@MainActivity, uri)
+                        if (uri !in kept) kept += uri
+                    }
+                    basketUris = kept
+                    val about = basketSummary(kept)
+                    status = "Basket: $about. Create volume copies these into a new container. Originals stay on the phone."
                 }
                 val importBioPicker = rememberLauncherForActivityResult(
                     ActivityResultContracts.OpenDocument()
@@ -421,6 +436,7 @@ class MainActivity : AppCompatActivity() {
                     handle = 0
                     entries = emptyList()
                     dirPath = ""
+                    basketUris = emptyList()
                     status = "Panic wipe complete. Keystore, cache, clipboard, and remembered factors are gone."
                 }
 
@@ -979,6 +995,43 @@ class MainActivity : AppCompatActivity() {
                                                     color = colors.onSurfaceVariant
                                                 )
                                             }
+                                            Text("Basket", style = MaterialTheme.typography.titleSmall)
+                                            VcHint("Pick files first. Create volume copies them into the new container. Originals stay on the phone. Nested volume: these files go in the outer volume — leave room.")
+                                            if (basketUris.isEmpty()) {
+                                                Text("No files in the basket.", style = MaterialTheme.typography.bodySmall)
+                                            } else {
+                                                Text(basketSummary(basketUris), style = MaterialTheme.typography.bodySmall)
+                                                basketUris.forEach { uri ->
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Text(
+                                                            ShareHelper.displayName(this@MainActivity, uri) ?: uri.toString(),
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            modifier = Modifier.weight(1f)
+                                                        )
+                                                        TextButton(onClick = { basketUris = basketUris.filterNot { it == uri } }) {
+                                                            Text("Remove")
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            OutlinedButton(
+                                                onClick = {
+                                                    holdLockForPicker()
+                                                    basketPicker.launch(arrayOf("*/*"))
+                                                },
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) { Text("Add files to basket") }
+                                            if (basketUris.isNotEmpty()) {
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        basketUris = emptyList()
+                                                        status = "Basket emptied. Files on the phone were not deleted."
+                                                    },
+                                                    enabled = !busy,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) { Text("Empty basket") }
+                                            }
                                             Button(
                                                 onClick = {
                                                     createContainer(
@@ -998,6 +1051,7 @@ class MainActivity : AppCompatActivity() {
                                                         hiddenSizeMbText = createHiddenSizeMb,
                                                         fileName = createFileName,
                                                         entropyPercent = entropyPercent,
+                                                        basketUris = basketUris,
                                                         onPath = {
                                                             path = it
                                                             containerLabel = File(it).name
@@ -1810,6 +1864,7 @@ class MainActivity : AppCompatActivity() {
         wipeRamSecrets()
         releaseContainerPfd()
         Hardening.panic(this)
+        basketUrisState.value = emptyList()
     }
 
     private fun beginWork(title: String = "") {
@@ -1835,6 +1890,89 @@ class MainActivity : AppCompatActivity() {
             } ?: -1L
         } catch (_: Exception) {
             -1L
+        }
+    }
+
+    private fun volumeMbForBasket(askedMb: Int, uris: List<Uri>, hiddenMb: Int): Int {
+        var bytes = 0L
+        for (uri in uris) {
+            val n = uriLength(uri)
+            bytes += if (n > 0) n else 1L shl 20
+        }
+        val overhead = if (uris.isEmpty()) 0L else 5L shl 20
+        val hiddenBytes = hiddenMb.toLong() * 1024L * 1024L
+        val need = ((bytes + overhead + hiddenBytes + (1L shl 20) - 1) / (1L shl 20)).toInt().coerceAtLeast(2)
+        var mb = maxOf(askedMb.coerceAtLeast(2), need)
+        if (hiddenMb > 0) mb = maxOf(mb, hiddenMb * 2 + 2)
+        return mb
+    }
+
+    private fun basketSummary(uris: List<Uri>): String {
+        var bytes = 0L
+        var unknown = false
+        for (uri in uris) {
+            val n = uriLength(uri)
+            if (n > 0) bytes += n else unknown = true
+        }
+        val about = ((bytes + (1L shl 20) - 1) / (1L shl 20)).toInt().coerceAtLeast(if (bytes == 0L) 0 else 1)
+        val size = if (unknown && bytes == 0L) "size unknown" else "$about MiB"
+        val files = if (uris.size == 1) "1 file" else "${uris.size} files"
+        val need = volumeMbForBasket(2, uris, 0)
+        return "$files, about $size. Volume will be at least $need MiB."
+    }
+
+    private fun uniqueDestName(raw: String, used: MutableSet<String>): String {
+        var name = ShareHelper.safeName(raw).ifEmpty { "file" }
+        if (name !in used) {
+            used += name
+            return name
+        }
+        val dot = name.lastIndexOf('.')
+        val stem = if (dot > 0) name.substring(0, dot) else name
+        val ext = if (dot > 0) name.substring(dot) else ""
+        var n = 2
+        while (true) {
+            val cand = "$stem-$n$ext"
+            if (cand !in used) {
+                used += cand
+                return cand
+            }
+            n++
+        }
+    }
+
+    private fun importUriIntoVolume(handle: Long, uri: Uri, usedNames: MutableSet<String>): String? {
+        val display = ShareHelper.displayName(this, uri) ?: "file"
+        val name = uniqueDestName(display, usedNames)
+        var cache: File? = null
+        return try {
+            var rc: Int? = null
+            try {
+                contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                    if (pfd.statSize >= 0L) {
+                        rc = NativeBridge.importFile(handle, "/", "/proc/self/fd/${pfd.fd}", name)
+                    }
+                }
+            } catch (_: Exception) {
+                rc = null
+            }
+            if (rc == null || rc == -1) {
+                val outFile = File(cacheDir, "basket-${System.nanoTime()}-$name")
+                cache = outFile
+                val input = KeyfileIo.openReadable(this, uri)
+                    ?: return "Could not read $display. Pick it again from Files."
+                input.use { src ->
+                    outFile.outputStream().use { dest ->
+                        copyStreamProgress(src, dest, uriLength(uri), "Copying $name into volume")
+                    }
+                }
+                rc = NativeBridge.importFile(handle, "/", outFile.absolutePath, name)
+            }
+            if (rc == 0) null else importErrorMessage(name, rc ?: -1, handle)
+        } catch (_: Exception) {
+            "Could not copy $display into the volume."
+        } finally {
+            cache?.let { KeyfileIo.wipe(it) }
         }
     }
 
@@ -1877,6 +2015,7 @@ class MainActivity : AppCompatActivity() {
         hiddenSizeMbText: String,
         fileName: String,
         entropyPercent: Int,
+        basketUris: List<Uri> = emptyList(),
         phoneUnlockConfirmed: Boolean = false,
         onPath: (String) -> Unit,
         onStatus: (String) -> Unit,
@@ -1899,17 +2038,9 @@ class MainActivity : AppCompatActivity() {
             onStatus("Move your finger in the blank area until the randomness bar is full.")
             return
         }
-        val mb = sizeMbText.toIntOrNull() ?: 0
-        if (mb < 2 || mb > 512) {
-            onStatus("Size must be 2–512 MiB.")
-            return
-        }
         var hiddenBytes = 0L
+        var hiddenMb = 0
         if (hidden) {
-            if (mb < 8) {
-                onStatus("Nested volume needs an outer size of at least 8 MiB.")
-                return
-            }
             if (hiddenPassword.length < 16) {
                 onStatus("Nested volume password must be at least 16 characters, and different from the outer password.")
                 return
@@ -1918,12 +2049,32 @@ class MainActivity : AppCompatActivity() {
                 onStatus("Use a different password for the nested volume.")
                 return
             }
-            val hiddenMb = hiddenSizeMbText.toIntOrNull() ?: 0
-            if (hiddenMb < 2 || hiddenMb * 2 >= mb) {
+            hiddenMb = hiddenSizeMbText.toIntOrNull() ?: 0
+            if (hiddenMb < 2) {
                 onStatus("Nested size must be at least 2 MiB and less than half the outer size, so the outer volume has room.")
                 return
             }
             hiddenBytes = hiddenMb * 1024L * 1024L
+        }
+        val askedMb = sizeMbText.toIntOrNull() ?: 0
+        if (basketUris.isEmpty() && (askedMb < 2 || askedMb > 512)) {
+            onStatus("Size must be 2–512 MiB.")
+            return
+        }
+        val mb = volumeMbForBasket(askedMb, basketUris, hiddenMb)
+        if (mb > 512) {
+            onStatus("Basket is too large for a 512 MiB phone volume. Remove files, or wrap them one at a time.")
+            return
+        }
+        if (hidden) {
+            if (mb < 8) {
+                onStatus("Nested volume needs an outer size of at least 8 MiB.")
+                return
+            }
+            if (hiddenMb * 2 >= mb) {
+                onStatus("Nested size must be at least 2 MiB and less than half the outer size, so the outer volume has room.")
+                return
+            }
         }
         if (useBiometric && !phoneUnlockConfirmed) {
             vault.confirm(this, "Confirm fingerprint, face, or screen lock to create the volume") { ok ->
@@ -1948,6 +2099,7 @@ class MainActivity : AppCompatActivity() {
                     hiddenSizeMbText = hiddenSizeMbText,
                     fileName = fileName,
                     entropyPercent = entropyPercent,
+                    basketUris = basketUris,
                     phoneUnlockConfirmed = true,
                     onPath = onPath,
                     onStatus = onStatus,
@@ -1989,6 +2141,40 @@ class MainActivity : AppCompatActivity() {
                     hiddenBytes,
                     emptyArray()
                 )
+                var packed = 0
+                var packFail: String? = null
+                if (rc == 0 && basketUris.isNotEmpty()) {
+                    NativeBridge.setProgress(0, "Copying basket into volume")
+                    val handle = NativeBridge.openVolume(
+                        dest.absolutePath,
+                        password,
+                        pimText.toIntOrNull() ?: 0,
+                        false,
+                        temps.map { it.absolutePath }.toTypedArray(),
+                        false,
+                        false,
+                        "",
+                        0
+                    )
+                    if (!NativeBridge.isOpen(handle)) {
+                        packFail = "Created the volume, but could not open it to copy the basket."
+                    } else {
+                        val used = mutableSetOf<String>()
+                        for ((index, uri) in basketUris.withIndex()) {
+                            NativeBridge.setProgress(
+                                (index * 100) / basketUris.size,
+                                "Copying into volume"
+                            )
+                            val err = importUriIntoVolume(handle, uri, used)
+                            if (err != null) {
+                                packFail = err
+                                break
+                            }
+                            packed++
+                        }
+                        NativeBridge.closeVolume(handle)
+                    }
+                }
                 runOnUiThread {
                     endWork()
                     if (rc != 0) {
@@ -1996,6 +2182,13 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         onPath(dest.absolutePath)
                         var msg = "Created $mb MiB $cipher / $kdf FAT volume as ${dest.name} (standard VeraCrypt file; the name is only a disguise). Save a copy, then Open volume or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
+                        if (packed > 0) {
+                            msg += " Copied $packed file(s) from the basket into the volume."
+                            if (packFail == null) basketUrisState.value = emptyList()
+                        }
+                        if (packFail != null) {
+                            msg += " $packFail"
+                        }
                         if (hidden) {
                             msg += " Nested volume is inside; open it with the nested password. Do not fill the outer volume."
                         }

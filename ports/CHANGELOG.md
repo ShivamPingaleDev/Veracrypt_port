@@ -9,6 +9,7 @@
 - Wrap, PIM, keyfile, and container-name fixes: wrap copies then Save-as; Lock clears PIM; custom disguise names stay; any file can be a keyfile (first 1 MiB); container label is the Files name, not `/proc/self/fd`.
 - Wrap keeps the password while Files is open (the picker used to look like leaving the app, which wiped the secret).
 - Create / Choose container / keyfiles also keep the session while Files is open. The selected file is the one you picked or saved (name shown, not `/proc/self/fd` or a cache copy). Switching away still locks: passwords wiped, ciphertext stays.
+- Create volume Basket: pick several files, then Create volume copies them into the new container. Volume size grows to fit (max 512 MiB). Originals stay on the phone.
 - Create/Open with phone unlock selected shows the system PIN / fingerprint / face prompt. Dismount wipes passwords, RAM keyfiles, and decrypted copies; remembered Keystore/Keychain factors stay until Panic wipe.
 - Phone UI: same skins and honest copy, less essay. Volume / Wrap / Create / Tools first; About and desktop leftovers live under Tools. Mounted folders keep Copy/Move on two rows.
 - GitHub README: Hughes quote first, phones first, Mac extra, Looks last, footnote, then “Cypherpunks write code.”

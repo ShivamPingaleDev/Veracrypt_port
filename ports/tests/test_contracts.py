@@ -710,6 +710,14 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("vc_import_file", header)
         self.assertIn("vc_delete_file", header)
 
+    def test_create_basket_on_android_and_ios(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        for blob in (main, view):
+            self.assertIn("Add files to basket", blob)
+            self.assertIn("Empty basket", blob)
+            self.assertIn("from the basket into the volume", blob)
+
     def test_desktop_file_ops_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
