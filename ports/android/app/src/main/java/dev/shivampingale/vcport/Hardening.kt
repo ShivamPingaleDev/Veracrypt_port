@@ -60,7 +60,12 @@ object Hardening {
         wipeDir(File(context.cacheDir, "unwrapped"))
         wipeDir(File(context.cacheDir, "share"))
         context.cacheDir.listFiles()?.forEach { file ->
-            if (file.isFile && (file.name.startsWith("wrap-in-") || file.name.startsWith("vcbio"))) {
+            if (file.isFile && (
+                    file.name.startsWith("wrap-in-") ||
+                        file.name.startsWith("vcbio") ||
+                        file.name.startsWith("vc-in-")
+                    )
+            ) {
                 wipeFile(file)
             }
         }

@@ -7,6 +7,7 @@
 - Author footnote: still in a five-year IT engineering degree (graduate summer 2027). Quiet README ask for teaching, internship, or work.
 - Looks APKs share `applicationId` with production: offline `assembleStyledRelease` (`VCPort-0.3.1-looks-preview.apk`, no INTERNET) and tap-to-check `assembleLooksgithubRelease` (`VCPort-0.3.1-looks-github-preview.apk`, same ≤20s HTTPS window as the Desktop GitHub flavor). Installing either replaces the other Desktop/Looks APK. Not F-Droid.
 - Wrap, PIM, keyfile, and container-name fixes: wrap copies then Save-as; Lock clears PIM; custom disguise names stay; any file can be a keyfile (first 1 MiB); container label is the Files name, not `/proc/self/fd`.
+- Create/Open with phone unlock selected shows the system PIN / fingerprint / face prompt. Dismount wipes passwords, RAM keyfiles, and decrypted copies; remembered Keystore/Keychain factors stay until Panic wipe.
 - Host Linux CI links wrap/volume tests without SHA-NI objects or PCSC; overlay inventories refreshed.
 
 ## 0.3.1

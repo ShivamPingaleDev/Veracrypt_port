@@ -174,7 +174,7 @@ struct ContentView: View {
                         if listTruncated {
                             Button("Load more") { reloadDir(append: true) }
                         }
-                        Button("Dismount") { closeVolume() }
+                        Button("Dismount") { lockSession() }
                     }
                     Section("In front of you") {
                         Text(inFrontLabel)
@@ -258,7 +258,7 @@ struct ContentView: View {
                     Button("Add keyfiles…") { keyfileImporterPresented = true }
                     if BiometricStore.isAvailable {
                         Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
-                        Text("Mixed as a VeraCrypt keyfile. Export it to open this volume on a PC, Mac, or another phone. Do not use phone unlock as the only factor in a danger-state — Face ID / Touch ID can be compelled.")
+                        Text("When you tap Create volume, this phone asks for Face ID, Touch ID, or your passcode. Mixed as a VeraCrypt keyfile. Export it to open this volume on a PC, Mac, or another phone. Do not use phone unlock as the only factor in a danger-state — Face ID / Touch ID can be compelled.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if let biometricKey {
@@ -443,7 +443,7 @@ struct ContentView: View {
                     Button("Add keyfiles…") { keyfileImporterPresented = true }
                     if BiometricStore.isAvailable {
                         Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
-                        Text("Do not use biometrics as the only factor in a danger-state. Face ID / Touch ID can be compelled. Mix a password and a keyfile you do not keep on this phone.")
+                        Text("When you tap Open volume, this phone asks for Face ID, Touch ID, or your passcode. Do not use biometrics as the only factor in a danger-state. Face ID / Touch ID can be compelled. Mix a password and a keyfile you do not keep on this phone.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         if let biometricKey {
@@ -857,6 +857,20 @@ struct ContentView: View {
             }
             hiddenBytes = UInt64(hiddenMb) * 1024 * 1024
         }
+        if useBiometric {
+            BiometricStore.confirm(reason: "Confirm Face ID, Touch ID, or passcode to create the volume") { ok in
+                if !ok {
+                    status = "Phone unlock cancelled."
+                    return
+                }
+                startCreateVolume(mb: mb, hiddenBytes: hiddenBytes, hasBio: hasBio)
+            }
+            return
+        }
+        startCreateVolume(mb: mb, hiddenBytes: hiddenBytes, hasBio: hasBio)
+    }
+
+    private func startCreateVolume(mb: Int, hiddenBytes: UInt64, hasBio: Bool) {
         let dest = FileManager.default.temporaryDirectory.appendingPathComponent(Self.sanitizeDisguiseName(createFileName))
         beginWork("Creating \(mb) MiB \(createCipher) / \(createKdf) volume…")
         let password = createPassword
@@ -931,9 +945,33 @@ struct ContentView: View {
             return
         }
         if useBiometric && (biometricKey == nil || biometricKey?.isEmpty == true) {
-            status = "Create or import a biometric password, or unlock with biometrics to load a saved one."
+            if BiometricStore.hasFactors(for: path) {
+                guard loadBiometricFactors() else { return }
+                startOpenVolume()
+                return
+            }
+            status = "Create or import a biometric password, or unlock with Face ID, Touch ID, or passcode to load a saved one."
             return
         }
+        if useBiometric {
+            BiometricStore.confirm(reason: "Confirm Face ID, Touch ID, or passcode to open the volume") { ok in
+                if !ok {
+                    status = "Phone unlock cancelled."
+                    return
+                }
+                startOpenVolume()
+            }
+            return
+        }
+        startOpenVolume()
+    }
+
+    private func startOpenVolume() {
+        guard let path = containerURL?.path else {
+            status = "Select a container first."
+            return
+        }
+        let text = useTextPassword ? password : ""
         closeVolume()
         beginWork("Opening volume…")
         let backup = useBackupHeader
@@ -1054,14 +1092,14 @@ struct ContentView: View {
         }
     }
 
-    private func loadBiometricFactors() {
+    private func loadBiometricFactors() -> Bool {
         guard let path = containerURL?.path else {
             status = "Choose a container first."
-            return
+            return false
         }
         guard let stored = BiometricStore.load(path: path) else {
             status = "Biometric unlock failed."
-            return
+            return false
         }
         password = stored.password
         pim = String(stored.pim)
@@ -1070,6 +1108,46 @@ struct ContentView: View {
         biometricKey = stored.biometricKey
         keyfileURLs = stored.keyfilePaths.map { URL(fileURLWithPath: $0) }
         status = "Loaded factors with biometrics. Add or remove anything, then Open volume."
+        return true
+    }
+
+    private func wipeFile(_ url: URL) {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return }
+        if isDir.boolValue {
+            if let children = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil) {
+                children.forEach { wipeFile($0) }
+            }
+            try? FileManager.default.removeItem(at: url)
+            return
+        }
+        let length = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        if length > 0 && length <= 64 * 1024 * 1024, let handle = try? FileHandle(forWritingTo: url) {
+            try? handle.write(contentsOf: Data(count: length))
+            try? handle.close()
+        }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    private func wipeSessionFiles() {
+        lastPlain.forEach { wipeFile($0) }
+        let tmp = FileManager.default.temporaryDirectory
+        let unwrapped = tmp.appendingPathComponent("unwrapped", isDirectory: true)
+        if let files = try? FileManager.default.contentsOfDirectory(at: unwrapped, includingPropertiesForKeys: nil) {
+            files.forEach { wipeFile($0) }
+        }
+        try? FileManager.default.removeItem(at: unwrapped)
+        if let files = try? FileManager.default.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil) {
+            for url in files {
+                let name = url.lastPathComponent
+                if name.hasPrefix("vcbio-") ||
+                    name.hasPrefix("vc-in-") ||
+                    name.hasPrefix("wrap-in-") ||
+                    name == "vcport-biometric.key" {
+                    wipeFile(url)
+                }
+            }
+        }
     }
 
     private func closeVolume() {
@@ -1081,27 +1159,38 @@ struct ContentView: View {
         dirPath = ""
         listTruncated = false
         selectedNames = []
-        status = "Dismounted. Folders are closed in this app."
     }
 
     private func lockSession() {
         closeVolume()
         password = ""
         wrapPassword = ""
+        createPassword = ""
+        createHiddenPassword = ""
+        hiddenProtectPassword = ""
+        newPassword = ""
         pim = "0"
         createPim = "0"
         createHiddenPim = "0"
         hiddenProtectPim = "0"
+        newPim = "0"
         keyfileURLs = []
         entries = []
         dirPath = ""
         listTruncated = false
         lastPlain = []
         selectedNames = []
+        if var key = biometricKey {
+            key.resetBytes(in: 0..<key.count)
+        }
+        biometricKey = nil
+        useBiometric = false
+        rememberBiometrics = false
+        wipeSessionFiles()
         SensitivePaste.forget()
         endWork()
         if !status.hasPrefix("Panic") {
-            status = "Locked. Passwords cleared. Panic wipe also destroys Keychain leftovers."
+            status = "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays. Panic wipe also destroys Keychain leftovers."
         }
     }
 
@@ -1109,17 +1198,26 @@ struct ContentView: View {
         closeVolume()
         password = ""
         wrapPassword = ""
+        createPassword = ""
+        createHiddenPassword = ""
+        hiddenProtectPassword = ""
+        newPassword = ""
+        if var key = biometricKey {
+            key.resetBytes(in: 0..<key.count)
+        }
         biometricKey = nil
         rememberBiometrics = false
         useBiometric = false
         entries = []
         dirPath = ""
+        lastPlain = []
         BiometricStore.deleteAll()
+        wipeSessionFiles()
         SensitivePaste.forget()
         let tmp = FileManager.default.temporaryDirectory
         if let files = try? FileManager.default.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil) {
-            for url in files where url.lastPathComponent.hasPrefix("vcbio-") {
-                try? FileManager.default.removeItem(at: url)
+            for url in files {
+                wipeFile(url)
             }
         }
         status = "Panic wipe complete. Keychain factors and clipboard are gone."

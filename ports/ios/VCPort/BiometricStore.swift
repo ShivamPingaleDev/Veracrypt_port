@@ -11,6 +11,19 @@ enum BiometricStore {
         return context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
     }
 
+    /// Face ID, Touch ID, or device passcode. Used on Create volume and Open volume.
+    static func confirm(reason: String, done: @escaping (Bool) -> Void) {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            DispatchQueue.main.async { done(false) }
+            return
+        }
+        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { ok, _ in
+            DispatchQueue.main.async { done(ok) }
+        }
+    }
+
     static func hasFactors(for path: String) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,

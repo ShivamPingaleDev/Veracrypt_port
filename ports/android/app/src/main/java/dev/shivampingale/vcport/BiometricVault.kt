@@ -56,6 +56,40 @@ class BiometricVault(private val context: Context) {
         }
     }
 
+    /**
+     * System PIN / pattern / password, fingerprint, or face. No Keystore crypto.
+     * Used on Create volume and Open volume when phone unlock is selected.
+     */
+    fun confirm(activity: FragmentActivity, title: String, done: (Boolean) -> Unit) {
+        val prompt = BiometricPrompt(
+            activity,
+            ContextCompat.getMainExecutor(activity),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    done(true)
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    done(false)
+                }
+
+                override fun onAuthenticationFailed() {
+                    // Keep the sheet up until success or cancel.
+                }
+            }
+        )
+        val builder = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(title)
+            .setSubtitle("Fingerprint, face, or screen lock PIN / password")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            builder.setAllowedAuthenticators(authenticators())
+        } else {
+            @Suppress("DEPRECATION")
+            builder.setDeviceCredentialAllowed(true)
+        }
+        prompt.authenticate(builder.build())
+    }
+
     fun load(activity: FragmentActivity, volumePath: String, onDone: (FactorBundle?) -> Unit) {
         val blob = prefs.getString(keyFor(volumePath), null) ?: return onDone(null)
         val iv = prefs.getString(ivFor(volumePath), null) ?: return onDone(null)

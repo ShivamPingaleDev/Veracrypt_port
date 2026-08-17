@@ -65,6 +65,8 @@ class WipeTests(unittest.TestCase):
             leftover.write_bytes(b"cccc")
             bio = cache / "vcbio123.key"
             bio.write_bytes(b"dddd")
+            incoming = cache / "vc-in-abc.bin"
+            incoming.write_bytes(b"eeee")
             keep = cache / "other.txt"
             keep.write_bytes(b"keep-me")
 
@@ -72,7 +74,9 @@ class WipeTests(unittest.TestCase):
                 wipe_dir(cache / name)
             for child in cache.iterdir():
                 if child.is_file() and (
-                    child.name.startswith("wrap-in-") or child.name.startswith("vcbio")
+                    child.name.startswith("wrap-in-")
+                    or child.name.startswith("vcbio")
+                    or child.name.startswith("vc-in-")
                 ):
                     wipe_file(child)
 
@@ -81,6 +85,7 @@ class WipeTests(unittest.TestCase):
             self.assertFalse((cache / "share").exists())
             self.assertFalse(leftover.exists())
             self.assertFalse(bio.exists())
+            self.assertFalse(incoming.exists())
             self.assertTrue(keep.exists())
             self.assertEqual(keep.read_bytes(), b"keep-me")
             self.assertTrue((cache / "inbox").exists())

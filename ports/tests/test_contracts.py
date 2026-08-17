@@ -434,6 +434,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         vault = read("ports/android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt")
         self.assertIn("FLAG_SECURE", hard)
         self.assertIn("wipeSessionFiles", hard)
+        self.assertIn("vc-in-", hard)
         self.assertIn("fun panic", hard)
         self.assertIn("vc_port_volume_key", vault)
         self.assertIn("BiometricVault.KEY_ALIAS", hard)
@@ -447,8 +448,11 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("DEVICE_CREDENTIAL", vault)
         self.assertIn("AES/GCM/NoPadding", vault)
         self.assertIn("setIsStrongBoxBacked", vault)
+        self.assertIn("fun confirm", vault)
+        self.assertIn("prompt.authenticate(builder.build())", vault)
         self.assertIn("userPresence", ios)
         self.assertIn("deviceOwnerAuthentication", ios)
+        self.assertIn("evaluatePolicy(.deviceOwnerAuthentication", ios)
 
     def test_no_gms_firebase_play_integrity(self) -> None:
         blob = ""

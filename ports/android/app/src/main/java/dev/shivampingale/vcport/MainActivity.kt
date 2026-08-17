@@ -106,6 +106,12 @@ class MainActivity : AppCompatActivity() {
     private val busyState = mutableStateOf(false)
     private val tabState = mutableIntStateOf(0)
     private val lastPlainFilesState = mutableStateOf(listOf<File>())
+    private val useBiometricState = mutableStateOf(false)
+    private val bioSecretState = mutableStateOf<ByteArray?>(null)
+    private val createPasswordState = mutableStateOf("")
+    private val createHiddenPasswordState = mutableStateOf("")
+    private val newPasswordState = mutableStateOf("")
+    private val hiddenProtectPasswordState = mutableStateOf("")
     private var suppressLock = false
     private var containerPfd: ParcelFileDescriptor? = null
 
@@ -139,11 +145,11 @@ class MainActivity : AppCompatActivity() {
                 var keyfileUris by keyfileUrisState
                 var containerLabel by containerLabelState
                 var useTextPassword by remember { mutableStateOf(true) }
-                var useBiometric by remember { mutableStateOf(false) }
+                var useBiometric by useBiometricState
                 var rememberBio by remember { mutableStateOf(false) }
                 var rememberConfirmOpen by remember { mutableStateOf(false) }
                 var rememberConfirmText by remember { mutableStateOf("") }
-                var bioSecret by remember { mutableStateOf<ByteArray?>(null) }
+                var bioSecret by bioSecretState
                 var status by statusState
                 var entries by entriesState
                 var handle by handleState
@@ -157,22 +163,22 @@ class MainActivity : AppCompatActivity() {
                 var createCipher by remember { mutableStateOf(NativeBridge.DEFAULT_CIPHER) }
                 var createKdf by remember { mutableStateOf(NativeBridge.DEFAULT_KDF) }
                 var createSizeMb by remember { mutableStateOf("16") }
-                var createPassword by remember { mutableStateOf("") }
+                var createPassword by createPasswordState
                 var createPim by createPimState
                 var createHidden by remember { mutableStateOf(false) }
-                var createHiddenPassword by remember { mutableStateOf("") }
+                var createHiddenPassword by createHiddenPasswordState
                 var createHiddenPim by createHiddenPimState
                 var createHiddenSizeMb by remember { mutableStateOf("4") }
                 var createFileName by remember { mutableStateOf("volume.hc") }
                 var entropyPercent by remember { mutableIntStateOf(0) }
-                var newPassword by remember { mutableStateOf("") }
+                var newPassword by newPasswordState
                 var newPim by newPimState
                 var headerKdf by remember { mutableStateOf("(keep current)") }
                 var useBackupHeader by remember { mutableStateOf(false) }
                 var readOnlyOpen by remember { mutableStateOf(false) }
                 var trueCryptMode by remember { mutableStateOf(false) }
                 var protectHidden by remember { mutableStateOf(false) }
-                var hiddenProtectPassword by remember { mutableStateOf("") }
+                var hiddenProtectPassword by hiddenProtectPasswordState
                 var hiddenProtectPim by hiddenProtectPimState
                 var namePrompt by remember { mutableStateOf<String?>(null) }
                 var namePromptValue by remember { mutableStateOf("") }
@@ -383,6 +389,12 @@ class MainActivity : AppCompatActivity() {
                     panicWipe()
                     password = ""
                     wrapPassword = ""
+                    createPassword = ""
+                    createHiddenPassword = ""
+                    hiddenProtectPassword = ""
+                    newPassword = ""
+                    bioSecret = null
+                    useBiometric = false
                     handle = 0
                     entries = emptyList()
                     dirPath = ""
@@ -911,7 +923,7 @@ class MainActivity : AppCompatActivity() {
                                                     Text("Fingerprint, face, or screen lock")
                                                 }
                                                 Text(
-                                                    "Mixed as a VeraCrypt keyfile. Export it to open this volume on a PC, Mac, or another phone. Do not use phone unlock as the only factor in a danger-state — biometrics can be compelled.",
+                                                    "When you tap Create volume, this phone asks for fingerprint, face, or your screen lock PIN / password. Mixed as a VeraCrypt keyfile. Export it to open this volume on a PC, Mac, or another phone. Do not use phone unlock as the only factor in a danger-state — biometrics can be compelled.",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = colors.onSurfaceVariant
                                                 )
@@ -1548,7 +1560,7 @@ class MainActivity : AppCompatActivity() {
                                                         Text("Fingerprint, face, or screen lock")
                                                     }
                                                     Text(
-                                                        "Do not use biometrics as the only factor in a danger-state. Fingerprints can be compelled. Mix a password and a keyfile you do not keep on this phone.",
+                                                        "When you tap Open volume, this phone asks for fingerprint, face, or your screen lock PIN / password. Do not use biometrics as the only factor in a danger-state. Fingerprints can be compelled. Mix a password and a keyfile you do not keep on this phone.",
                                                         style = MaterialTheme.typography.bodySmall,
                                                         color = colors.onSurfaceVariant
                                                     )
@@ -1812,12 +1824,27 @@ class MainActivity : AppCompatActivity() {
         lockSession()
     }
 
-    private fun lockSession() {
+    private fun wipeBytes(value: ByteArray?) {
+        value?.fill(0)
+    }
+
+    private fun closeMountedVolume() {
         val handle = handleState.value
         if (NativeBridge.isOpen(handle)) NativeBridge.closeVolume(handle)
         handleState.value = 0L
         entriesState.value = emptyList()
         dirPathState.value = ""
+        listTruncatedState.value = false
+    }
+
+    private fun wipeRamSecrets() {
+        wipeBytes(bioSecretState.value)
+        bioSecretState.value = null
+        useBiometricState.value = false
+        createPasswordState.value = ""
+        createHiddenPasswordState.value = ""
+        hiddenProtectPasswordState.value = ""
+        newPasswordState.value = ""
         passwordState.value = ""
         wrapPasswordState.value = ""
         pimState.value = "0"
@@ -1826,20 +1853,25 @@ class MainActivity : AppCompatActivity() {
         newPimState.value = "0"
         hiddenProtectPimState.value = "0"
         keyfileUrisState.value = emptyList()
+        lastPlainFilesState.value.forEach { Hardening.wipeFile(it) }
         lastPlainFilesState.value = emptyList()
+    }
+
+    private fun lockSession() {
+        closeMountedVolume()
+        wipeRamSecrets()
         endWork()
         Hardening.wipeSessionFiles(this)
         SensitiveClipboard.forget(this)
         if (!statusState.value.startsWith("Panic")) {
             statusState.value =
-                "Locked. Passwords and plaintext cache wiped. Panic wipe also destroys Keystore and ciphertext copies."
+                "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays. Panic wipe also destroys Keystore copies."
         }
     }
 
     private fun panicWipe() {
-        val handle = handleState.value
-        if (NativeBridge.isOpen(handle)) NativeBridge.closeVolume(handle)
-        handleState.value = 0L
+        closeMountedVolume()
+        wipeRamSecrets()
         releaseContainerPfd()
         Hardening.panic(this)
     }
@@ -1909,6 +1941,7 @@ class MainActivity : AppCompatActivity() {
         hiddenSizeMbText: String,
         fileName: String,
         entropyPercent: Int,
+        phoneUnlockConfirmed: Boolean = false,
         onPath: (String) -> Unit,
         onStatus: (String) -> Unit,
         onSaved: () -> Unit
@@ -1955,6 +1988,37 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             hiddenBytes = hiddenMb * 1024L * 1024L
+        }
+        if (useBiometric && !phoneUnlockConfirmed) {
+            vault.confirm(this, "Confirm fingerprint, face, or screen lock to create the volume") { ok ->
+                if (!ok) {
+                    onStatus("Phone unlock cancelled.")
+                    return@confirm
+                }
+                createContainer(
+                    vault = vault,
+                    password = password,
+                    pimText = pimText,
+                    sizeMbText = sizeMbText,
+                    cipher = cipher,
+                    kdf = kdf,
+                    keyfileUris = keyfileUris,
+                    useBiometric = useBiometric,
+                    bioSecret = bioSecret,
+                    rememberBio = rememberBio,
+                    hidden = hidden,
+                    hiddenPassword = hiddenPassword,
+                    hiddenPimText = hiddenPimText,
+                    hiddenSizeMbText = hiddenSizeMbText,
+                    fileName = fileName,
+                    entropyPercent = entropyPercent,
+                    phoneUnlockConfirmed = true,
+                    onPath = onPath,
+                    onStatus = onStatus,
+                    onSaved = onSaved
+                )
+            }
+            return
         }
         beginWork("Creating $mb MiB $cipher / $kdf volume…")
         Thread {
@@ -2362,6 +2426,7 @@ class MainActivity : AppCompatActivity() {
         protectHidden: Boolean,
         hiddenPassword: String,
         hiddenPimText: String,
+        phoneUnlockConfirmed: Boolean = false,
         currentHandle: Long,
         onHandle: (Long) -> Unit,
         onEntries: (List<VaultEntry>) -> Unit,
@@ -2376,8 +2441,84 @@ class MainActivity : AppCompatActivity() {
             onStatus("Choose at least one factor: text password, biometric password, or a keyfile.")
             return
         }
+        if (useBiometric && (bioSecret == null || bioSecret.isEmpty()) && !phoneUnlockConfirmed) {
+            if (vault.hasFactors(path)) {
+                vault.load(this, path) { stored ->
+                    if (stored == null) {
+                        onStatus("Phone unlock cancelled.")
+                        return@load
+                    }
+                    passwordState.value = stored.password
+                    pimState.value = stored.pim.toString()
+                    useBiometricState.value = stored.hasBiometric() || useBiometric
+                    bioSecretState.value = stored.biometricKey
+                    if (stored.keyfileUris.isNotEmpty()) {
+                        keyfileUrisState.value = stored.keyfileUris.mapNotNull { Uri.parse(it) }
+                    }
+                    openVolumeWithFactors(
+                        vault = vault,
+                        path = path,
+                        password = stored.password.ifEmpty { password },
+                        pimText = stored.pim.toString(),
+                        useTextPassword = stored.password.isNotEmpty() || useTextPassword,
+                        useBiometric = stored.hasBiometric() || useBiometric,
+                        bioSecret = stored.biometricKey ?: bioSecret,
+                        keyfileUris = if (stored.keyfileUris.isNotEmpty())
+                            stored.keyfileUris.mapNotNull { Uri.parse(it) }
+                        else
+                            keyfileUris,
+                        rememberBio = false,
+                        useBackupHeader = useBackupHeader,
+                        readOnly = readOnly,
+                        trueCryptMode = trueCryptMode,
+                        protectHidden = protectHidden,
+                        hiddenPassword = hiddenPassword,
+                        hiddenPimText = hiddenPimText,
+                        phoneUnlockConfirmed = true,
+                        currentHandle = currentHandle,
+                        onHandle = onHandle,
+                        onEntries = onEntries,
+                        onStatus = onStatus
+                    )
+                }
+                return
+            }
+            onStatus("Create or import a biometric password, or tap Unlock with fingerprint, face, or screen lock.")
+            return
+        }
         if (useBiometric && (bioSecret == null || bioSecret.isEmpty())) {
-            onStatus("Create or import a biometric password, or tap Unlock with biometrics to load a saved one.")
+            onStatus("Create or import a biometric password, or tap Unlock with fingerprint, face, or screen lock.")
+            return
+        }
+        if (useBiometric && !phoneUnlockConfirmed) {
+            vault.confirm(this, "Confirm fingerprint, face, or screen lock to open the volume") { ok ->
+                if (!ok) {
+                    onStatus("Phone unlock cancelled.")
+                    return@confirm
+                }
+                openVolumeWithFactors(
+                    vault = vault,
+                    path = path,
+                    password = password,
+                    pimText = pimText,
+                    useTextPassword = useTextPassword,
+                    useBiometric = useBiometric,
+                    bioSecret = bioSecret,
+                    keyfileUris = keyfileUris,
+                    rememberBio = rememberBio,
+                    useBackupHeader = useBackupHeader,
+                    readOnly = readOnly,
+                    trueCryptMode = trueCryptMode,
+                    protectHidden = protectHidden,
+                    hiddenPassword = hiddenPassword,
+                    hiddenPimText = hiddenPimText,
+                    phoneUnlockConfirmed = true,
+                    currentHandle = currentHandle,
+                    onHandle = onHandle,
+                    onEntries = onEntries,
+                    onStatus = onStatus
+                )
+            }
             return
         }
         beginWork("Opening volume…")
