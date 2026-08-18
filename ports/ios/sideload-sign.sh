@@ -8,7 +8,7 @@ OUT="${IOS}/build/sideload"
 ARCHIVE="${OUT}/VCPort.xcarchive"
 EXPORT_PLIST="${OUT}/ExportOptions.plist"
 
-TEAM="${VC_PORT_IOS_TEAM:-}"
+TEAM="${1:-${VC_PORT_IOS_TEAM:-}}"
 if [ -z "$TEAM" ] && [ -f "${IOS}/Signing.local.xcconfig" ]; then
 	TEAM="$(awk -F= '/^[[:space:]]*DEVELOPMENT_TEAM[[:space:]]*=/{gsub(/[[:space:]]/,"",$2); print $2; exit}' "${IOS}/Signing.local.xcconfig")"
 fi
@@ -19,6 +19,8 @@ if [ -z "$TEAM" ]; then
 	echo "2. Open ports/ios/VCPort.xcodeproj → Signing & Capabilities → Team → your name."
 	echo "3. Or write a gitignored team file and re-run:"
 	echo "     echo 'DEVELOPMENT_TEAM = YOUR10CHARID' > ports/ios/Signing.local.xcconfig"
+	echo "   Or: VC_PORT_IOS_TEAM=YOUR10CHARID $0"
+	echo "   Or: $0 YOUR10CHARID"
 	echo "   The 10-character Team ID is on your Apple Developer membership page."
 	echo "Free Apple ID: 7-day cert, your iPad must be plugged in the first time."
 	exit 1

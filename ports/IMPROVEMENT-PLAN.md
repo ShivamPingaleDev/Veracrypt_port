@@ -24,7 +24,7 @@ Do **not**: fake store screenshots, commit `experimental/`, attach debug CI APKs
 3. Done: `ports/scripts/hash_release.py` (refuses debug CI APKs; `--write` updates `version.json`)
 4. Done: `vc_list_dir_from` + Load more on Android/iOS
 5. Device smoke: open/list/export on a phone
-6. Done locally: CI `ios-native` job builds the iPhone simulator `libvc_mobile.a` (no IPA, no signing)
+6. Done: CI `ios` job builds the unsigned iPhone IPA in parallel with the Android APKs (no Apple signing on GitHub).
 
 Do **not** burn leftover Cursor/Other-model quota on random [official VeraCrypt](https://github.com/veracrypt/VeraCrypt) issues. Drive-by AI patches to a volume-encryption project will be rejected. Only send upstream a patch you already needed in this tree (for example the macOS `File.cpp` `sys/disk.h` host-build fix).
 

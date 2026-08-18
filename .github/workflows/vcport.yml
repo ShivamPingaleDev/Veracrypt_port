@@ -78,13 +78,21 @@ jobs:
             ports/android/app/build/outputs/apk/github/release/*.apk
           if-no-files-found: error
 
-  ios-native:
+  # Parallel with android (no needs:). Unsigned IPA only — GitHub has no Apple cert.
+  ios:
     runs-on: macos-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: iOS simulator native lib (no IPA, no signing)
-        run: IOS_SDK=iphonesimulator IOS_ARCH=$(uname -m) ports/ios/build-native.sh
+      - name: Install XcodeGen and CMake
+        run: brew install xcodegen cmake
+      - name: Build unsigned iPhone IPA
+        run: ports/ios/build-unsigned-ipa.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vcport-ipa
+          path: ports/ios/build/VCPort-*-unsigned-preview.ipa
+          if-no-files-found: error
 
   # No GitHub Release APK attach. CI APKs are debug-signed previews.
   # TrueCrypt 3.0 still requires public source if a binary is ever shipped.

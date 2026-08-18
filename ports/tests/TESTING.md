@@ -71,7 +71,10 @@ change password, read-only, backup header, hidden-volume write protection.
 Android emulator / device: `ports/android/run_device_sim.sh` (starts AVD
 `vcport-api35` when adb is empty; skips if there is no SDK/AVD). iPad Simulator:
 `ports/ios/run_ipad_sim.sh` (skips if CoreSimulator has no iPad runtime). Device
-sideload under your Apple ID: `ports/ios/sideload-sign.sh` (needs a Team ID).
+sideload under your Apple ID: `ports/ios/sideload-sign.sh` (needs a 10-character
+Team ID: `VC_PORT_IOS_TEAM` or `./sideload-sign.sh YOUR10CHARID`). CI builds the
+Android APKs and the unsigned iOS IPA in parallel; local equivalent is
+`ports/scripts/build-phones.sh`.
 That Android test never calls `UpdateChecker.check()`. `DeviceSimulationTest` is a person-session
 on NativeBridge: wrap/unwrap (wrong password and a flipped byte fail), create,
 open, FAT mkdir/import/list/export/copy-to-folder/rename/delete, wipe free

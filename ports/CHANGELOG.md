@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- CI builds Android APKs and the unsigned iOS IPA in parallel (`.github/workflows/vcport.yml`). Local: `ports/scripts/build-phones.sh`. Sign the IPA with your Apple Team ID: `VC_PORT_IOS_TEAM=YOUR10CHARID ports/ios/sideload-sign.sh`.
+
 ## 0.3.4
 
 Phone release: session-test fixes on Android and iOS, full app-interface tests.

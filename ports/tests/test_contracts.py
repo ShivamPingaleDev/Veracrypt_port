@@ -286,6 +286,8 @@ class NamingAndAttributionTests(unittest.TestCase):
         for blob in (public, foss, ios, readme):
             self.assertIn("sign", blob.lower())
             self.assertIn("Apple ID", blob)
+        self.assertIn("build-phones.sh", foss)
+        self.assertIn("VC_PORT_IOS_TEAM", foss)
         self.assertIn("not named VeraCrypt", public)
         self.assertIn("not unbreakable", public.lower())
         self.assertIn("unsigned", public.lower())

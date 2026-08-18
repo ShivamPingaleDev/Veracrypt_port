@@ -16,10 +16,12 @@ xcodegen generate
 open VCPort.xcodeproj
 ```
 
-4. **Sign it yourself.** There is no Apple-signed VC Port from this project. Each Apple user signs **their own** copy:
+4. **Sign it yourself.** There is no Apple-signed VC Port from this project. Each Apple user signs **their own** copy with their Apple **Team ID** (10 characters):
    - iPad Simulator (no Apple ID): `./run_ipad_sim.sh`
-   - Full app-interface session on that Simulator (basket, nested volume, save-wipe, reopen, copy/move, header backup/restore, KDF, keyfiles; does not tap Panic wipe): `./run_ios_session_test.sh`
-   - Your iPad: plug it in, open the Xcode project, Signing & Capabilities → Team → **your name**, then Run. Or `VC_PORT_IOS_TEAM=YOUR10CHARID ./sideload-sign.sh` and drop the IPA on the iPad in Finder.
+   - Full app-interface session on that Simulator: `./run_ios_session_test.sh`
+   - Unsigned IPA (CI / AltStore input): `./build-unsigned-ipa.sh`
+   - Your iPad, signed with your Team ID: `VC_PORT_IOS_TEAM=YOUR10CHARID ./sideload-sign.sh` (or `./sideload-sign.sh YOUR10CHARID`), then drop the IPA on the iPad in Finder.
+   - Android and iOS together: `../scripts/build-phones.sh`
    - Or sideload `VCPort-*-unsigned-preview.ipa` with **AltStore / SideStore**, which signs it with **your** Apple ID.
    - Trust the developer cert under Settings → General → VPN & Device Management.
    - A signature you create will not install on someone else’s phone. AltStore `downloadURL` stays empty until a signed IPA exists.

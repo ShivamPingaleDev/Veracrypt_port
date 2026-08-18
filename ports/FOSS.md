@@ -32,9 +32,17 @@ cd android
 
 That flavor has no `INTERNET`, no Play libraries, and backups disabled. Updates are a new APK you rebuild from this git tree, not a download inside the app.
 
+Android APK and unsigned iOS IPA together (local, same as CI):
+
+```bash
+ports/scripts/build-phones.sh
+```
+
+Sign the IPA on this Mac with your 10-character Apple Team ID (`VC_PORT_IOS_TEAM` or gitignored `ios/Signing.local.xcconfig`). GitHub never Apple-signs.
+
 Appearance is Original plus Dark mode. Cyberpunk, Matrix, and MAGI are archived under `archive/looks/` and are not built. The `github` flavor (`assembleGithubRelease`) shares `applicationId` (`dev.shivampingale.vcport`) and is also offline on master.
 
-GitHub Actions APKs are **debug-signed previews**. The GitHub Release for this version attaches **one** FOSS APK. Sign anything called production yourself.
+GitHub Actions APKs are **debug-signed previews**. The GitHub Release for this version attaches **one** FOSS APK and an unsigned iOS IPA. CI builds both in parallel. Sign anything called production yourself (`VC_PORT_IOS_TEAM` / `VC_PORT_RELEASE_STORE_FILE`).
 
 Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com. See [SECURITY.md](../SECURITY.md).
 
