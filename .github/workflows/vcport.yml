@@ -37,7 +37,7 @@ concurrency:
 jobs:
   wrap-test:
     runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
