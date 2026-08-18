@@ -40,7 +40,27 @@ object ShareHelper {
 
     fun shareFiles(context: Context, files: List<File>, title: String = "Share") {
         if (files.isEmpty()) return
-        shareUris(context, files.map { uriFor(context, it) }, title, files.firstOrNull()?.let { mimeFor(it.name) })
+        val staged = files.mapNotNull { stageInShareDir(context, it) }
+        if (staged.isEmpty()) return
+        shareUris(context, staged.map { uriFor(context, it) }, title, staged.firstOrNull()?.let { mimeFor(it.name) })
+    }
+
+    /** FileProvider only exposes cache/share/. Copy here before any share Intent. */
+    fun stageInShareDir(context: Context, file: File): File? {
+        if (!file.isFile) return null
+        val dir = shareDir(context)
+        var dest = File(dir, safeName(file.name).ifEmpty { "file.bin" })
+        if (dest.exists() && dest.canonicalPath != file.canonicalPath) {
+            dest = File(dir, "${System.nanoTime()}-${safeName(file.name)}")
+        }
+        if (dest.canonicalPath == file.canonicalPath) return file
+        return try {
+            file.inputStream().use { input -> dest.outputStream().use { input.copyTo(it) } }
+            dest
+        } catch (_: Exception) {
+            dest.delete()
+            null
+        }
     }
 
     fun shareUris(
@@ -57,7 +77,16 @@ object ShareHelper {
         uris.forEach { builder.addStream(it) }
         val intent = builder.createChooserIntent()
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(intent)
+        try {
+            context.startActivity(intent)
+        } catch (_: Exception) {
+        }
+    }
+
+    fun sanitizeKeyfileName(raw: String): String {
+        var name = safeName(raw.trim()).substringAfterLast('/').substringAfterLast('\\')
+        if (name.isEmpty() || name == "." || name == "..") return "keyfile.bin"
+        return name.take(120)
     }
 
     fun displayName(context: Context, uri: Uri): String? {

@@ -17,7 +17,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from repo_paths import read  # noqa: E402
+from repo_paths import PORTS, read  # noqa: E402
 
 
 @dataclass
@@ -162,22 +162,18 @@ class FactorCodecTests(unittest.TestCase):
 class MobileSourceLockTests(unittest.TestCase):
     def test_kotlin_and_swift_share_vcf2(self) -> None:
         kotlin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
-        swift = read("ports/ios/VCPort/UnlockFactors.swift")
-        for src in (kotlin, swift):
-            self.assertIn("VCF2\\n", src)
-            self.assertIn("randomBiometricKey", src)
-        self.assertIn("Base64", kotlin)
-        self.assertIn("base64EncodedString", swift)
-        self.assertIn("ByteArray(64)", kotlin)
-        self.assertIn("count: 64", swift)
+        swift = PORTS / "ios/VCPort/UnlockFactors.swift"
+        self.assertNotIn("VCF2", kotlin)
+        self.assertNotIn("randomBiometricKey", kotlin)
+        self.assertFalse(swift.exists())
+        self.assertIn("copyOwned", kotlin)
 
     def test_kotlin_legacy_fallback_still_present(self) -> None:
         kotlin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
-        self.assertIn('startsWith("VCF2\\n")', kotlin)
+        self.assertNotIn("VCF2", kotlin)
 
     def test_swift_legacy_fallback_still_present(self) -> None:
-        swift = read("ports/ios/VCPort/UnlockFactors.swift")
-        self.assertIn('hasPrefix("VCF2\\n")', swift)
+        self.assertFalse((PORTS / "ios/VCPort/UnlockFactors.swift").exists())
 
 
 class SemverCompareTests(unittest.TestCase):

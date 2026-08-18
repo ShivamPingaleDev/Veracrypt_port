@@ -21,7 +21,7 @@ open VCPort.xcodeproj
    - Or sideload `VCPort-*-unsigned-preview.ipa` with **AltStore / SideStore**, which signs it with **your** Apple ID.
    - Trust the developer cert under Settings → General → VPN & Device Management.
    - A signature you create will not install on someone else’s phone. AltStore `downloadURL` stays empty until a signed IPA exists.
-5. The target already includes `PrivacyInfo.xcprivacy`, Face ID usage text, Keychain entitlements, and `ITSAppUsesNonExemptEncryption=true`.
+5. The target already includes `PrivacyInfo.xcprivacy`, Keychain entitlements, and `ITSAppUsesNonExemptEncryption=true`. Fingerprint / Face ID unlock is on `experimental-biometrics`, not master.
 
 `VCPortEnableUpdateCheck` in `Info.plist` is **false**. The app does not use the network. Set it to true only for a GitHub/App Store build that should offer a manual update check.
 
@@ -40,7 +40,7 @@ Not required for FOSS. If you submit:
 
 ## Features
 
-Unlock with any combination of **biometric password** (Face ID / Touch ID), **text password**, **keyfiles**, and **PIM**. Create or import the biometric secret and export it as a keyfile when you create the volume in VeraCrypt.
+Unlock with any combination of **text password**, **keyfiles**, and **PIM**. Mount options match the desktop file-container dialog: backup header, read-only, TrueCrypt Mode, and hidden-volume protection. Fingerprint / Face ID unlock is on `experimental-biometrics`, not master.
 
 Tap **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no password). **Wrap a single file** encrypts one file to `.vcpw`; the password generator never writes history. Tap **Share decrypted** on a listed file to extract it from an opened FAT folder and present the system share sheet. **Copy from device** / **Copy to device** (and Move) transfer one file through the system Files picker; Move from the device says so if the original cannot be deleted. **New folder**, **Rename**, **Delete**, **Properties**, and **Wipe free space** work inside the open FAT volume.
 

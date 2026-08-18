@@ -180,7 +180,7 @@ class DeviceSimulationTest {
     /**
      * Person session on the emulator: several volumes, basket + BASKET.sha256,
      * corrupt primary header then restore from .bak and from the embedded backup,
-     * extra 64-byte phone-unlock keyfile, header KDF change, add/remove keyfiles,
+     * extra 64-byte keyfile, header KDF change, add/remove keyfiles,
      * change password, Copy once clipboard (not wiped by lock).
      */
     @Test
@@ -315,28 +315,25 @@ class DeviceSimulationTest {
         assertEquals(hash2, sha256(restoredEmbedded))
         NativeBridge.closeVolume(afterEmbedded)
 
-        val bioKey = FactorCodec.randomBiometricKey()
-        assertEquals(64, bioKey.size)
-        val bioFile = KeyfileIo.writeSecret(ctx, bioKey)
-        val bioVol = File(dir, "bio.hc")
+        val extraKey = File(dir, "extra-open.key")
+        assertEquals(0, NativeBridge.generateKeyfile(extraKey.absolutePath, 64))
+        val extraVol = File(dir, "extra.hc")
         assertEquals(
             0,
-            makeVolume(bioVol, pwBio, pim, 2L shl 20, "AES", "HMAC-SHA-256", arrayOf(bioFile.absolutePath), "FAT")
+            makeVolume(extraVol, pwBio, pim, 2L shl 20, "AES", "HMAC-SHA-256", arrayOf(extraKey.absolutePath), "FAT")
         )
         assertTrue(
-            "bio volume must not open without the extra keyfile",
+            "volume with a keyfile must not open without it",
             !NativeBridge.isOpen(
-                NativeBridge.openVolume(bioVol.absolutePath, pwBio, pim, false, emptyArray(), false)
+                NativeBridge.openVolume(extraVol.absolutePath, pwBio, pim, false, emptyArray(), false)
             )
         )
-        val bioHandle = NativeBridge.openVolume(
-            bioVol.absolutePath, pwBio, pim, false, arrayOf(bioFile.absolutePath), false
+        val extraHandle = NativeBridge.openVolume(
+            extraVol.absolutePath, pwBio, pim, false, arrayOf(extraKey.absolutePath), false
         )
-        assertTrue("bio volume open failed $bioHandle", NativeBridge.isOpen(bioHandle))
-        assertEquals(0, NativeBridge.importFile(bioHandle, "/", note.absolutePath, "NOTE.TXT"))
-        NativeBridge.closeVolume(bioHandle)
-        val vault = BiometricVault(ctx)
-        vault.isAvailable()
+        assertTrue("keyfile volume open failed $extraHandle", NativeBridge.isOpen(extraHandle))
+        assertEquals(0, NativeBridge.importFile(extraHandle, "/", note.absolutePath, "NOTE.TXT"))
+        NativeBridge.closeVolume(extraHandle)
 
         val kf = File(dir, "extra.key")
         assertEquals(0, NativeBridge.generateKeyfile(kf.absolutePath, 128))
@@ -428,13 +425,13 @@ class DeviceSimulationTest {
             assertEquals("Copy once must leave the generated password on the clipboard", secret, clipped)
         }
 
-        KeyfileIo.wipe(bioFile)
+        KeyfileIo.wipe(extraKey)
         Hardening.wipeDir(dir)
     }
 
     /**
      * Combinations a person would actually try: disguise extensions, random
-     * files inside, biometric keyfile, extra keyfile, KDF change, header
+     * files inside, two keyfiles, KDF change, header
      * backup/corrupt/restore, password change. Payload hashes must match
      * before and after each header operation.
      */
@@ -506,20 +503,18 @@ class DeviceSimulationTest {
             return handle
         }
 
-        val bioKey = FactorCodec.randomBiometricKey()
-        assertEquals(64, bioKey.size)
-        val bioFile = KeyfileIo.writeSecret(ctx, bioKey)
         val extraKf = File(dir, "extra.key")
         assertEquals(0, NativeBridge.generateKeyfile(extraKf.absolutePath, 128))
-        BiometricVault(ctx).isAvailable()
+        val extraKf2 = File(dir, "extra2.key")
+        assertEquals(0, NativeBridge.generateKeyfile(extraKf2.absolutePath, 64))
 
         val jpgFiles = inners("jpg")
         val jpgPw = "vcport-combo-jpg-password"
         val jpgVol = File(dir, "vacation.jpg")
-        val jpgKeys = arrayOf(bioFile.absolutePath)
+        val jpgKeys = arrayOf(extraKf.absolutePath)
         assertEquals(0, makeVolume(jpgVol, jpgPw, pim, size, "AES", "HMAC-SHA-256", jpgKeys, "FAT"))
         assertTrue(
-            "bio volume must not open without the extra keyfile",
+            "volume with a keyfile must not open without it",
             !NativeBridge.isOpen(
                 NativeBridge.openVolume(jpgVol.absolutePath, jpgPw, pim, false, emptyArray(), false)
             )
@@ -619,18 +614,18 @@ class DeviceSimulationTest {
         val stFiles = inners("st")
         val stPw = "vcport-combo-st-password"
         val stVol = File(dir, "model.safetensors")
-        val stKeys = arrayOf(bioFile.absolutePath, extraKf.absolutePath)
+        val stKeys = arrayOf(extraKf2.absolutePath, extraKf.absolutePath)
         assertEquals(0, makeVolume(stVol, stPw, pim, size, "AES", "HMAC-SHA-256", stKeys, "FAT"))
         assertTrue(
-            "bio+keyfile volume must not open with password only",
+            "two-keyfile volume must not open with password only",
             !NativeBridge.isOpen(
                 NativeBridge.openVolume(stVol.absolutePath, stPw, pim, false, emptyArray(), false)
             )
         )
         assertTrue(
-            "bio+keyfile volume must not open with only the biometric keyfile",
+            "two-keyfile volume must not open with only one keyfile",
             !NativeBridge.isOpen(
-                NativeBridge.openVolume(stVol.absolutePath, stPw, pim, false, arrayOf(bioFile.absolutePath), false)
+                NativeBridge.openVolume(stVol.absolutePath, stPw, pim, false, arrayOf(extraKf2.absolutePath), false)
             )
         )
         handle = openOk(stVol, stPw, stKeys)
@@ -662,7 +657,8 @@ class DeviceSimulationTest {
         check(handle, loraFiles, "lora-before")
         NativeBridge.closeVolume(handle)
 
-        KeyfileIo.wipe(bioFile)
+        KeyfileIo.wipe(extraKf)
+        KeyfileIo.wipe(extraKf2)
         Hardening.wipeDir(dir)
     }
 

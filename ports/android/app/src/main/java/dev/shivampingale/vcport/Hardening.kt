@@ -80,7 +80,7 @@ object Hardening {
         context.getSharedPreferences("vc_port_bio", Context.MODE_PRIVATE).edit().clear().apply()
         try {
             val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-            for (alias in listOf(BiometricVault.KEY_ALIAS, BiometricVault.LEGACY_KEY_ALIAS)) {
+            for (alias in listOf("vc_port_volume_key_v2", "vc_port_volume_key")) {
                 if (store.containsAlias(alias)) {
                     store.deleteEntry(alias)
                 }

@@ -57,11 +57,11 @@ The Free Software Foundation’s position is that an iOS app cannot be fully fre
 These are the iPhone standards that actually apply:
 
 1. **Privacy Manifest** (`ios/VCPort/PrivacyInfo.xcprivacy`) — required since May 2024 for App Store and expected by current AltStore/SideStore. Declares no tracking.
-2. **Face ID usage string** (`NSFaceIDUsageDescription`) — required if you use biometrics.
+2. **Face ID usage string** (`NSFaceIDUsageDescription`) — not used on master. Fingerprint / Face ID unlock lives on `experimental-biometrics`.
 3. **Encryption export** (`ITSAppUsesNonExemptEncryption=true`) — volume AES is **not** the HTTPS-only exemption. For App Store you must complete Apple’s encryption questions and, if you distribute outside the US, typically file an annual self-classification (ERN). Sideloaded / AltStore IPAs still encrypt; they just skip App Store Connect.
 4. **No tracking SDKs** — no ATT prompt, no `NSUserTrackingUsageDescription`.
 5. **Minimum iOS 16**, no private APIs.
-6. **Keychain entitlements** for Face ID–gated volume passwords.
+6. **Keychain entitlements** remain for sideload signing; master does not store volume passwords behind Face ID.
 7. **Source must stay public** if you distribute binaries (TrueCrypt License 3.0 §III.1.d).
 
 ### Build the iOS app from source

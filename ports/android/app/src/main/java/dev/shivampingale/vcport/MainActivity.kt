@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -103,6 +104,8 @@ class MainActivity : AppCompatActivity() {
     private val basketUrisState = mutableStateOf(listOf<Uri>())
     private val basketHashesState = mutableStateOf(mapOf<String, String>())
     private val hiddenKeyfileUrisState = mutableStateOf(listOf<Uri>())
+    private val keyfileGenNameState = mutableStateOf("keyfile.bin")
+    private val keyfileGenCountState = mutableStateOf("1")
     private val containerLabelState = mutableStateOf("")
     private val handleState = mutableStateOf(0L)
     private val entriesState = mutableStateOf(listOf<VaultEntry>())
@@ -111,8 +114,6 @@ class MainActivity : AppCompatActivity() {
     private val busyState = mutableStateOf(false)
     private val tabState = mutableIntStateOf(0)
     private val lastPlainFilesState = mutableStateOf(listOf<File>())
-    private val useBiometricState = mutableStateOf(false)
-    private val bioSecretState = mutableStateOf<ByteArray?>(null)
     private val createPasswordState = mutableStateOf("")
     private val createHiddenPasswordState = mutableStateOf("")
     private val createCipherState = mutableStateOf(NativeBridge.DEFAULT_CIPHER)
@@ -130,7 +131,6 @@ class MainActivity : AppCompatActivity() {
     private var suppressLock = false
     private var wrapHold = ""
     private var containerPfd: ParcelFileDescriptor? = null
-
     /** File pickers stop this activity. Do not wipe the wrap password in that gap. */
     private fun holdLockForPicker() {
         suppressLock = true
@@ -167,7 +167,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Hardening.protectWindow(this)
-        val vault = BiometricVault(this)
         handleIncoming(intent)
         setContent {
             var skin by remember { mutableStateOf(loadSkin()) }
@@ -181,13 +180,10 @@ class MainActivity : AppCompatActivity() {
                 var basketUris by basketUrisState
                 var basketHashes by basketHashesState
                 var hiddenKeyfileUris by hiddenKeyfileUrisState
+                var keyfileGenName by keyfileGenNameState
+                var keyfileGenCount by keyfileGenCountState
                 var containerLabel by containerLabelState
                 var useTextPassword by remember { mutableStateOf(true) }
-                var useBiometric by useBiometricState
-                var rememberBio by remember { mutableStateOf(false) }
-                var rememberConfirmOpen by remember { mutableStateOf(false) }
-                var rememberConfirmText by remember { mutableStateOf("") }
-                var bioSecret by bioSecretState
                 var status by statusState
                 var entries by entriesState
                 var handle by handleState
@@ -197,7 +193,6 @@ class MainActivity : AppCompatActivity() {
                 var tab by tabState
                 val tabScroll = rememberScrollState()
                 LaunchedEffect(tab) { tabScroll.scrollTo(0) }
-                var moreFactors by remember { mutableStateOf(false) }
                 var createCipher by createCipherState
                 var createKdf by createKdfState
                 var createSizeAmount by createSizeAmountState
@@ -302,11 +297,12 @@ class MainActivity : AppCompatActivity() {
                     var failed: String? = null
                     for (uri in uris) {
                         ShareHelper.persistRead(this@MainActivity, uri)
-                        val copied = KeyfileIo.copyUri(this@MainActivity, uri)
+                        val copied = KeyfileIo.copyOwned(this@MainActivity, uri)
                         if (copied == null) {
                             failed = ShareHelper.displayName(this@MainActivity, uri) ?: "keyfile"
                         } else {
-                            if (uri !in kept) kept += uri
+                            val owned = Uri.fromFile(copied)
+                            if (owned !in kept) kept += owned
                         }
                     }
                     keyfileUris = kept
@@ -322,11 +318,12 @@ class MainActivity : AppCompatActivity() {
                     var failed: String? = null
                     for (uri in uris) {
                         ShareHelper.persistRead(this@MainActivity, uri)
-                        val copied = KeyfileIo.copyUri(this@MainActivity, uri)
+                        val copied = KeyfileIo.copyOwned(this@MainActivity, uri)
                         if (copied == null) {
                             failed = ShareHelper.displayName(this@MainActivity, uri) ?: "keyfile"
-                        } else if (uri !in kept) {
-                            kept += uri
+                        } else {
+                            val owned = Uri.fromFile(copied)
+                            if (owned !in kept) kept += owned
                         }
                     }
                     hiddenKeyfileUris = kept
@@ -362,21 +359,6 @@ class MainActivity : AppCompatActivity() {
                             basketHashes = basketHashes + extra
                         }
                     }.start()
-                }
-                val importBioPicker = rememberLauncherForActivityResult(
-                    ActivityResultContracts.OpenDocument()
-                ) { uri: Uri? ->
-                    if (uri != null) {
-                        ShareHelper.persistRead(this@MainActivity, uri)
-                        val bytes = KeyfileIo.readLimited(this@MainActivity, uri)
-                        if (bytes == null || bytes.isEmpty()) {
-                            status = "Could not import keyfile (empty or larger than 1 MiB)."
-                        } else {
-                            bioSecret = bytes
-                            useBiometric = true
-                            status = "Imported ${bytes.size} bytes as the biometric password (VeraCrypt keyfile)."
-                        }
-                    }
                 }
                 val createSaver = rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -441,8 +423,6 @@ class MainActivity : AppCompatActivity() {
                             password = password,
                             pimText = pim,
                             useTextPassword = useTextPassword,
-                            useBiometric = useBiometric,
-                            bioSecret = bioSecret,
                             keyfileUris = keyfileUris,
                             currentHandle = handle,
                             onHandle = { handle = it },
@@ -493,13 +473,11 @@ class MainActivity : AppCompatActivity() {
                     createHiddenPassword = ""
                     hiddenProtectPassword = ""
                     newPassword = ""
-                    bioSecret = null
-                    useBiometric = false
                     handle = 0
                     entries = emptyList()
                     dirPath = ""
                     basketUris = emptyList()
-                    status = "Panic wipe complete. Keystore, cache, clipboard, and remembered factors are gone."
+                    status = "Panic wipe complete. Cache, clipboard, and leftovers are gone."
                 }
 
                 Box(Modifier.fillMaxSize()) {
@@ -957,6 +935,10 @@ class MainActivity : AppCompatActivity() {
                                                 ) { Text("Forget password") }
                                             }
                                             Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
+                                            VcHint("Pick several in Files (long-press). Any extension. VeraCrypt mixes the first 1 MiB of each. Generate more below.")
+                                            if (keyfileUris.isEmpty()) {
+                                                Text("No keyfiles in this session.", style = MaterialTheme.typography.bodySmall)
+                                            }
                                             keyfileUris.forEach { uri ->
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
@@ -977,6 +959,47 @@ class MainActivity : AppCompatActivity() {
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Add keyfiles") }
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                OutlinedTextField(
+                                                    keyfileGenName,
+                                                    { keyfileGenName = it.take(120) },
+                                                    label = { Text("Keyfile name (any extension)") },
+                                                    modifier = Modifier.weight(1f).testTag("create_keyfile_name"),
+                                                    enabled = !busy,
+                                                    singleLine = true
+                                                )
+                                                OutlinedTextField(
+                                                    keyfileGenCount,
+                                                    { keyfileGenCount = it.filter { ch -> ch.isDigit() }.take(1) },
+                                                    label = { Text("How many") },
+                                                    modifier = Modifier.width(96.dp).testTag("create_keyfile_count"),
+                                                    enabled = !busy,
+                                                    singleLine = true,
+                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                                )
+                                            }
+                                            OutlinedButton(
+                                                onClick = {
+                                                    val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = false)
+                                                    if (files.isEmpty()) {
+                                                        status = "Keyfile generator failed."
+                                                    } else {
+                                                        offerGeneratedKeyfileCopies(files, { status = it }) { name ->
+                                                            pendingExportFile = files.first()
+                                                            holdLockForPicker()
+                                                            window.decorView.post {
+                                                                holdLockForPicker()
+                                                                toolSaver.launch(name)
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth().testTag("create_generate_keyfile")
+                                            ) { Text("Generate keyfile and add") }
                                             EntropyPad(
                                                 percent = entropyPercent,
                                                 enabled = !busy,
@@ -1097,58 +1120,29 @@ class MainActivity : AppCompatActivity() {
                                                     enabled = !busy,
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) { Text("Add nested keyfiles") }
-                                            }
-                                            if (vault.isAvailable()) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Checkbox(useBiometric, {
-                                                        useBiometric = it
-                                                        if (it && bioSecret == null) {
-                                                            bioSecret = FactorCodec.randomBiometricKey()
-                                                        }
-                                                        if (!it) bioSecret = null
-                                                    }, enabled = !busy)
-                                                    Text("Fingerprint, face, or screen lock")
-                                                }
-                                                VcHint("Extra keyfile. Can be compelled.")
-                                                Text(
-                                                    bioSecret?.let { "Phone-unlock keyfile ready (${it.size} bytes)." }
-                                                        ?: "Check the box to create a random keyfile, or import one you already use on a computer.",
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
                                                 OutlinedButton(
                                                     onClick = {
-                                                        holdLockForPicker()
-                                                        importBioPicker.launch(arrayOf("*/*"))
-                                                    },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Import keyfile") }
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        val secret = bioSecret
-                                                        if (secret == null) {
-                                                            status = "Create or import a biometric password first."
+                                                        val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = true)
+                                                        if (files.isEmpty()) {
+                                                            status = "Nested keyfile generator failed."
                                                         } else {
-                                                            val file = KeyfileIo.writeSecret(this@MainActivity, secret)
-                                                            beginShare()
-                                                            ShareHelper.shareFiles(this@MainActivity, listOf(file), "Export biometric keyfile")
-                                                            status = "Share this keyfile into VeraCrypt on a computer (Add keyfile). Delete it after."
+                                                            offerGeneratedKeyfileCopies(files, { status = it }) { name ->
+                                                                pendingExportFile = files.first()
+                                                                holdLockForPicker()
+                                                                window.decorView.post {
+                                                                    holdLockForPicker()
+                                                                    toolSaver.launch(name)
+                                                                }
+                                                            }
                                                         }
                                                     },
                                                     enabled = !busy,
                                                     modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Export keyfile") }
-                                            } else {
-                                                Text(
-                                                    "Fingerprint, face, or screen lock: set a lock in Android settings.",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = colors.onSurfaceVariant
-                                                )
+                                                ) { Text("Generate nested keyfile and add") }
                                             }
                                             Button(
                                                 onClick = {
                                                     createContainer(
-                                                        vault = vault,
                                                         password = createPassword,
                                                         pimText = createPim,
                                                         sizeBytes = SizeUnits.toBytes(
@@ -1158,9 +1152,6 @@ class MainActivity : AppCompatActivity() {
                                                         cipher = createCipher,
                                                         kdf = createKdf,
                                                         keyfileUris = keyfileUris,
-                                                        useBiometric = useBiometric,
-                                                        bioSecret = bioSecret,
-                                                        rememberBio = rememberBio,
                                                         hidden = createHidden,
                                                         hiddenPassword = createHiddenPassword,
                                                         hiddenPimText = createHiddenPim,
@@ -1257,8 +1248,6 @@ class MainActivity : AppCompatActivity() {
                                                         password = password,
                                                         pimText = pim,
                                                         useTextPassword = useTextPassword,
-                                                        useBiometric = useBiometric,
-                                                        bioSecret = bioSecret,
                                                         keyfileUris = keyfileUris,
                                                         useBackupHeader = useBackupHeader,
                                                         currentHandle = handle,
@@ -1269,7 +1258,7 @@ class MainActivity : AppCompatActivity() {
                                                         onHandle = { handle = it },
                                                         onEntries = { entries = it },
                                                         onStatus = { status = it },
-                                                        successMessage = "Changed volume password. Open with the new password, same keyfiles, and same biometrics."
+                                                        successMessage = "Changed volume password. Open with the new password and the same keyfiles."
                                                     )
                                                 },
                                                 enabled = !busy,
@@ -1293,9 +1282,7 @@ class MainActivity : AppCompatActivity() {
                                                             password = password,
                                                             pimText = pim,
                                                             useTextPassword = useTextPassword,
-                                                            useBiometric = useBiometric,
-                                                            bioSecret = bioSecret,
-                                                            keyfileUris = keyfileUris,
+                                                                    keyfileUris = keyfileUris,
                                                             useBackupHeader = useBackupHeader,
                                                             currentHandle = handle,
                                                             newPassword = "",
@@ -1319,8 +1306,6 @@ class MainActivity : AppCompatActivity() {
                                                         password = password,
                                                         pimText = pim,
                                                         useTextPassword = useTextPassword,
-                                                        useBiometric = useBiometric,
-                                                        bioSecret = bioSecret,
                                                         keyfileUris = keyfileUris,
                                                         useBackupHeader = useBackupHeader,
                                                         currentHandle = handle,
@@ -1344,8 +1329,6 @@ class MainActivity : AppCompatActivity() {
                                                         password = password,
                                                         pimText = pim,
                                                         useTextPassword = useTextPassword,
-                                                        useBiometric = useBiometric,
-                                                        bioSecret = bioSecret,
                                                         keyfileUris = keyfileUris,
                                                         useBackupHeader = useBackupHeader,
                                                         currentHandle = handle,
@@ -1370,8 +1353,6 @@ class MainActivity : AppCompatActivity() {
                                                         password = password,
                                                         pimText = pim,
                                                         useTextPassword = useTextPassword,
-                                                        useBiometric = useBiometric,
-                                                        bioSecret = bioSecret,
                                                         keyfileUris = keyfileUris,
                                                         currentHandle = handle,
                                                         onHandle = { handle = it },
@@ -1405,8 +1386,6 @@ class MainActivity : AppCompatActivity() {
                                                         password = password,
                                                         pimText = pim,
                                                         useTextPassword = useTextPassword,
-                                                        useBiometric = useBiometric,
-                                                        bioSecret = bioSecret,
                                                         keyfileUris = keyfileUris,
                                                         currentHandle = handle,
                                                         onHandle = { handle = it },
@@ -1432,27 +1411,44 @@ class MainActivity : AppCompatActivity() {
                                         }
                                         VcCard {
                                             Text("Keyfile generator", style = MaterialTheme.typography.titleMedium)
+                                            VcHint("Any extension. Generate several, then Add keyfiles if they are not already in this session.")
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                OutlinedTextField(
+                                                    keyfileGenName,
+                                                    { keyfileGenName = it.take(120) },
+                                                    label = { Text("Keyfile name (any extension)") },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !busy,
+                                                    singleLine = true
+                                                )
+                                                OutlinedTextField(
+                                                    keyfileGenCount,
+                                                    { keyfileGenCount = it.filter { ch -> ch.isDigit() }.take(1) },
+                                                    label = { Text("How many") },
+                                                    modifier = Modifier.width(96.dp),
+                                                    enabled = !busy,
+                                                    singleLine = true,
+                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                                )
+                                            }
                                             Button(
                                                 onClick = {
-                                                    val dest = File(cacheDir, "random.key")
-                                                    beginWork("Generating keyfile…")
-                                                    Thread {
-                                                        val rc = NativeBridge.generateKeyfile(dest.absolutePath, 128)
-                                                        runOnUiThread {
-                                                            endWork()
-                                                            if (rc != 0) {
-                                                                status = "Keyfile generator failed."
-                                                            } else {
-                                                                pendingExportFile = dest
-                                                                status = "Generated a 128-byte keyfile. Save a copy, then Add keyfiles."
+                                                    val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = false)
+                                                    if (files.isEmpty()) {
+                                                        status = "Keyfile generator failed."
+                                                    } else {
+                                                        offerGeneratedKeyfileCopies(files, { status = it }) { name ->
+                                                            pendingExportFile = files.first()
+                                                            holdLockForPicker()
+                                                            window.decorView.post {
                                                                 holdLockForPicker()
-                                                                window.decorView.post {
-                                                                    holdLockForPicker()
-                                                                    toolSaver.launch("random.key")
-                                                                }
+                                                                toolSaver.launch(name)
                                                             }
                                                         }
-                                                    }.start()
+                                                    }
                                                 },
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
@@ -1565,7 +1561,7 @@ class MainActivity : AppCompatActivity() {
                                                 else
                                                     "VeraCrypt-compatible. F-Droid: no network."
                                             )
-                                            VcHint("Stay offline by default. Biometrics can be compelled — prefer a long password + keyfile. This is not unbreakable.")
+                                            VcHint("Stay offline by default. A compelled password still wins — prefer a long password and a keyfile. This is not unbreakable.")
                                             if (BuildConfig.ENABLE_UPDATE_CHECK) {
                                                 OutlinedButton(
                                                     onClick = {
@@ -1619,17 +1615,14 @@ class MainActivity : AppCompatActivity() {
                                             }
                                         }
                                         VcCard {
-                                            Text("Unlock", style = MaterialTheme.typography.titleMedium)
+                                            Text("Volume password", style = MaterialTheme.typography.titleMedium)
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Checkbox(
                                                     useTextPassword,
-                                                    {
-                                                        if (useBiometric) useTextPassword = true
-                                                        else useTextPassword = it
-                                                    },
-                                                    enabled = !busy && !useBiometric
+                                                    { useTextPassword = it },
+                                                    enabled = !busy
                                                 )
-                                                Text("Text password (primary)")
+                                                Text("Password")
                                             }
                                             if (useTextPassword) {
                                                 SecretField(
@@ -1639,33 +1632,37 @@ class MainActivity : AppCompatActivity() {
                                                     enabled = !busy
                                                 )
                                             }
-                                            Button(
-                                                onClick = {
-                                                    openVolumeWithFactors(
-                                                        vault = vault,
-                                                        path = path,
-                                                        password = password,
-                                                        pimText = pim,
-                                                        useTextPassword = useTextPassword,
-                                                        useBiometric = useBiometric,
-                                                        bioSecret = bioSecret,
-                                                        keyfileUris = keyfileUris,
-                                                        rememberBio = rememberBio,
-                                                        useBackupHeader = useBackupHeader,
-                                                        readOnly = readOnlyOpen,
-                                                        trueCryptMode = trueCryptMode,
-                                                        protectHidden = protectHidden,
-                                                        hiddenPassword = hiddenProtectPassword,
-                                                        hiddenPimText = hiddenProtectPim,
-                                                        currentHandle = handle,
-                                                        onHandle = { handle = it },
-                                                        onEntries = { entries = it },
-                                                        onStatus = { status = it }
-                                                    )
-                                                },
+                                            OutlinedTextField(
+                                                pim,
+                                                { pim = it },
+                                                label = { Text("PIM (0 = default)") },
+                                                modifier = Modifier.fillMaxWidth(),
                                                 enabled = !busy,
+                                                singleLine = true,
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                            )
+                                            Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
+                                            VcHint("Same as desktop: pick several in Files (long-press). Any extension. First 1 MiB of each.")
+                                            keyfileUris.forEach { uri ->
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        ShareHelper.displayName(this@MainActivity, uri) ?: uri.toString(),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                    TextButton(onClick = { keyfileUris = keyfileUris.filterNot { it == uri } }) {
+                                                        Text("Remove")
+                                                    }
+                                                }
+                                            }
+                                            OutlinedButton(
+                                                onClick = {
+                                                    holdLockForPicker()
+                                                    keyfilePicker.launch(arrayOf("*/*"))
+                                                },
                                                 modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Open volume") }
+                                            ) { Text("Add keyfiles") }
+                                            Text("Mount options", style = MaterialTheme.typography.titleSmall)
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Checkbox(useBackupHeader, { useBackupHeader = it }, enabled = !busy)
                                                 Text("Use backup header")
@@ -1699,154 +1696,29 @@ class MainActivity : AppCompatActivity() {
                                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                                 )
                                             }
-                                            TextButton(onClick = { moreFactors = !moreFactors }) {
-                                                Text(if (moreFactors) "Hide extra factors" else "More factors")
-                                            }
-                                            if (moreFactors) {
-                                                OutlinedTextField(
-                                                    pim,
-                                                    { pim = it },
-                                                    label = { Text("PIM (0 = default)") },
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    enabled = !busy,
-                                                    singleLine = true,
-                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                                )
-                                                Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
-                                                keyfileUris.forEach { uri ->
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Text(
-                                                            ShareHelper.displayName(this@MainActivity, uri) ?: uri.toString(),
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            modifier = Modifier.weight(1f)
-                                                        )
-                                                        TextButton(onClick = { keyfileUris = keyfileUris.filterNot { it == uri } }) {
-                                                            Text("Remove")
-                                                        }
-                                                    }
-                                                }
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        holdLockForPicker()
-                                                        keyfilePicker.launch(arrayOf("*/*"))
-                                                    },
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Add keyfiles") }
-                                                if (vault.isAvailable()) {
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Checkbox(useBiometric, {
-                                                            useBiometric = it
-                                                            if (it) useTextPassword = true
-                                                            if (!it) bioSecret = null
-                                                        }, enabled = !busy)
-                                                        Text("Fingerprint, face, or screen lock")
-                                                    }
-                                                    VcHint("Extra keyfile. Can be compelled.")
-                                                    Text(
-                                                        bioSecret?.let { "Biometric password ready (${it.size} bytes)." }
-                                                            ?: if (path.isNotEmpty() && vault.hasFactors(path))
-                                                                "A saved factor set exists. Unlock with biometrics to load it."
-                                                            else
-                                                                "Create a random biometric password, or import a keyfile you already use.",
-                                                        style = MaterialTheme.typography.bodySmall
+                                            Button(
+                                                onClick = {
+                                                    openVolumeWithFactors(
+                                                        path = path,
+                                                        password = password,
+                                                        pimText = pim,
+                                                        useTextPassword = useTextPassword,
+                                                        keyfileUris = keyfileUris,
+                                                        useBackupHeader = useBackupHeader,
+                                                        readOnly = readOnlyOpen,
+                                                        trueCryptMode = trueCryptMode,
+                                                        protectHidden = protectHidden,
+                                                        hiddenPassword = hiddenProtectPassword,
+                                                        hiddenPimText = hiddenProtectPim,
+                                                        currentHandle = handle,
+                                                        onHandle = { handle = it },
+                                                        onEntries = { entries = it },
+                                                        onStatus = { status = it }
                                                     )
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            val secret = FactorCodec.randomBiometricKey()
-                                                            bioSecret = secret
-                                                            useBiometric = true
-                                                            if (path.isEmpty() || !rememberBio) {
-                                                                status = "Created a 64-byte phone-unlock keyfile in memory. It is not stored unless you type REMEMBER."
-                                                            } else {
-                                                                vault.store(
-                                                                    this@MainActivity,
-                                                                    path,
-                                                                    FactorBundle(
-                                                                        pim = pim.toIntOrNull() ?: 0,
-                                                                        password = if (useTextPassword) password else "",
-                                                                        biometricKey = secret,
-                                                                        keyfileUris = keyfileUris.map { it.toString() }
-                                                                    )
-                                                                ) { ok ->
-                                                                    status = if (ok)
-                                                                        "Created a 64-byte biometric password. Export it and add that file as a keyfile when you create the volume."
-                                                                    else
-                                                                        "Could not save the biometric password."
-                                                                }
-                                                            }
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("Create phone-unlock keyfile") }
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            holdLockForPicker()
-                                                            importBioPicker.launch(arrayOf("*/*"))
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("Import keyfile") }
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            val secret = bioSecret
-                                                            if (secret == null) {
-                                                                status = "Create or import a biometric password first."
-                                                            } else {
-                                                                val file = KeyfileIo.writeSecret(this@MainActivity, secret)
-                                                                beginShare()
-                                                                ShareHelper.shareFiles(this@MainActivity, listOf(file), "Export biometric keyfile")
-                                                                status = "Share this keyfile into VeraCrypt on a computer (Add keyfile). Delete it after."
-                                                            }
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("Export keyfile") }
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            if (path.isEmpty()) {
-                                                                status = "Choose a container first."
-                                                            } else {
-                                                                vault.load(this@MainActivity, path) { stored ->
-                                                                    if (stored == null) {
-                                                                        status = "Biometric unlock cancelled."
-                                                                    } else {
-                                                                        password = stored.password
-                                                                        pim = stored.pim.toString()
-                                                                        useTextPassword = stored.password.isNotEmpty()
-                                                                        useBiometric = stored.hasBiometric()
-                                                                        bioSecret = stored.biometricKey
-                                                                        keyfileUris = stored.keyfileUris.mapNotNull { Uri.parse(it) }
-                                                                        status = "Loaded factors with biometrics. Add or remove anything, then Open volume."
-                                                                    }
-                                                                }
-                                                            }
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("Unlock with fingerprint, face, or screen lock") }
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Checkbox(
-                                                            rememberBio,
-                                                            {
-                                                                if (it) {
-                                                                    rememberConfirmText = ""
-                                                                    rememberConfirmOpen = true
-                                                                } else {
-                                                                    rememberBio = false
-                                                                }
-                                                            },
-                                                            enabled = !busy
-                                                        )
-                                                        Text("Remember this combination")
-                                                    }
-                                                    VcHint("Off by default. Type REMEMBER to store this session.")
-                                                    if (path.isNotEmpty() && vault.hasFactors(path)) {
-                                                        OutlinedButton(
-                                                            onClick = {
-                                                                vault.clear(path)
-                                                                status = "Forgot saved factors for this container."
-                                                            },
-                                                            modifier = Modifier.fillMaxWidth()
-                                                        ) { Text("Forget saved factors") }
-                                                    }
-                                                }
-                                            }
+                                                },
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) { Text("Open volume") }
                                         }
                                     }
                                 }
@@ -1854,47 +1726,6 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-            if (rememberConfirmOpen) {
-                AlertDialog(
-                    onDismissRequest = {
-                        rememberConfirmOpen = false
-                        rememberConfirmText = ""
-                    },
-                    title = { Text("Store unlock factors on this phone?") },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("A compelled fingerprint can open them. Type REMEMBER to store this session only. Volume-path history is never written.")
-                            OutlinedTextField(
-                                rememberConfirmText,
-                                { rememberConfirmText = it },
-                                label = { Text("Type REMEMBER") },
-                                singleLine = true
-                            )
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                if (rememberConfirmText.trim() == "REMEMBER") {
-                                    rememberBio = true
-                                }
-                                rememberConfirmOpen = false
-                                rememberConfirmText = ""
-                            },
-                            enabled = rememberConfirmText.trim() == "REMEMBER"
-                        ) { Text("Store") }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = {
-                                rememberConfirmOpen = false
-                                rememberConfirmText = ""
-                                rememberBio = false
-                            }
-                        ) { Text("Cancel") }
-                    }
-                )
-            }
             if (namePrompt != null) {
                 AlertDialog(
                     onDismissRequest = { namePrompt = null },
@@ -1968,10 +1799,6 @@ class MainActivity : AppCompatActivity() {
         dismountOnLeave()
     }
 
-    private fun wipeBytes(value: ByteArray?) {
-        value?.fill(0)
-    }
-
     private fun closeMountedVolume() {
         val handle = handleState.value
         if (NativeBridge.isOpen(handle)) NativeBridge.closeVolume(handle)
@@ -1984,7 +1811,7 @@ class MainActivity : AppCompatActivity() {
     /**
      * Home / Recents: close a mounted volume so plaintext is not sitting in RAM.
      * Keep the Create wizard (generated passwords, nested checkbox, cipher/KDF/PIM,
-     * basket, size, phone-unlock keyfile) so Copy once can be pasted into Notes
+     * basket, size) so Copy once can be pasted into Notes
      * and creation can continue. Dismount and Panic wipe still call [lockSession].
      */
     private fun dismountOnLeave() {
@@ -2003,9 +1830,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun wipeRamSecrets() {
-        wipeBytes(bioSecretState.value)
-        bioSecretState.value = null
-        useBiometricState.value = false
         createPasswordState.value = ""
         createHiddenPasswordState.value = ""
         hiddenProtectPasswordState.value = ""
@@ -2048,7 +1872,7 @@ class MainActivity : AppCompatActivity() {
         Hardening.wipeSessionFiles(this)
         if (!statusState.value.startsWith("Panic")) {
             statusState.value =
-                "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays. Panic wipe also destroys Keystore copies."
+                "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays."
         }
     }
 
@@ -2202,16 +2026,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createContainer(
-        vault: BiometricVault,
         password: String,
         pimText: String,
         sizeBytes: Long,
         cipher: String,
         kdf: String,
         keyfileUris: List<Uri>,
-        useBiometric: Boolean,
-        bioSecret: ByteArray?,
-        rememberBio: Boolean,
         hidden: Boolean,
         hiddenPassword: String,
         hiddenPimText: String,
@@ -2221,26 +2041,16 @@ class MainActivity : AppCompatActivity() {
         filesystem: String = "FAT",
         entropyPercent: Int,
         basketUris: List<Uri> = emptyList(),
-        phoneUnlockConfirmed: Boolean = false,
         onPath: (String) -> Unit,
         onStatus: (String) -> Unit,
         onSaved: () -> Unit
     ) {
-        val hasBio = useBiometric && bioSecret != null && bioSecret.isNotEmpty()
-        if (useBiometric && password.isEmpty()) {
-            onStatus("Type the volume password first.")
-            return
-        }
         if (password.isEmpty() && keyfileUris.isEmpty()) {
             onStatus("Type a volume password, or add a keyfile.")
             return
         }
         if (password.isNotEmpty() && password.length < 16 && keyfileUris.isEmpty()) {
             onStatus("Use Generate strong password, or type at least 16 characters. Nothing is saved.")
-            return
-        }
-        if (useBiometric && (bioSecret == null || bioSecret.isEmpty())) {
-            onStatus("Create or import a biometric password, or tap Unlock with biometrics to load a saved one.")
             return
         }
         if (entropyPercent < 100) {
@@ -2286,48 +2096,11 @@ class MainActivity : AppCompatActivity() {
                 return
             }
         }
-        if (useBiometric && !phoneUnlockConfirmed) {
-            vault.confirm(this, "Confirm fingerprint, face, or screen lock to create the volume") { ok ->
-                if (!ok) {
-                    onStatus("Phone unlock cancelled.")
-                    return@confirm
-                }
-                createContainer(
-                    vault = vault,
-                    password = password,
-                    pimText = pimText,
-                    sizeBytes = sizeBytes,
-                    cipher = cipher,
-                    kdf = kdf,
-                    keyfileUris = keyfileUris,
-                    useBiometric = useBiometric,
-                    bioSecret = bioSecret,
-                    rememberBio = rememberBio,
-                    hidden = hidden,
-                    hiddenPassword = hiddenPassword,
-                    hiddenPimText = hiddenPimText,
-                    hiddenSizeBytes = hiddenSizeBytes,
-                    hiddenKeyfileUris = hiddenKeyfileUris,
-                    fileName = fileName,
-                    filesystem = filesystem,
-                    entropyPercent = entropyPercent,
-                    basketUris = basketUris,
-                    phoneUnlockConfirmed = true,
-                    onPath = onPath,
-                    onStatus = onStatus,
-                    onSaved = onSaved
-                )
-            }
-            return
-        }
         beginWork("Creating ${SizeUnits.formatBytes(bytes)} $cipher / $kdf volume…")
         Thread {
             val temps = mutableListOf<File>()
             val hiddenTemps = mutableListOf<File>()
             try {
-                if (hasBio && bioSecret != null) {
-                    temps.add(KeyfileIo.writeSecret(this, bioSecret))
-                }
                 for (uri in keyfileUris) {
                     val copied = KeyfileIo.copyUri(this, uri)
                     if (copied == null) {
@@ -2440,27 +2213,8 @@ class MainActivity : AppCompatActivity() {
                         if (hidden) {
                             msg += " Nested volume is inside; open it with the nested password. Do not fill the outer volume."
                         }
-                        if (hasBio) {
-                            msg += " Export the phone-unlock keyfile for those other devices."
-                        }
-                        fun finishCreate() {
-                            onStatus(msg)
-                            onSaved()
-                        }
-                        if (hasBio && rememberBio && vault.isAvailable()) {
-                            vault.store(
-                                this,
-                                dest.absolutePath,
-                                FactorBundle(
-                                    pim = pimText.toIntOrNull() ?: 0,
-                                    password = password,
-                                    biometricKey = bioSecret,
-                                    keyfileUris = keyfileUris.map { it.toString() }
-                                )
-                            ) { finishCreate() }
-                        } else {
-                            finishCreate()
-                        }
+                        onStatus(msg)
+                        onSaved()
                     }
                 }
             } catch (_: Exception) {
@@ -2498,15 +2252,51 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun generateSessionKeyfiles(countText: String, pattern: String, nested: Boolean): List<File> {
+        val n = (countText.toIntOrNull() ?: 1).coerceIn(1, 8)
+        val name = ShareHelper.sanitizeKeyfileName(pattern)
+        val dir = KeyfileIo.keyfileDir(this)
+        val files = mutableListOf<File>()
+        for (i in 1..n) {
+            val dest = KeyfileIo.uniqueNamed(dir, KeyfileIo.numberedName(name, i, n))
+            if (NativeBridge.generateKeyfile(dest.absolutePath, 128) != 0) {
+                files.forEach { KeyfileIo.wipe(it) }
+                return emptyList()
+            }
+            files += dest
+        }
+        val uris = files.map { Uri.fromFile(it) }
+        if (nested) {
+            hiddenKeyfileUrisState.value = hiddenKeyfileUrisState.value + uris
+        } else {
+            keyfileUrisState.value = keyfileUrisState.value + uris
+        }
+        return files
+    }
+
+    private fun offerGeneratedKeyfileCopies(
+        files: List<File>,
+        onStatus: (String) -> Unit,
+        saveOne: (String) -> Unit
+    ) {
+        if (files.size == 1) {
+            onStatus(
+                "Generated and added ${files[0].name}. Save a copy. Change the name and generate again for another. Any extension is fine."
+            )
+            saveOne(files[0].name)
+        } else {
+            onStatus(
+                "Generated ${files.size} keyfiles and added them. Save copies. Any extension is fine (.jpg, .bin, .key, …)."
+            )
+            beginShare()
+            ShareHelper.shareFiles(this, files, "Save generated keyfiles")
+        }
+    }
+
     private fun copyUnlockKeyfiles(
-        useBiometric: Boolean,
-        bioSecret: ByteArray?,
         keyfileUris: List<Uri>
     ): Pair<MutableList<File>, String?> {
         val temps = mutableListOf<File>()
-        if (useBiometric && bioSecret != null && bioSecret.isNotEmpty()) {
-            temps.add(KeyfileIo.writeSecret(this, bioSecret))
-        }
         for (uri in keyfileUris) {
             val copied = KeyfileIo.copyUri(this, uri)
             if (copied == null) {
@@ -2523,8 +2313,6 @@ class MainActivity : AppCompatActivity() {
         password: String,
         pimText: String,
         useTextPassword: Boolean,
-        useBiometric: Boolean,
-        bioSecret: ByteArray?,
         keyfileUris: List<Uri>,
         useBackupHeader: Boolean,
         currentHandle: Long,
@@ -2542,9 +2330,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val text = if (useTextPassword) password else ""
-        val hasBio = useBiometric && bioSecret != null && bioSecret.isNotEmpty()
-        if (text.isEmpty() && !hasBio && keyfileUris.isEmpty()) {
-            onStatus("Enter the current password, keyfiles, or biometrics on the Volume tab.")
+        if (text.isEmpty() && keyfileUris.isEmpty()) {
+            onStatus("Enter the current password or keyfiles on the Volume tab.")
             return
         }
         val nextPassword = newPassword.ifEmpty { text }
@@ -2561,7 +2348,7 @@ class MainActivity : AppCompatActivity() {
         Thread {
             val temps = mutableListOf<File>()
             try {
-                val (copied, err) = copyUnlockKeyfiles(useBiometric, bioSecret, keyfileUris)
+                val (copied, err) = copyUnlockKeyfiles(keyfileUris)
                 if (err != null) {
                     runOnUiThread {
                         endWork()
@@ -2606,8 +2393,6 @@ class MainActivity : AppCompatActivity() {
         password: String,
         pimText: String,
         useTextPassword: Boolean,
-        useBiometric: Boolean,
-        bioSecret: ByteArray?,
         keyfileUris: List<Uri>,
         currentHandle: Long,
         onHandle: (Long) -> Unit,
@@ -2624,7 +2409,7 @@ class MainActivity : AppCompatActivity() {
         Thread {
             val temps = mutableListOf<File>()
             try {
-                val (copied, err) = copyUnlockKeyfiles(useBiometric, bioSecret, keyfileUris)
+                val (copied, err) = copyUnlockKeyfiles(keyfileUris)
                 if (err != null) {
                     runOnUiThread {
                         endWork()
@@ -2670,8 +2455,6 @@ class MainActivity : AppCompatActivity() {
         password: String,
         pimText: String,
         useTextPassword: Boolean,
-        useBiometric: Boolean,
-        bioSecret: ByteArray?,
         keyfileUris: List<Uri>,
         currentHandle: Long,
         onHandle: (Long) -> Unit,
@@ -2687,7 +2470,7 @@ class MainActivity : AppCompatActivity() {
         Thread {
             val temps = mutableListOf<File>()
             try {
-                val (copied, err) = copyUnlockKeyfiles(useBiometric, bioSecret, keyfileUris)
+                val (copied, err) = copyUnlockKeyfiles(keyfileUris)
                 if (err != null) {
                     runOnUiThread {
                         endWork()
@@ -2795,22 +2578,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openVolumeWithFactors(
-        vault: BiometricVault,
         path: String,
         password: String,
         pimText: String,
         useTextPassword: Boolean,
-        useBiometric: Boolean,
-        bioSecret: ByteArray?,
         keyfileUris: List<Uri>,
-        rememberBio: Boolean,
         useBackupHeader: Boolean,
         readOnly: Boolean,
         trueCryptMode: Boolean,
         protectHidden: Boolean,
         hiddenPassword: String,
         hiddenPimText: String,
-        phoneUnlockConfirmed: Boolean = false,
         currentHandle: Long,
         onHandle: (Long) -> Unit,
         onEntries: (List<VaultEntry>) -> Unit,
@@ -2821,101 +2599,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val text = if (useTextPassword) password else ""
-        if (useBiometric && text.isEmpty()) {
-            onStatus("Type the volume password first.")
-            return
-        }
         if (text.isEmpty() && keyfileUris.isEmpty()) {
             onStatus("Type the volume password, or add a keyfile.")
-            return
-        }
-        if (useBiometric && (bioSecret == null || bioSecret.isEmpty()) && !phoneUnlockConfirmed) {
-            if (vault.hasFactors(path)) {
-                vault.load(this, path) { stored ->
-                    if (stored == null) {
-                        onStatus("Phone unlock cancelled.")
-                        return@load
-                    }
-                    passwordState.value = stored.password
-                    pimState.value = stored.pim.toString()
-                    useBiometricState.value = stored.hasBiometric() || useBiometric
-                    bioSecretState.value = stored.biometricKey
-                    if (stored.keyfileUris.isNotEmpty()) {
-                        keyfileUrisState.value = stored.keyfileUris.mapNotNull { Uri.parse(it) }
-                    }
-                    openVolumeWithFactors(
-                        vault = vault,
-                        path = path,
-                        password = stored.password.ifEmpty { password },
-                        pimText = stored.pim.toString(),
-                        useTextPassword = stored.password.isNotEmpty() || useTextPassword,
-                        useBiometric = stored.hasBiometric() || useBiometric,
-                        bioSecret = stored.biometricKey ?: bioSecret,
-                        keyfileUris = if (stored.keyfileUris.isNotEmpty())
-                            stored.keyfileUris.mapNotNull { Uri.parse(it) }
-                        else
-                            keyfileUris,
-                        rememberBio = false,
-                        useBackupHeader = useBackupHeader,
-                        readOnly = readOnly,
-                        trueCryptMode = trueCryptMode,
-                        protectHidden = protectHidden,
-                        hiddenPassword = hiddenPassword,
-                        hiddenPimText = hiddenPimText,
-                        phoneUnlockConfirmed = true,
-                        currentHandle = currentHandle,
-                        onHandle = onHandle,
-                        onEntries = onEntries,
-                        onStatus = onStatus
-                    )
-                }
-                return
-            }
-            onStatus("Create or import a biometric password, or tap Unlock with fingerprint, face, or screen lock.")
-            return
-        }
-        if (useBiometric && (bioSecret == null || bioSecret.isEmpty())) {
-            onStatus("Create or import a biometric password, or tap Unlock with fingerprint, face, or screen lock.")
-            return
-        }
-        if (useBiometric && !phoneUnlockConfirmed) {
-            vault.confirm(this, "Confirm fingerprint, face, or screen lock to open the volume") { ok ->
-                if (!ok) {
-                    onStatus("Phone unlock cancelled.")
-                    return@confirm
-                }
-                openVolumeWithFactors(
-                    vault = vault,
-                    path = path,
-                    password = password,
-                    pimText = pimText,
-                    useTextPassword = useTextPassword,
-                    useBiometric = useBiometric,
-                    bioSecret = bioSecret,
-                    keyfileUris = keyfileUris,
-                    rememberBio = rememberBio,
-                    useBackupHeader = useBackupHeader,
-                    readOnly = readOnly,
-                    trueCryptMode = trueCryptMode,
-                    protectHidden = protectHidden,
-                    hiddenPassword = hiddenPassword,
-                    hiddenPimText = hiddenPimText,
-                    phoneUnlockConfirmed = true,
-                    currentHandle = currentHandle,
-                    onHandle = onHandle,
-                    onEntries = onEntries,
-                    onStatus = onStatus
-                )
-            }
             return
         }
         beginWork("Opening volume…")
         Thread {
             val temps = mutableListOf<File>()
             try {
-                if (useBiometric && bioSecret != null) {
-                    temps.add(KeyfileIo.writeSecret(this, bioSecret))
-                }
                 for (uri in keyfileUris) {
                     val copied = KeyfileIo.copyUri(this, uri)
                     if (copied == null) {
@@ -2972,18 +2663,6 @@ class MainActivity : AppCompatActivity() {
                         if (protectHidden) msg = "Hidden volume is being protected against damage. $msg"
                         if (truncated) msg += " Listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more."
                         onStatus(msg)
-                        if (rememberBio && vault.isAvailable()) {
-                            vault.store(
-                                this,
-                                path,
-                                FactorBundle(
-                                    pim = pimText.toIntOrNull() ?: 0,
-                                    password = text,
-                                    biometricKey = if (useBiometric) bioSecret else null,
-                                    keyfileUris = keyfileUris.map { it.toString() }
-                                )
-                            ) {}
-                        }
                     }
                 }
             } catch (e: Exception) {
@@ -3641,8 +3320,6 @@ class MainActivity : AppCompatActivity() {
         password: String,
         pimText: String,
         useTextPassword: Boolean,
-        useBiometric: Boolean,
-        bioSecret: ByteArray?,
         keyfileUris: List<Uri>,
         currentHandle: Long,
         onHandle: (Long) -> Unit,
@@ -3658,7 +3335,7 @@ class MainActivity : AppCompatActivity() {
         Thread {
             val temps = mutableListOf<File>()
             try {
-                val (copied, err) = copyUnlockKeyfiles(useBiometric, bioSecret, keyfileUris)
+                val (copied, err) = copyUnlockKeyfiles(keyfileUris)
                 if (err != null) {
                     runOnUiThread {
                         endWork()

@@ -424,6 +424,29 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn('path="share/"', paths)
         self.assertNotIn('path="."', paths)
         self.assertNotIn("external-path", paths)
+        share = read("ports/android/app/src/main/java/dev/shivampingale/vcport/ShareHelper.kt")
+        self.assertIn("stageInShareDir", share)
+        self.assertIn("sanitizeKeyfileName", share)
+
+    def test_keyfiles_are_multiple_and_desktop_mount_options(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        for blob in (main, view):
+            self.assertIn("Generate keyfile and add", blob)
+            self.assertIn("Add keyfiles", blob)
+            self.assertIn("Use backup header", blob)
+            self.assertIn("TrueCrypt Mode", blob)
+            self.assertIn("PIM (0 = default)", blob)
+            self.assertNotIn("Save extra keyfile for a computer", blob)
+            self.assertNotIn("How it works:", blob)
+            self.assertNotIn("Create phone-unlock keyfile", blob)
+            self.assertNotIn("Unlock with fingerprint", blob)
+            self.assertNotIn("Unlock with Face ID", blob)
+        self.assertIn("copyOwned", read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"))
+        self.assertFalse(
+            (PORTS / "android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt").exists()
+        )
+        self.assertFalse((PORTS / "ios/VCPort/BiometricStore.swift").exists())
 
     def test_backup_excludes_everything(self) -> None:
         backup = read("ports/android/app/src/main/res/xml/backup_rules.xml")
@@ -435,13 +458,12 @@ class AndroidHighThreatTests(unittest.TestCase):
 
     def test_hardening_source_contracts(self) -> None:
         hard = read("ports/android/app/src/main/java/dev/shivampingale/vcport/Hardening.kt")
-        vault = read("ports/android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt")
         self.assertIn("FLAG_SECURE", hard)
         self.assertIn("wipeSessionFiles", hard)
         self.assertIn("vc-in-", hard)
         self.assertIn("fun panic", hard)
-        self.assertIn("vc_port_volume_key", vault)
-        self.assertIn("BiometricVault.KEY_ALIAS", hard)
+        self.assertIn("vc_port_volume_key", hard)
+        self.assertNotIn("BiometricVault", hard)
         self.assertNotIn("takePersistableUriPermission", hard)
 
     def test_wrap_keeps_password_across_file_picker(self) -> None:
@@ -464,19 +486,24 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("That file is selected", main)
         self.assertIn("That file is selected", view)
 
-    def test_biometric_strong_only(self) -> None:
-        vault = read("ports/android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt")
-        ios = read("ports/ios/VCPort/BiometricStore.swift")
-        self.assertIn("BIOMETRIC_STRONG", vault)
-        self.assertNotIn("BIOMETRIC_WEAK", vault)
-        self.assertIn("DEVICE_CREDENTIAL", vault)
-        self.assertIn("AES/GCM/NoPadding", vault)
-        self.assertIn("setIsStrongBoxBacked", vault)
-        self.assertIn("fun confirm", vault)
-        self.assertIn("prompt.authenticate(builder.build())", vault)
-        self.assertIn("userPresence", ios)
-        self.assertIn("deviceOwnerAuthentication", ios)
-        self.assertIn("evaluatePolicy(.deviceOwnerAuthentication", ios)
+    def test_master_has_no_phone_biometrics(self) -> None:
+        vault = PORTS / "android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt"
+        store = PORTS / "ios/VCPort/BiometricStore.swift"
+        self.assertFalse(vault.exists())
+        self.assertFalse(store.exists())
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        gradle = read("ports/android/app/build.gradle")
+        manifest = read("ports/android/app/src/main/AndroidManifest.xml")
+        plist = read("ports/ios/VCPort/Info.plist")
+        self.assertNotIn("androidx.biometric", gradle)
+        self.assertNotIn("USE_BIOMETRIC", manifest)
+        self.assertNotIn("USE_FINGERPRINT", manifest)
+        self.assertNotIn("NSFaceIDUsageDescription", plist)
+        self.assertNotIn("BiometricPrompt", main)
+        self.assertNotIn("BiometricStore", view)
+        self.assertNotIn("Type REMEMBER", main)
+        self.assertNotIn("Type REMEMBER", view)
 
     def test_no_gms_firebase_play_integrity(self) -> None:
         blob = ""
@@ -511,10 +538,6 @@ class AndroidHighThreatTests(unittest.TestCase):
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         theme = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
         hardening = read("ports/android/app/src/main/java/dev/shivampingale/vcport/Hardening.kt")
-        self.assertIn("var rememberBio by remember { mutableStateOf(false) }", main)
-        self.assertIn("Type REMEMBER", main)
-        self.assertIn("rememberConfirmOpen", main)
-        self.assertIn("hasBio && rememberBio", main)
         self.assertIn("KeyboardType.Password", theme)
         self.assertIn("autoCorrect = false", theme)
         self.assertIn("IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS", hardening)
@@ -539,7 +562,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("AES(Twofish(Serpent))", native)
         self.assertIn("HMAC-SHA-512", native)
         self.assertIn("standard VeraCrypt", main)
-        self.assertIn("writeSecret", main)
+        self.assertIn("copyOwned", read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"))
         self.assertIn("standard VeraCrypt", view)
         self.assertIn("vc_entropy_add", native)
         self.assertIn("hidden_size_bytes", native)
@@ -578,13 +601,10 @@ class IosHighThreatTests(unittest.TestCase):
 
     def test_never_save_history_is_default(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")
-        self.assertIn("rememberBiometrics = false", view)
-        self.assertIn("Type REMEMBER", view)
         self.assertIn("neverSaveHistory()", view)
         self.assertGreaterEqual(view.count("SecureField("), 5)
         self.assertGreaterEqual(view.count(".neverSaveHistory()"), 5)
         self.assertIn("textContentType(.oneTimeCode)", view)
-        self.assertIn("hasBio && remember", view)
 
 
 class MacosDesktopTests(unittest.TestCase):
@@ -661,7 +681,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("64-character password", main)
         lock = main.split("private fun lockSession()")[1].split("private fun panicWipe()")[0]
         self.assertNotIn("SensitiveClipboard.forget", lock)
-        onstop = main.split("override fun onStop()")[1].split("private fun wipeBytes")[0]
+        onstop = main.split("override fun onStop()")[1].split("private fun closeMountedVolume()")[0]
         self.assertIn("dismountOnLeave()", onstop)
         self.assertNotIn("lockSession()", onstop)
         self.assertIn("Create form kept", main)
@@ -736,7 +756,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
             self.assertIn("BASKET.sha256", blob)
             self.assertIn("Inside the volume", blob)
             self.assertIn("exFAT", blob)
-            self.assertIn("Text password (primary)", blob)
+            self.assertIn("Volume password", blob)
             self.assertIn("will not ask for superuser", blob)
 
     def test_desktop_file_ops_on_android_and_ios(self) -> None:

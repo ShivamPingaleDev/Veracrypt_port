@@ -236,7 +236,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("restoreHeaders", sim)
         self.assertIn("HMAC-SHA-256", sim)
         self.assertIn("corruptPrimaryHeader", sim)
-        self.assertIn("FactorCodec.randomBiometricKey", sim)
+        self.assertIn("generateKeyfile", sim)
         self.assertIn("SensitiveClipboard.copyOnce", sim)
         self.assertIn("NativeBridge.createVolume", sim)
         self.assertIn("NativeBridge.wrapFile", sim)
@@ -359,12 +359,13 @@ class IntegrationTests(unittest.TestCase):
         self.assertIn(v["upstream_git"], header)
 
     def test_kotlin_and_swift_share_vcf2_module(self) -> None:
-        kotlin = read(
-            "ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"
-        )
-        swift = read("ports/ios/VCPort/UnlockFactors.swift")
-        self.assertIn("VCF2\\n", kotlin)
-        self.assertIn("VCF2\\n", swift)
+        kotlin = Path("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
+        swift = Path("ports/ios/VCPort/UnlockFactors.swift")
+        self.assertTrue(kotlin.exists())
+        self.assertFalse(swift.exists())
+        blob = read(str(kotlin))
+        self.assertNotIn("VCF2", blob)
+        self.assertIn("copyOwned", blob)
 
     def test_jni_exports_progress(self) -> None:
         jni = read("ports/shared/android_jni.cpp")
@@ -386,6 +387,7 @@ class FunctionalTests(unittest.TestCase):
             self.assertIn("Add keyfiles", blob)
             self.assertIn("Add files to basket", blob)
             self.assertIn("Keyfile generator", blob)
+            self.assertIn("Generate keyfile and add", blob)
 
     def test_progress_is_in_front_of_the_user(self) -> None:
         theme = read(
@@ -608,13 +610,7 @@ class DifferentialTests(unittest.TestCase):
             "ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"
         )
         self.assertIn("catch (_: Exception)", kotlin)
-        self.assertIn("FactorBundle()", kotlin)
-
-    def test_biometric_load_does_not_crash_on_bad_blob(self) -> None:
-        vault = read(
-            "ports/android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt"
-        )
-        self.assertGreaterEqual(vault.count("catch (_: Exception)"), 2)
+        self.assertIn("copyOwned", kotlin)
 
 
 class BoundedFuzzTests(unittest.TestCase):
