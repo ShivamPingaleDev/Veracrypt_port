@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -44,7 +45,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -76,6 +76,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.delay
@@ -98,6 +99,9 @@ data class MountedVolume(
     val entries: List<VaultEntry> = emptyList(),
     val truncated: Boolean = false
 )
+
+/** Desktop-style slot list. This session only; not a system drive letter. */
+private const val MOUNT_SLOTS = 8
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : AppCompatActivity() {
@@ -385,20 +389,14 @@ class MainActivity : AppCompatActivity() {
                 ) { uri: Uri? ->
                     if (uri != null && path.isNotEmpty() && File(path).exists()) {
                         ShareHelper.persistRead(this@MainActivity, uri)
-                        try {
-                            contentResolver.openOutputStream(uri)?.use { out ->
-                                File(path).inputStream().use { input -> input.copyTo(out) }
-                            }
+                        if (copyFileToUri(File(path), uri)) {
                             incoming = null
                             containerUri = uri
                             containerLabel = ShareHelper.displayName(this@MainActivity, uri)
                                 ?: File(path).name
-                            holdLockForPicker()
-                            copyContainerAsync(uri) { copied ->
-                                if (copied.isNotEmpty()) path = copied
-                                status = "Saved $containerLabel. That file is selected. Open volume, or Share encrypted."
-                            }
-                        } catch (_: Exception) {
+                            wipeCreateSecrets()
+                            status = "Saved $containerLabel. Type the volume password and Open volume. Create secrets were wiped."
+                        } else {
                             status = "Created in app cache, but could not save a copy."
                         }
                     }
@@ -660,8 +658,30 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
                         }
-                        if (NativeBridge.isOpen(handle)) {
+                            ScrollableTabRow(
+                                selectedTabIndex = tab.coerceIn(0, 3),
+                                containerColor = if (skin == VcSkin.Desktop) {
+                                    colors.surface.copy(alpha = 0.94f)
+                                } else {
+                                    colors.background.copy(alpha = 0.35f)
+                                },
+                                contentColor = colors.primary,
+                                edgePadding = 8.dp,
+                                indicator = { positions ->
+                                    val i = tab.coerceIn(0, positions.lastIndex.coerceAtLeast(0))
+                                    if (positions.isNotEmpty()) {
+                                        SkinTabIndicator(positions[i])
+                                    }
+                                }
+                            ) {
+                                Tab(selected = tab == 0, onClick = { tab = 0 }, modifier = Modifier.testTag("tab_volume"), text = { Text("Volume") })
+                                Tab(selected = tab == 1, onClick = { tab = 1 }, modifier = Modifier.testTag("tab_create"), text = { Text("Create") })
+                                Tab(selected = tab == 2, onClick = { tab = 2 }, modifier = Modifier.testTag("tab_tools"), text = { Text("Tools") })
+                                Tab(selected = tab == 3, onClick = { tab = 3 }, modifier = Modifier.testTag("tab_mounted"), text = { Text("Mounted") })
+                            }
+                            if (tab == 3) {
                             VaultPane(
+                                modifier = Modifier.weight(1f),
                                 dirPath = dirPath,
                                 entries = entries,
                                 selectedNames = selectedNames,
@@ -773,33 +793,22 @@ class MainActivity : AppCompatActivity() {
                                 onWipeFreeSpace = {
                                     wipeFreeSpace(handle, dirPath, { entries = it }, { status = it })
                                 },
+                                onSelectAll = {
+                                    val files = entries.filter { !it.isDir }.map { it.name }.toSet()
+                                    selectedNames = if (files.isNotEmpty() && selectedNames.containsAll(files)) {
+                                        emptySet()
+                                    } else {
+                                        files
+                                    }
+                                },
                                 onMore = {
                                     loadDir(handle, dirPath, { entries = it }, { status = it }, append = true)
                                 }
                             )
-                        } else {
-                            ScrollableTabRow(
-                                selectedTabIndex = tab.coerceIn(0, 2),
-                                containerColor = if (skin == VcSkin.Desktop) {
-                                    colors.surface.copy(alpha = 0.94f)
-                                } else {
-                                    colors.background.copy(alpha = 0.35f)
-                                },
-                                contentColor = colors.primary,
-                                edgePadding = 8.dp,
-                                indicator = { positions ->
-                                    val i = tab.coerceIn(0, positions.lastIndex.coerceAtLeast(0))
-                                    if (positions.isNotEmpty()) {
-                                        SkinTabIndicator(positions[i])
-                                    }
-                                }
-                            ) {
-                                Tab(selected = tab == 0, onClick = { tab = 0 }, modifier = Modifier.testTag("tab_volume"), text = { Text("Volume") })
-                                Tab(selected = tab == 1, onClick = { tab = 1 }, modifier = Modifier.testTag("tab_create"), text = { Text("Create") })
-                                Tab(selected = tab == 2, onClick = { tab = 2 }, modifier = Modifier.testTag("tab_tools"), text = { Text("Tools") })
-                            }
+                            } else {
                             Column(
                                 Modifier
+                                    .weight(1f)
                                     .verticalScroll(tabScroll)
                                     .padding(horizontal = 16.dp, vertical = 10.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1769,7 +1778,7 @@ class MainActivity : AppCompatActivity() {
                     title = { Text("Open another container") },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("This session can keep several volumes mounted. Copy to volume / Move to volume sends a file into the folder last opened on the other volume.")
+                            Text("This session can keep several volumes mounted. Copy to volume / Move to volume sends selected files into the folder last opened on the other volume.")
                             if (containerLabel.isNotEmpty()) {
                                 Text("Selected: $containerLabel")
                             }
@@ -1830,20 +1839,20 @@ class MainActivity : AppCompatActivity() {
                     title = { Text(if (transferMove == true) "Move to volume" else "Copy to volume") },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("The file lands in the folder last opened on that volume.")
+                            Text("Selected files land in the folder last opened on that volume.")
                             others.forEach { dest ->
                                 OutlinedButton(
                                     onClick = {
                                         val move = transferMove == true
                                         transferMove = null
-                                        val entry = entries.firstOrNull { it.name in selectedNames && !it.isDir }
-                                        if (entry == null) {
-                                            status = "Tap a file, then Copy to volume or Move to volume."
+                                        val files = entries.filter { it.name in selectedNames && !it.isDir }
+                                        if (files.isEmpty()) {
+                                            status = "Tap one or more files, then Copy to volume or Move to volume."
                                         } else {
                                             transferBetweenVolumes(
                                                 srcHandle = handle,
                                                 srcDir = dirPath,
-                                                entry = entry,
+                                                files = files,
                                                 dest = dest,
                                                 move = move,
                                                 onSrcEntries = { entries = it },
@@ -1978,6 +1987,32 @@ class MainActivity : AppCompatActivity() {
             statusState.value =
                 "Dismounted. Create form kept. Dismount or Panic wipe also clears the generated password."
         }
+    }
+
+    /**
+     * After a successful CreateDocument save: forget create/open secrets so they
+     * are not sitting in RAM. Keep the selected cache path and wizard size/cipher
+     * so Open volume still works after they re-type the password.
+     * Cancelling the save picker must not call this.
+     */
+    private fun wipeCreateSecrets() {
+        createPasswordState.value = ""
+        createHiddenPasswordState.value = ""
+        hiddenProtectPasswordState.value = ""
+        passwordState.value = ""
+        createPimState.value = "0"
+        createHiddenPimState.value = "0"
+        hiddenProtectPimState.value = "0"
+        pimState.value = "0"
+        val keys = keyfileUrisState.value + hiddenKeyfileUrisState.value
+        keyfileUrisState.value = emptyList()
+        hiddenKeyfileUrisState.value = emptyList()
+        keys.forEach { uri ->
+            if (uri.scheme == "file") {
+                uri.path?.let { Hardening.wipeFile(File(it)) }
+            }
+        }
+        Hardening.wipeDir(File(cacheDir, "keyfiles"))
     }
 
     private fun wipeRamSecrets() {
@@ -2756,13 +2791,13 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val already = mountedVolumesState.value
-        if (already.size >= 8) {
+        if (already.size >= MOUNT_SLOTS) {
             onStatus("This session already has 8 volumes mounted. Dismount one first.")
             return
         }
         val key = containerUriState.value?.toString() ?: path
         if (already.any { it.uriKey == key || it.path == path }) {
-            onStatus("That container is already mounted. Switch to it in the volume row.")
+            onStatus("That container is already mounted. Switch to it on the Mounted tab.")
             return
         }
         val text = if (useTextPassword) password else ""
@@ -2837,7 +2872,8 @@ class MainActivity : AppCompatActivity() {
                         onEntries(files)
                         dirPathState.value = ""
                         listTruncatedState.value = truncated
-                        var msg = "Mounted in this app. Size $volumeBytes bytes. Tap a folder to open it, or a file to share the decrypted copy. Copy to volume moves a file into another mounted container."
+                        tabState.intValue = 3
+                        var msg = "Mounted in this app. Size $volumeBytes bytes. Slots are on the Mounted tab. Tap a folder to open it, or a file to select it. Copy to volume moves selected files into another mounted container."
                         if (next.size > 1) msg = "${next.size} volumes mounted. $msg"
                         if (protectHidden) msg = "Hidden volume is being protected against damage. $msg"
                         if (truncated) msg += " Listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more."
@@ -2981,7 +3017,10 @@ class MainActivity : AppCompatActivity() {
         beginWork("Unwrapping file…")
         Thread {
             val name = ShareHelper.displayName(this, uri) ?: "wrap.vcpw"
-            val wrapped = File(cacheDir, ShareHelper.safeName(name))
+            val wrapped = KeyfileIo.uniqueNamed(
+                File(cacheDir, "wraps").apply { mkdirs() },
+                ShareHelper.safeName(name)
+            )
             val destDir = File(cacheDir, "unwrapped").apply { mkdirs() }
             try {
                 val input = KeyfileIo.openReadable(this, uri)
@@ -3577,18 +3616,18 @@ class MainActivity : AppCompatActivity() {
         ) {
             return file.absolutePath
         }
-        val outFile = File(cacheDir, name)
+        val outFile = KeyfileIo.uniqueNamed(File(cacheDir, "containers").apply { mkdirs() }, name)
         if (file.length() > 0 && cacheDir.usableSpace < file.length() + (32L shl 20)) {
             return ""
         }
-        file.copyTo(outFile, overwrite = true)
+        file.copyTo(outFile, overwrite = false)
         return outFile.absolutePath
     }
 
     private fun transferBetweenVolumes(
         srcHandle: Long,
         srcDir: String,
-        entry: VaultEntry,
+        files: List<VaultEntry>,
         dest: MountedVolume,
         move: Boolean,
         onSrcEntries: (List<VaultEntry>) -> Unit,
@@ -3598,61 +3637,70 @@ class MainActivity : AppCompatActivity() {
             onStatus("Open both volumes first.")
             return
         }
-        if (entry.isDir) {
-            onStatus("Open the folder, then copy a file inside it.")
+        val toCopy = files.filter { !it.isDir }
+        if (toCopy.isEmpty()) {
+            onStatus("Tap one or more files, then Copy to volume or Move to volume.")
             return
         }
         if (srcHandle == dest.handle) {
             onStatus("Pick a different volume.")
             return
         }
-        beginWork(if (move) "Moving ${entry.name} to ${dest.label}…" else "Copying ${entry.name} to ${dest.label}…")
+        val label = dest.label
+        val verb = if (move) "Moving" else "Copying"
+        beginWork(
+            if (toCopy.size == 1) "$verb ${toCopy[0].name} to $label…"
+            else "$verb ${toCopy.size} files to $label…"
+        )
         Thread {
-            val temp = File(cacheDir, "xfer-${System.nanoTime()}-${ShareHelper.safeName(entry.name)}")
-            try {
-                val srcPath = joinDir(srcDir, entry.name)
-                val rcExport = NativeBridge.exportFile(srcHandle, srcPath, temp.absolutePath)
-                if (rcExport != 0 || !temp.exists()) {
-                    runOnUiThread {
-                        endWork()
-                        onStatus(extractErrorMessage(entry.name, rcExport))
+            var copied = 0
+            var moved = 0
+            var lastError: String? = null
+            for (entry in toCopy) {
+                val temp = File(cacheDir, "xfer-${System.nanoTime()}-${ShareHelper.safeName(entry.name)}")
+                try {
+                    val srcPath = joinDir(srcDir, entry.name)
+                    val rcExport = NativeBridge.exportFile(srcHandle, srcPath, temp.absolutePath)
+                    if (rcExport != 0 || !temp.exists()) {
+                        lastError = extractErrorMessage(entry.name, rcExport)
+                        continue
                     }
-                    return@Thread
-                }
-                val destDir = dest.dirPath.ifEmpty { "/" }
-                val rcImport = NativeBridge.importFile(dest.handle, destDir, temp.absolutePath, entry.name)
-                if (rcImport != 0) {
-                    runOnUiThread {
-                        endWork()
-                        onStatus(importErrorMessage(entry.name, rcImport, dest.handle))
+                    val destDir = dest.dirPath.ifEmpty { "/" }
+                    val rcImport = NativeBridge.importFile(dest.handle, destDir, temp.absolutePath, entry.name)
+                    if (rcImport != 0) {
+                        lastError = importErrorMessage(entry.name, rcImport, dest.handle)
+                        continue
                     }
-                    return@Thread
+                    copied++
+                    if (move) {
+                        if (NativeBridge.deleteFile(srcHandle, srcPath) == 0) moved++
+                    }
+                } catch (_: Exception) {
+                    lastError = "Could not copy ${entry.name} into the other volume."
+                } finally {
+                    Hardening.wipeFile(temp)
                 }
-                var deleted = true
-                if (move) {
-                    deleted = NativeBridge.deleteFile(srcHandle, srcPath) == 0
-                }
-                runOnUiThread {
-                    endWork()
+            }
+            runOnUiThread {
+                endWork()
+                onStatus(
                     when {
-                        move && !deleted ->
-                            onStatus("Copied ${entry.name} into ${dest.label}. Could not delete it from the source volume.")
-                        move -> onStatus("Moved ${entry.name} into ${dest.label}.")
-                        else -> onStatus("Copied ${entry.name} into ${dest.label}.")
+                        lastError != null && copied == 0 -> lastError
+                        move && moved < copied ->
+                            "Copied $copied file(s) into $label. Could not delete ${copied - moved} from the source volume."
+                        move && copied == toCopy.size ->
+                            "Moved $copied file(s) into $label."
+                        copied == toCopy.size ->
+                            "Copied $copied file(s) into $label."
+                        else ->
+                            "Copied $copied of ${toCopy.size} file(s) into $label. $lastError"
                     }
-                    loadDir(srcHandle, srcDir, { files ->
-                        onSrcEntries(files)
-                        persistActiveMount(srcDir, files, listTruncatedState.value)
-                    }, onStatus)
-                    refreshMountedListing(dest.handle, dest.dirPath)
-                }
-            } catch (_: Exception) {
-                runOnUiThread {
-                    endWork()
-                    onStatus("Could not copy that file into the other volume.")
-                }
-            } finally {
-                Hardening.wipeFile(temp)
+                )
+                loadDir(srcHandle, srcDir, { listed ->
+                    onSrcEntries(listed)
+                    persistActiveMount(srcDir, listed, listTruncatedState.value)
+                }, onStatus)
+                refreshMountedListing(dest.handle, dest.dirPath)
             }
         }.start()
     }
@@ -3678,6 +3726,28 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun copyFileToUri(src: File, uri: Uri): Boolean {
+        try {
+            contentResolver.openFileDescriptor(uri, "w")?.use { pfd ->
+                FileOutputStream(pfd.fileDescriptor).use { out ->
+                    src.inputStream().use { input -> input.copyTo(out) }
+                    out.flush()
+                    pfd.fileDescriptor.sync()
+                }
+            } ?: return false
+            return true
+        } catch (_: Exception) {
+            return try {
+                contentResolver.openOutputStream(uri)?.use { out ->
+                    src.inputStream().use { input -> input.copyTo(out) }
+                    out.flush()
+                } != null
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
     private fun copyToCache(uri: Uri): String {
         val display = ShareHelper.displayName(this, uri) ?: "volume.hc"
         val name = ShareHelper.sanitizeDisguiseName(display)
@@ -3686,17 +3756,29 @@ class MainActivity : AppCompatActivity() {
             return ""
         }
         val input = KeyfileIo.openReadable(this, uri) ?: return ""
-        val outFile = File(cacheDir, name)
-        outFile.outputStream().use { output ->
-            copyStreamProgress(input, output, len, "Copying container")
+        val outFile = KeyfileIo.uniqueNamed(File(cacheDir, "containers").apply { mkdirs() }, name)
+        try {
+            outFile.outputStream().use { output ->
+                copyStreamProgress(input, output, len, "Copying container")
+            }
+        } finally {
+            input.close()
         }
-        input.close()
+        if (!outFile.exists() || outFile.length() == 0L) {
+            outFile.delete()
+            return ""
+        }
+        if (len > 0 && outFile.length() < len) {
+            outFile.delete()
+            return ""
+        }
         return outFile.absolutePath
     }
 }
 
 @Composable
 private fun VaultPane(
+    modifier: Modifier = Modifier,
     dirPath: String,
     entries: List<VaultEntry>,
     selectedNames: Set<String>,
@@ -3723,44 +3805,25 @@ private fun VaultPane(
     onDelete: () -> Unit,
     onProperties: () -> Unit,
     onWipeFreeSpace: () -> Unit,
+    onSelectAll: () -> Unit,
     onMore: () -> Unit
 ) {
     val colors = MaterialTheme.colorScheme
-    Column(Modifier.fillMaxSize()) {
+    val fileCount = entries.count { !it.isDir }
+    val allFilesSelected = fileCount > 0 && entries.filter { !it.isDir }.all { it.name in selectedNames }
+    val live = mounts.isNotEmpty()
+    Column(modifier.fillMaxSize()) {
         Text(
             if (mounts.size > 1) "${mounts.size} volumes mounted" else "Mounted in this app",
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
-        if (mounts.isNotEmpty()) {
-            Row(
-                Modifier
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                mounts.forEachIndexed { index, vol ->
-                    FilterChip(
-                        selected = index == activeMount,
-                        onClick = { onSelectMount(index) },
-                        enabled = !busy,
-                        label = {
-                            Text(vol.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        },
-                        trailingIcon = {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = "Dismount ${vol.label}",
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clickable(enabled = !busy) { onDismountMount(index) }
-                            )
-                        }
-                    )
-                }
-            }
-        }
+        Text(
+            "Slots are this session only, like the desktop slot list. Not a system drive. Select files, then Copy to volume or Move to volume.",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
         Column(
             Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -3774,20 +3837,154 @@ private fun VaultPane(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(
                         onClick = onCopyToVolume,
-                        enabled = !busy,
+                        enabled = !busy && live,
                         modifier = Modifier.weight(1f)
                     ) { Text("Copy to volume", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
                     OutlinedButton(
                         onClick = onMoveToVolume,
-                        enabled = !busy,
+                        enabled = !busy && live,
                         modifier = Modifier.weight(1f)
                     ) { Text("Move to volume", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
                 }
             }
+            OutlinedButton(
+                onClick = onSelectAll,
+                enabled = !busy && live && fileCount > 0,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(if (allFilesSelected) "Clear selection" else "Select files") }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(
+                    onClick = onCopyFromDevice,
+                    enabled = !busy && live,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Copy from device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+                OutlinedButton(
+                    onClick = onMoveFromDevice,
+                    enabled = !busy && live,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Move from device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(
+                    onClick = onCopyToDevice,
+                    enabled = !busy && live,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Copy to device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+                OutlinedButton(
+                    onClick = onMoveToDevice,
+                    enabled = !busy && live,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Move to device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(
+                    onClick = onNewFolder,
+                    enabled = !busy && live,
+                    modifier = Modifier.weight(1f)
+                ) { Text("New folder", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+                OutlinedButton(
+                    onClick = onRename,
+                    enabled = !busy && live,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Rename", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+                OutlinedButton(
+                    onClick = onDelete,
+                    enabled = !busy && live,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Delete", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+                OutlinedButton(
+                    onClick = onProperties,
+                    enabled = !busy && live,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Properties", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+            }
+            OutlinedButton(
+                onClick = onWipeFreeSpace,
+                enabled = !busy && live,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Wipe free space") }
         }
         Row(
             Modifier
-                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            Column(
+                Modifier
+                    .width(132.dp)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(colors.primary)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text("No.", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(24.dp))
+                    Text("Volume", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall)
+                }
+                for (slot in 0 until MOUNT_SLOTS) {
+                    val vol = mounts.getOrNull(slot)
+                    val selected = vol != null && slot == activeMount
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(if (selected) colors.primaryContainer else colors.surface)
+                            .clickable(enabled = !busy) {
+                                if (vol != null) onSelectMount(slot) else onOpenAnother()
+                            }
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
+                            .testTag("mount_slot_$slot"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${slot + 1}",
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.width(24.dp)
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                vol?.label ?: "Empty",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (vol == null) colors.onSurfaceVariant else colors.onSurface
+                            )
+                            Text(
+                                when {
+                                    vol == null -> "Tap to open"
+                                    selected -> "Selected"
+                                    else -> "Mounted"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
+                        if (vol != null) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Dismount ${vol.label}",
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clickable(enabled = !busy) { onDismountMount(slot) }
+                            )
+                        }
+                    }
+                }
+            }
+            Box(
+                Modifier
+                    .width(1.dp)
+                    .fillMaxHeight()
+                    .background(colors.outline.copy(alpha = 0.4f))
+            )
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+        Row(
+            Modifier
+                .padding(horizontal = 8.dp, vertical = 4.dp)
                 .horizontalScroll(rememberScrollState()),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -3809,67 +4006,11 @@ private fun VaultPane(
                 ) { Text(part) }
             }
         }
-        Column(
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(
-                    onClick = onCopyFromDevice,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Copy from device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onMoveFromDevice,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Move from device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(
-                    onClick = onCopyToDevice,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Copy to device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onMoveToDevice,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Move to device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(
-                    onClick = onNewFolder,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f)
-                ) { Text("New folder", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onRename,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Rename", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onDelete,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Delete", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onProperties,
-                    enabled = !busy,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Properties", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-            }
-            OutlinedButton(
-                onClick = onWipeFreeSpace,
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Wipe free space") }
-        }
         Row(
             Modifier
                 .fillMaxWidth()
                 .background(colors.primary)
-                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .padding(horizontal = 8.dp, vertical = 6.dp)
         ) {
             Text("Name", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
             Text("Size", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall)
@@ -3882,9 +4023,16 @@ private fun VaultPane(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("This folder is empty.", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Tap a folder to open it, or Copy from device to add a file. Copy to device writes a file Files can open.",
+                    if (!live) "No volume in this slot." else "This folder is empty.",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    if (!live) {
+                        "Open volume on the Volume tab, or tap an empty slot. This is not a system drive."
+                    } else {
+                        "Tap a folder to open it, or Copy from device to add a file. Copy to device writes a file Files can open."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant
                 )
@@ -3955,6 +4103,8 @@ private fun VaultPane(
                             .padding(16.dp)
                     ) { Text("Load more") }
                 }
+            }
+        }
             }
         }
     }

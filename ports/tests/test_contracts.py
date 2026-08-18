@@ -292,6 +292,7 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("Do **not** title posts", public)
         self.assertIn("PUBLIC.md", readme)
         self.assertIn("docs/screenshots/01-volume.png", readme)
+        self.assertIn("docs/screenshots/05-mounted.png", readme)
         self.assertIn("docs/screenshots/08-skin-signal.png", readme)
         self.assertNotIn("docs/screenshots/05-skin-cyberpunk.png", readme)
         for blob in (public, readme):
@@ -445,8 +446,48 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertNotIn('label = { Text("Container path") }', main)
         self.assertIn('bindContainerFd(uri, "rw")', main)
         self.assertIn("Selected: \\(url.lastPathComponent)", view)
-        self.assertIn("That file is selected", main)
-        self.assertIn("That file is selected", view)
+
+    def test_wipe_create_secrets_after_save_keeps_cache_volume(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        saver = main.split("val createSaver")[1].split("val toolSaver")[0]
+        self.assertIn("wipeCreateSecrets()", saver)
+        self.assertIn("copyFileToUri", saver)
+        self.assertNotIn("copyContainerAsync", saver)
+        self.assertIn("Create secrets were wiped", saver)
+        self.assertIn("Type the volume password", saver)
+        self.assertIn('File(cacheDir, "containers")', main)
+        self.assertIn("KeyfileIo.uniqueNamed", main)
+        copy = main.split("private fun copyToCache")[1].split("\n}")[0]
+        self.assertIn("uniqueNamed", copy)
+        self.assertNotIn("File(cacheDir, name)", copy)
+        ios_save = view.split("SystemFiles.exportCopy(url: dest)")[1].split("private func openVolume()")[0]
+        self.assertIn("wipeCreateSecrets()", ios_save)
+        self.assertIn("containerURL = dest", ios_save)
+        self.assertNotIn("containerURL = saved", ios_save)
+        self.assertIn("Create secrets were wiped", ios_save)
+        self.assertIn("Create form kept", main)
+        self.assertIn("Create form kept", view)
+
+    def test_mounted_tab_slot_column_on_android_and_ios(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertIn('testTag("tab_mounted")', main)
+        self.assertIn("Text(\"Mounted\")", main)
+        self.assertIn("MOUNT_SLOTS = 8", main)
+        self.assertIn("mount_slot_", main)
+        self.assertIn("Select files", main)
+        self.assertIn("Tap one or more files", main)
+        self.assertIn("Switch to it on the Mounted tab.", main)
+        self.assertIn("tabState.intValue = 3", main)
+        self.assertIn("Label(\"Mounted\"", view)
+        self.assertIn("mountSlots = 8", view)
+        self.assertIn("Select files", view)
+        self.assertIn("Tap one or more files", view)
+        self.assertIn("Switch to it on the Mounted tab.", view)
+        self.assertIn("selectedTab = 3", view)
+        self.assertIn("slots are this session only", main.lower())
+        self.assertIn("slots are this session only", view.lower())
 
     def test_master_has_no_phone_biometrics(self) -> None:
         vault = PORTS / "android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt"

@@ -21,6 +21,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "0.3.3",
+          "buildVersion": "8",
+          "date": "2026-08-18T00:00:00-00:00",
+          "localizedDescription": "Draft listing. No IPA is published on this tag; Android is a single FOSS APK. Build iOS from ports/ios and sign it yourself.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "0.3.2",
           "buildVersion": "7",
           "date": "2026-08-18T00:00:00-00:00",

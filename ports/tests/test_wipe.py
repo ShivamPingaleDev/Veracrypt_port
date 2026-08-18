@@ -54,7 +54,7 @@ class WipeTests(unittest.TestCase):
     def test_recursive_session_dirs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             cache = Path(tmp)
-            for name in ("keyfiles", "unwrapped", "share", "inbox"):
+            for name in ("keyfiles", "unwrapped", "share", "inbox", "wraps"):
                 d = cache / name
                 d.mkdir()
                 (d / "a.bin").write_bytes(b"aaaa")
@@ -70,7 +70,7 @@ class WipeTests(unittest.TestCase):
             keep = cache / "other.txt"
             keep.write_bytes(b"keep-me")
 
-            for name in ("keyfiles", "unwrapped", "share"):
+            for name in ("keyfiles", "unwrapped", "share", "wraps"):
                 wipe_dir(cache / name)
             for child in cache.iterdir():
                 if child.is_file() and (
@@ -83,6 +83,7 @@ class WipeTests(unittest.TestCase):
             self.assertFalse((cache / "keyfiles").exists())
             self.assertFalse((cache / "unwrapped").exists())
             self.assertFalse((cache / "share").exists())
+            self.assertFalse((cache / "wraps").exists())
             self.assertFalse(leftover.exists())
             self.assertFalse(bio.exists())
             self.assertFalse(incoming.exists())
@@ -96,12 +97,17 @@ class WipeTests(unittest.TestCase):
             inbox = cache / "inbox"
             inbox.mkdir()
             (inbox / "shot.bin").write_bytes(b"inbox")
+            containers = cache / "containers"
+            containers.mkdir()
+            (containers / "volume.hc").write_bytes(b"vol")
             (cache / "stray").write_bytes(b"stray")
             wipe_dir(inbox)
+            wipe_dir(containers)
             for child in list(cache.iterdir()):
                 if child.is_file():
                     wipe_file(child)
             self.assertFalse(inbox.exists())
+            self.assertFalse(containers.exists())
             self.assertFalse((cache / "stray").exists())
 
     def test_keyfile_size_cap_constant(self) -> None:

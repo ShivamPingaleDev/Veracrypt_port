@@ -34,7 +34,7 @@ Do not say:
 | What | Where |
 | --- | --- |
 | Source | Both public repos above |
-| Android preview | GitHub Release `v0.3.2` — one debug-signed FOSS APK (`VCPort-0.3.2.apk`) |
+| Android preview | GitHub Release `v0.3.3` — one debug-signed FOSS APK (`VCPort-0.3.3.apk`) |
 | iPhone preview | Build `ios/` from source and **sign it yourself** (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)). The unsigned IPA on `v0.3.1` is still there. |
 | AltStore JSON | `ios/altstore/source.json` — `downloadURL` stays **empty** until a signed IPA exists |
 | UI shots | [docs/screenshots/](docs/screenshots/) (real emulator UI; FLAG_SECURE still blocks `adb screencap`) |
@@ -97,7 +97,7 @@ Do not open drive-by issues on `veracrypt/VeraCrypt` to advertise. Do not paste 
 
 ### More that is not ads
 
-- Keep releases tagged (`v0.3.2`) so “VC Port 0.3.2” is a stable URL.
+- Keep releases tagged (`v0.3.3`) so “VC Port 0.3.3” is a stable URL.
 - Keep screenshots in [docs/screenshots/](docs/screenshots/) — GitHub uses them as social preview.
 - Fastlane short/full description is listing copy; same rules (not named VeraCrypt, not unbreakable).
 - A personal site is optional. If you add one, static HTML only, no analytics, link both git repos and `License.txt`.

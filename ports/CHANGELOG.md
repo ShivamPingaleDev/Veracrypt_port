@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.3.3
+
+Phone release: save/open fix, wipe Create secrets after save, Mounted tab.
+
+- After a volume is created and saved, password, PIM, and keyfiles are wiped. Open volume needs the password typed again.
+- Saving a new volume no longer recopies the Files URI over the cache copy (that overwrite made Open fail with "Could not read the container file"). Picker copies go to unique names under cache `containers/`.
+- Dedicated Mounted tab with a desktop-style slot column (8 slots). Volume/Create/Tools stay available while volumes are open. Select several files and Copy to volume / Move to volume across mounted containers.
+- README explains how the phone apps work in plain steps and shows the current Volume, Create, Mounted, and Tools screens.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.3.apk`). Same `applicationId` as 0.3.2; it replaces the old install.
+
 ## 0.3.2
 
 Phone release: official VeraCrypt `src/` with a thin overlay, one FOSS APK, Original and Dark mode.

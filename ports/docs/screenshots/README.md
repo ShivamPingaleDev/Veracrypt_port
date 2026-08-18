@@ -6,6 +6,6 @@ They are not store mockups. Fastlane `phoneScreenshots/` stays empty until a phy
 
 No volume password, generated secret, or opened-folder listing is in these frames. Not unbreakable.
 
-Original (`01`–`04`) is the production FOSS UI. Dark mode is `08-skin-signal.png`. The pick is stored on this phone only. Cyberpunk / Matrix / MAGI shots live under `archive/looks/screenshots/` and are not built.
+Original (`01`–`04`) plus Mounted (`05-mounted.png`) is the production FOSS UI. Dark mode is `08-skin-signal.png`. The pick is stored on this phone only. Cyberpunk / Matrix / MAGI shots live under `archive/looks/screenshots/` and are not built.
 
 Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com

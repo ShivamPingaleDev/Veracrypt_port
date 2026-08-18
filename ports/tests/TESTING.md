@@ -84,7 +84,7 @@ disguised as `.jpg` / `.mp4` / `.zip` / `.safetensors` / `.lora` / `.hc`,
 stores random files with those extensions, and checks hashes after backup
 header restore, KDF change, keyfile add/remove, password change, and
 biometric+keyfile unlock. Compose UI coverage is
-`MainActivityUiTest` (FLAG_SECURE, tabs Volume/Create/Tools, Panic wipe
+`MainActivityUiTest` (FLAG_SECURE, tabs Volume/Create/Tools/Mounted, Panic wipe
 visible, Stay offline, Decrypt wrap leftover, Generate strong password,
 Copy once then Home then resume so the Create form continues;
 does not tap Panic wipe or Check for updates; writes GitHub shots under

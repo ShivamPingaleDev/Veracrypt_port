@@ -1,0 +1,1 @@
+VC Port 0.3.3: wipe password, PIM, and keyfiles after a volume is saved; keep the cache copy so Open works; Mounted tab with eight slots. GitHub APKs stay debug-signed previews. Not unbreakable.

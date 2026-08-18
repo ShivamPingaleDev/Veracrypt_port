@@ -67,7 +67,7 @@ DL_SHOTS=/storage/emulated/0/Download/vcport-github-shots
 if "$ADB" shell ls "$DL_SHOTS/01-volume.png" >/dev/null 2>&1; then
 	echo "Pulling GitHub UI shots into $SHOTS"
 	for name in 01-volume.png 02-wrap.png 03-create.png 04-tools.png \
-		08-skin-signal.png; do
+		05-mounted.png 08-skin-signal.png; do
 		if "$ADB" shell ls "$DL_SHOTS/$name" >/dev/null 2>&1; then
 			"$ADB" pull "$DL_SHOTS/$name" "$SHOTS/$name"
 			ls -l "$SHOTS/$name"

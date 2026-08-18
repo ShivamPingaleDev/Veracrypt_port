@@ -2,6 +2,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 import CryptoKit
 
+private let mountSlots = 8
+
 private struct MountedVolume: Identifiable {
     let id = UUID()
     let handle: OpaquePointer
@@ -83,6 +85,10 @@ struct ContentView: View {
 
     @State private var selectedTab = 0
 
+    private var selectableFileNames: Set<String> {
+        Set(entries.filter { !$0.isDir }.map(\.name))
+    }
+
     private var holdingForPicker: Bool {
         holdLock || wrapImporterPresented || unwrapImporterPresented || importerPresented
             || shareEncImporterPresented || keyfileImporterPresented
@@ -94,9 +100,6 @@ struct ContentView: View {
         ZStack {
         NavigationStack {
             Group {
-                if volumeHandle != nil {
-                    mountedVolumeForm
-                } else {
                     TabView(selection: $selectedTab) {
                         volumeTab
                             .tag(0)
@@ -107,8 +110,10 @@ struct ContentView: View {
                         toolsTab
                             .tag(2)
                             .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+                        mountedVolumeForm
+                            .tag(3)
+                            .tabItem { Label("Mounted", systemImage: "externaldrive") }
                     }
-                }
             }
             .disabled(busy)
             .navigationTitle("VC Port")
@@ -260,7 +265,7 @@ struct ContentView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This session can keep several volumes mounted. Copy to volume / Move to volume sends a file into the folder last opened on the other volume.")
+                Text("This session can keep several volumes mounted. Copy to volume / Move to volume sends selected files into the folder last opened on the other volume.")
             }
             .confirmationDialog(
                 transferMove == true ? "Move to volume" : "Copy to volume",
@@ -273,17 +278,17 @@ struct ContentView: View {
                     Button(dest.label) {
                         let move = transferMove == true
                         transferMove = nil
-                        guard let name = selectedNames.first,
-                              let entry = entries.first(where: { $0.name == name && !$0.isDir }) else {
-                            status = "Tap a file, then Copy to volume or Move to volume."
+                        let files = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
+                        guard !files.isEmpty else {
+                            status = "Tap one or more files, then Copy to volume or Move to volume."
                             return
                         }
-                        transferBetweenVolumes(entry: entry, dest: dest, move: move)
+                        transferBetweenVolumes(entries: files, dest: dest, move: move)
                     }
                 }
                 Button("Cancel", role: .cancel) { transferMove = nil }
             } message: {
-                Text("The file lands in the folder last opened on that volume.")
+                Text("Selected files land in the folder last opened on that volume.")
             }
             .onChange(of: scenePhase) { phase in
                 if phase == .background && !holdingForPicker && !busy {
@@ -402,24 +407,61 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                ScrollView(.horizontal, showsIndicators: false) {
+                Text("Slots are this session only, like the desktop slot list. Not a system drive. Select files, then Copy to volume or Move to volume.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("No.")
+                        .frame(width: 28, alignment: .leading)
+                    Text("Volume")
+                    Spacer()
+                }
+                .font(.caption.weight(.semibold))
+                ForEach(0..<mountSlots, id: \.self) { slot in
+                    let vol = mountedVolumes.indices.contains(slot) ? mountedVolumes[slot] : nil
                     HStack(spacing: 8) {
-                        ForEach(Array(mountedVolumes.enumerated()), id: \.element.id) { index, vol in
-                            HStack(spacing: 4) {
-                                Button(vol.label) { selectMount(index) }
-                                    .buttonStyle(.bordered)
-                                    .tint(index == activeMountIndex ? Color.accentColor : Color.secondary)
-                                Button {
-                                    dismountMountedAt(index)
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
+                        Text("\(slot + 1)")
+                            .frame(width: 28, alignment: .leading)
+                            .font(.body.monospacedDigit())
+                        if let vol {
+                            Button {
+                                selectMount(slot)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(vol.label)
+                                    Text(slot == activeMountIndex ? "Selected" : "Mounted")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
-                                .buttonStyle(.plain)
-                                .foregroundStyle(.secondary)
-                                .accessibilityLabel("Dismount \(vol.label)")
                             }
+                            .buttonStyle(.plain)
+                            Spacer()
+                            Button {
+                                dismountMountedAt(slot)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Dismount \(vol.label)")
+                        } else {
+                            Button {
+                                holdLock = true
+                                pendingOpenAnother = true
+                                importerPresented = true
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Empty")
+                                    Text("Tap to open")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            Spacer()
                         }
                     }
+                    .listRowBackground(vol != nil && slot == activeMountIndex ? Color.accentColor.opacity(0.12) : Color.clear)
                 }
                 Button("Open another container") {
                     holdLock = true
@@ -432,7 +474,19 @@ struct ContentView: View {
                         Button("Move to volume") { transferMove = true }
                     }
                 }
-                if entries.isEmpty {
+                Button(selectableFileNames.isSubset(of: selectedNames) && !selectableFileNames.isEmpty ? "Clear selection" : "Select files") {
+                    if selectableFileNames.isSubset(of: selectedNames) && !selectableFileNames.isEmpty {
+                        selectedNames = []
+                    } else {
+                        selectedNames = selectableFileNames
+                    }
+                }
+                .disabled(selectableFileNames.isEmpty)
+                if mountedVolumes.isEmpty {
+                    Text("No volume in this slot. Open volume on the Volume tab, or tap an empty slot. This is not a system drive.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if entries.isEmpty {
                     Text("This folder is empty. Tap a folder after Copy from device. FAT and exFAT folders are browsable.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -1145,11 +1199,11 @@ struct ContentView: View {
                 holdLock = true
                 SystemFiles.exportCopy(url: dest) { saved in
                     holdLock = false
+                    incomingFile = nil
+                    containerURL = dest
                     if let saved {
-                        _ = saved.startAccessingSecurityScopedResource()
-                        incomingFile = nil
-                        containerURL = saved
-                        status = "Saved \(saved.lastPathComponent). That file is selected. Open volume, or Share encrypted."
+                        wipeCreateSecrets()
+                        status = "Saved \(saved.lastPathComponent). Type the volume password and Open volume. Create secrets were wiped."
                     }
                 }
             }
@@ -1180,12 +1234,12 @@ struct ContentView: View {
             status = "Type the volume password, or add a keyfile."
             return
         }
-        if mountedVolumes.count >= 8 {
+        if mountedVolumes.count >= mountSlots {
             status = "This session already has 8 volumes mounted. Dismount one first."
             return
         }
         if mountedVolumes.contains(where: { $0.url.path == path }) {
-            status = "That container is already mounted. Switch to it in the volume row."
+            status = "That container is already mounted. Switch to it on the Mounted tab."
             return
         }
         beginWork("Opening volume…")
@@ -1242,7 +1296,8 @@ struct ContentView: View {
                     entries = files
                     listTruncated = truncated
                     selectedNames = []
-                    var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file. Copy to volume moves a file into another mounted container."
+                    selectedTab = 3
+                    var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Slots are on the Mounted tab. Tap Open on a folder, or select files. Copy to volume moves selected files into another mounted container."
                     if mountedVolumes.count > 1 {
                         msg = "\(mountedVolumes.count) volumes mounted. " + msg
                     }
@@ -1359,51 +1414,66 @@ struct ContentView: View {
         status = "Dismounted \(victim.label). \(mountedVolumes.count) still mounted."
     }
 
-    private func transferBetweenVolumes(entry: VaultEntry, dest: MountedVolume, move: Bool) {
+    private func transferBetweenVolumes(entries files: [VaultEntry], dest: MountedVolume, move: Bool) {
         guard let src = volumeHandle else {
             status = "Open a volume first."
             return
         }
-        if entry.isDir {
-            status = "Open the folder, then copy a file inside it."
+        let toCopy = files.filter { !$0.isDir }
+        guard !toCopy.isEmpty else {
+            status = "Tap one or more files, then Copy to volume or Move to volume."
             return
         }
         persistActiveMount()
-        beginWork(move ? "Moving \(entry.name) to \(dest.label)…" : "Copying \(entry.name) to \(dest.label)…")
+        let label = dest.label
+        beginWork(
+            toCopy.count == 1
+                ? (move ? "Moving \(toCopy[0].name) to \(label)…" : "Copying \(toCopy[0].name) to \(label)…")
+                : (move ? "Moving \(toCopy.count) files to \(label)…" : "Copying \(toCopy.count) files to \(label)…")
+        )
         let srcDir = dirPath
         DispatchQueue.global(qos: .userInitiated).async {
-            let temp = FileManager.default.temporaryDirectory
-                .appendingPathComponent("xfer-\(Int(Date().timeIntervalSince1970 * 1000))-\(entry.name.replacingOccurrences(of: "/", with: "_"))")
-            try? FileManager.default.removeItem(at: temp)
-            let srcPath = joinDir(srcDir, entry.name)
-            let rcExport = VcMobileBridge.exportFile(src, name: srcPath, dest: temp.path)
-            if rcExport != 0 {
-                DispatchQueue.main.async {
-                    endWork()
-                    status = extractErrorMessage(entry.name, rcExport)
+            var copied = 0
+            var moved = 0
+            var lastError: String?
+            for entry in toCopy {
+                let temp = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("xfer-\(Int(Date().timeIntervalSince1970 * 1000))-\(entry.name.replacingOccurrences(of: "/", with: "_"))")
+                try? FileManager.default.removeItem(at: temp)
+                let srcPath = joinDir(srcDir, entry.name)
+                let rcExport = VcMobileBridge.exportFile(src, name: srcPath, dest: temp.path)
+                if rcExport != 0 {
+                    lastError = extractErrorMessage(entry.name, rcExport)
+                    wipeFile(temp)
+                    continue
                 }
-                return
+                let destDir = dest.dirPath.isEmpty ? "/" : dest.dirPath
+                let rcImport = VcMobileBridge.importFile(dest.handle, destDir: destDir, src: temp.path, destName: entry.name)
+                wipeFile(temp)
+                if rcImport != 0 {
+                    lastError = importErrorMessage(entry.name, rcImport, handle: dest.handle)
+                    continue
+                }
+                copied += 1
+                if move {
+                    if VcMobileBridge.deleteFile(src, path: srcPath) == 0 {
+                        moved += 1
+                    }
+                }
             }
-            let destDir = dest.dirPath.isEmpty ? "/" : dest.dirPath
-            let rcImport = VcMobileBridge.importFile(dest.handle, destDir: destDir, src: temp.path, destName: entry.name)
-            var deleted = true
-            if rcImport == 0 && move {
-                deleted = VcMobileBridge.deleteFile(src, path: srcPath) == 0
-            }
-            wipeFile(temp)
             DispatchQueue.main.async {
                 endWork()
-                if rcImport != 0 {
-                    status = importErrorMessage(entry.name, rcImport, handle: dest.handle)
-                    return
-                }
-                if move && !deleted {
-                    status = "Copied \(entry.name) into \(dest.label). Could not delete it from the source volume."
-                } else if move {
-                    status = "Moved \(entry.name) into \(dest.label)."
-                    selectedNames.remove(entry.name)
+                if let lastError, copied == 0 {
+                    status = lastError
+                } else if move && moved < copied {
+                    status = "Copied \(copied) file(s) into \(label). Could not delete \(copied - moved) from the source volume."
+                } else if move && copied == toCopy.count {
+                    status = "Moved \(copied) file(s) into \(label)."
+                    selectedNames.subtract(toCopy.map(\.name))
+                } else if copied == toCopy.count {
+                    status = "Copied \(copied) file(s) into \(label)."
                 } else {
-                    status = "Copied \(entry.name) into \(dest.label)."
+                    status = "Copied \(copied) of \(toCopy.count) file(s) into \(label). \(lastError ?? "")"
                 }
                 reloadDir()
                 persistActiveMount()
@@ -1594,6 +1664,21 @@ struct ContentView: View {
         if let temp { try? FileManager.default.removeItem(at: temp) }
         if rc == 0 { return nil }
         return importErrorMessage(name, rc, handle: handle)
+    }
+
+    /// After a successful Files save: forget create/open secrets. Keep the local
+    /// container URL so Open volume still works after they re-type the password.
+    private func wipeCreateSecrets() {
+        createPassword = ""
+        createHiddenPassword = ""
+        hiddenProtectPassword = ""
+        password = ""
+        createPim = "0"
+        createHiddenPim = "0"
+        hiddenProtectPim = "0"
+        pim = "0"
+        keyfileURLs = []
+        hiddenKeyfileURLs = []
     }
 
     private func lockSession() {

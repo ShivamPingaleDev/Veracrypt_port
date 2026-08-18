@@ -65,6 +65,12 @@ class MainActivityUiTest {
         rule.onNodeWithText("Decrypt wrap").performScrollTo().assertIsDisplayed()
         captureShot("04-tools.png")
 
+        rule.onNodeWithTag("tab_mounted").performClick()
+        rule.onNodeWithText("Mounted in this app").assertIsDisplayed()
+        rule.onAllNodesWithText("Empty").onFirst().assertIsDisplayed()
+        rule.onNodeWithText("Open another container").assertIsDisplayed()
+        captureShot("05-mounted.png")
+
         rule.onNodeWithTag("tab_volume").performClick()
         rule.onNodeWithText("Open volume").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Use backup header").performScrollTo().assertIsDisplayed()

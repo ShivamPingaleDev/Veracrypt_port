@@ -59,6 +59,7 @@ object Hardening {
         wipeDir(File(context.cacheDir, "keyfiles"))
         wipeDir(File(context.cacheDir, "unwrapped"))
         wipeDir(File(context.cacheDir, "share"))
+        wipeDir(File(context.cacheDir, "wraps"))
         context.cacheDir.listFiles()?.forEach { file ->
             if (file.isFile && (
                     file.name.startsWith("wrap-in-") ||
@@ -76,6 +77,7 @@ object Hardening {
     fun panic(context: Context) {
         wipeSessionFiles(context)
         wipeDir(File(context.cacheDir, "inbox"))
+        wipeDir(File(context.cacheDir, "containers"))
         context.cacheDir.listFiles()?.forEach { file ->
             if (file.isFile) wipeFile(file)
         }
