@@ -39,7 +39,7 @@ A compelled password still wins. Prefer a long password and a keyfile.
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.3). Those are test files, not store files. Installing one Android copy replaces the others.
+Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.4). Those are test files, not store files. Installing one Android copy replaces the others.
 
 **Volume** — pick a locked file and type the password.
 
@@ -49,7 +49,7 @@ Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/V
 
 ![Create](ports/docs/screenshots/03-create.png)
 
-**Mounted** — folders inside. Slots are this session only, like the desktop list. Not a system drive.
+**Mounted** — folders inside. Slots are this session only. Not a system drive.
 
 ![Mounted](ports/docs/screenshots/05-mounted.png)
 
@@ -57,7 +57,7 @@ Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/V
 
 ![Tools](ports/docs/screenshots/04-tools.png)
 
-The computer program is official VeraCrypt. Old Mac extras from this fork sit in [archive/desktop/](archive/desktop/README.md) and are not built. How to build the phones: [PORTING.md](PORTING.md).
+How to build the phones: [PORTING.md](PORTING.md). Official VeraCrypt `src/` is in this folder so volumes stay compatible. On a computer, use official VeraCrypt — this project does not ship a PC or Mac app.
 
 ## Appearance (least important)
 

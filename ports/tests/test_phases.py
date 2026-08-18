@@ -220,17 +220,32 @@ class Phase5IosTests(unittest.TestCase):
         self.assertIn("does not install itself", view)
         self.assertIn("sync-upstream.sh", view)
 
+    def test_ipad_simulator_and_sideload_sign(self) -> None:
+        sim = read("ports/ios/run_ipad_sim.sh")
+        sign = read("ports/ios/sideload-sign.sh")
+        yml = read("ports/ios/project.yml")
+        self.assertIn("iPad", sim)
+        self.assertIn("CODE_SIGNING_ALLOWED=NO", sim)
+        self.assertIn("dev.shivampingale.vcport", sim)
+        self.assertIn("Apple Development", sign)
+        self.assertIn("DEVELOPMENT_TEAM", sign)
+        self.assertIn("generic/platform=iOS", sign)
+        self.assertIn("Signing.local.xcconfig", sign)
+        self.assertIn("TARGETED_DEVICE_FAMILY: \"1,2\"", yml)
+        self.assertIn("run_ipad_sim.sh", read("ports/tests/run-phases.sh"))
+        self.assertIn("run_ios_session_test.sh", read("ports/tests/run-phases.sh"))
+        self.assertIn("VCPortTests", yml)
+        self.assertIn("AppInterfaceSessionTests", read("ports/ios/run_ios_session_test.sh"))
+
 
 class Phase6ArchiveTests(unittest.TestCase):
-    def test_desktop_extras_live_in_archive(self) -> None:
+    def test_no_desktop_fork_extras(self) -> None:
         if not FULL_TREE:
-            self.skipTest("archive/ lives in Veracrypt_port")
-        self.assertTrue(resolve("archive/desktop/src/Main/OfflineUpdate.cpp").is_file())
+            self.skipTest("src/ lives in Veracrypt_port")
+        self.assertFalse(resolve("archive/desktop").exists())
         self.assertFalse(resolve("src/Main/OfflineUpdate.cpp").exists())
-        archived = read("archive/desktop/src/Main/OfflineUpdate.cpp")
-        self.assertIn("VCPort-OfflineUpdate/", archived)
-        self.assertIn("VC_PORT_VERSION", archived)
-        self.assertNotIn("VCPort-OfflineUpdate/0.1", archived)
+        self.assertFalse(resolve("src/Main/PortFileWrap.cpp").exists())
+        self.assertNotIn("PortFileWrap", read("src/Main/Forms/MainFrame.cpp"))
 
 
 class Phase7ManifestTests(unittest.TestCase):
@@ -288,22 +303,22 @@ class Phase8CiTests(unittest.TestCase):
 
 
 class Phase9LegalVersionTests(unittest.TestCase):
-    def test_current_version_is_0_3_3(self) -> None:
+    def test_current_version_is_0_3_4(self) -> None:
         v = load_version()
-        self.assertEqual(v["port_version"], "0.3.3")
+        self.assertEqual(v["port_version"], "0.3.4")
         self.assertEqual(v["upstream_version"], "1.26.29")
         self.assertEqual(v["upstream_commit"], "b48e31f5b47da7d41025e3f0e02751675e15005a")
         self.assertEqual(v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
         self.assertEqual(v["upstream_tag"], "VeraCrypt_1.26.29")
         plist = read("ports/ios/VCPort/Info.plist")
-        self.assertIn("0.3.3", plist)
+        self.assertIn("0.3.4", plist)
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
-        self.assertEqual(v["android_version_code"], 8)
-        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/8.txt")
-        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 8")
-        self.assertIn("Mounted tab", notes.read_text(encoding="utf-8"))
+        self.assertEqual(v["android_version_code"], 9)
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/9.txt")
+        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 9")
+        self.assertIn("session tests", notes.read_text(encoding="utf-8").lower())
         self.assertIn("not unbreakable", notes.read_text(encoding="utf-8").lower())
 
     def test_about_and_contact_on_every_surface(self) -> None:

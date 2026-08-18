@@ -3,6 +3,7 @@ import UIKit
 
 enum SystemShare {
     static func present(items: [Any]) {
+        if VcPortTesting.shared.skipSystemPickers { return }
         let activity = UIActivityViewController(activityItems: items, applicationActivities: nil)
         guard let root = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -40,6 +41,10 @@ private final class FilesExportController: NSObject, UIDocumentPickerDelegate {
 
 enum SystemFiles {
     static func exportCopy(url: URL, onFinish: @escaping (URL?) -> Void) {
+        if VcPortTesting.shared.skipSystemPickers {
+            onFinish(nil)
+            return
+        }
         let controller = FilesExportController(onFinish: onFinish)
         FilesExportController.current = controller
         let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)

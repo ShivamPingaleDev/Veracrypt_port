@@ -7,6 +7,7 @@ android/app/.cxx/
 local.properties
 xcuserdata/
 DerivedData/
+ios/Signing.local.xcconfig
 *.xcuserstate
 *.xcodeproj/
 *.xcworkspace/

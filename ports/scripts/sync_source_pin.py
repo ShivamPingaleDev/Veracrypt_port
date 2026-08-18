@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from tree_paths import PORTS, ROOT, VERSION
+from tree_paths import PORTS, VERSION
 
 
 def load_version() -> dict:
@@ -36,15 +36,6 @@ def expected(v: dict) -> dict[str, str]:
         "source_repo": str(v["source_repo"]),
         "update_manifest": str(v["update_manifest"]),
     }
-
-
-def rewrite_define(text: str, name: str, value: str) -> str:
-    return re.sub(
-        rf'(#define {re.escape(name)}\s+")[^"]*(")',
-        rf"\g<1>{value}\2",
-        text,
-        count=1,
-    )
 
 
 def rewrite_plist_string(text: str, key: str, value: str) -> str:
@@ -68,19 +59,6 @@ def rewrite_yaml_field(text: str, key: str, value: str) -> str:
 
 def apply_write(v: dict) -> None:
     e = expected(v)
-    header_path = ROOT / "src/Main/PortVersion.h"
-    if header_path.is_file():
-        h = header_path.read_text(encoding="utf-8")
-        h = rewrite_define(h, "VC_PORT_VERSION", e["port_version"])
-        h = rewrite_define(h, "VC_PORT_UPSTREAM_VERSION", e["upstream_version"])
-        h = rewrite_define(h, "VC_PORT_UPSTREAM_COMMIT", e["upstream_commit"])
-        h = rewrite_define(h, "VC_PORT_UPSTREAM_TAG", e["upstream_tag"])
-        h = rewrite_define(h, "VC_PORT_UPSTREAM_GIT", e["upstream_git"])
-        h = rewrite_define(h, "VC_PORT_UPSTREAM_RELEASES", e["upstream_releases"])
-        h = rewrite_define(h, "VC_PORT_SOURCE_REPO", e["source_repo"])
-        h = rewrite_define(h, "VC_PORT_UPDATE_MANIFEST_URL", e["update_manifest"])
-        header_path.write_text(h, encoding="utf-8")
-
     plist = PORTS / "ios/VCPort/Info.plist"
     p = plist.read_text(encoding="utf-8")
     p = rewrite_plist_string(p, "CFBundleShortVersionString", e["port_version"])
@@ -104,21 +82,6 @@ def apply_write(v: dict) -> None:
 def check(v: dict) -> list[str]:
     e = expected(v)
     problems: list[str] = []
-    header_path = ROOT / "src/Main/PortVersion.h"
-    if header_path.is_file():
-        header = header_path.read_text(encoding="utf-8")
-        for name, value in (
-            ("VC_PORT_VERSION", e["port_version"]),
-            ("VC_PORT_UPSTREAM_VERSION", e["upstream_version"]),
-            ("VC_PORT_UPSTREAM_COMMIT", e["upstream_commit"]),
-            ("VC_PORT_UPSTREAM_TAG", e["upstream_tag"]),
-            ("VC_PORT_UPSTREAM_GIT", e["upstream_git"]),
-            ("VC_PORT_UPSTREAM_RELEASES", e["upstream_releases"]),
-            ("VC_PORT_SOURCE_REPO", e["source_repo"]),
-            ("VC_PORT_UPDATE_MANIFEST_URL", e["update_manifest"]),
-        ):
-            if f'"{value}"' not in header or name not in header:
-                problems.append(f"PortVersion.h missing {name}={value}")
     plist = (PORTS / "ios/VCPort/Info.plist").read_text(encoding="utf-8")
     for key, value in (
         ("CFBundleShortVersionString", e["port_version"]),

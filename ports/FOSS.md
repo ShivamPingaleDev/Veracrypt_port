@@ -86,6 +86,15 @@ GitHub’s `VCPort-*-unsigned-preview.ipa` is **not** Apple-signed. Each person 
 
 **Xcode (you have a Mac)**
 
+iPad Simulator (no Apple ID, same idea as the Android emulator):
+
+```bash
+cd ios
+./run_ipad_sim.sh
+```
+
+Your iPad (signed with **your** Apple ID name on the cert):
+
 ```bash
 cd ios
 ./build-native.sh
@@ -93,7 +102,15 @@ xcodegen generate
 open VCPort.xcodeproj
 ```
 
-Signing & Capabilities → Automatically manage signing → your Team → Run on the iPhone. Bundle id stays `dev.shivampingale.vcport` on a paid team; a free Personal Team may add a unique suffix.
+Signing & Capabilities → Automatically manage signing → Team → your name → Run on the iPad. Bundle id stays `dev.shivampingale.vcport` on a paid team; a free Personal Team may add a unique suffix.
+
+Or, after you put your 10-character Team ID in gitignored `ios/Signing.local.xcconfig` (or `VC_PORT_IOS_TEAM`):
+
+```bash
+./sideload-sign.sh
+```
+
+That writes a development IPA under `ios/build/sideload/` for Finder / Apple Configurator.
 
 Do **not** put the unsigned IPA in AltStore `downloadURL`. That field stays empty until a signed IPA exists. See [PUBLIC.md](PUBLIC.md).
 

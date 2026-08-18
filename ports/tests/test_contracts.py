@@ -89,7 +89,6 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("BuildConfig.PORT_VERSION", pin)
         if FULL_TREE:
             self.assertFalse(resolve("src/Main/PortVersion.h").exists())
-            self.assertTrue(resolve("archive/desktop/src/Main/PortVersion.h").is_file())
 
     def test_upstream_commit_file(self) -> None:
         pin = read("ports/UPSTREAM_COMMIT").strip()
@@ -175,6 +174,13 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn(f"CURRENT_PROJECT_VERSION: {self.code}", yml)
         self.assertIn("PRODUCT_BUNDLE_IDENTIFIER: dev.shivampingale.vcport", yml)
         self.assertIn('iOS: "16.0"', yml)
+        self.assertIn("TARGETED_DEVICE_FAMILY: \"1,2\"", yml)
+        self.assertIn("CODE_SIGN_IDENTITY: Apple Development", yml)
+        self.assertIn("Signing.xcconfig", yml)
+        self.assertIn("<key>UILaunchScreen</key>", plist)
+        self.assertIn("<key>CFBundleExecutable</key>", plist)
+        self.assertIn("UISupportedInterfaceOrientations~ipad", plist)
+        self.assertIn("ios/Signing.local.xcconfig", read("ports/.gitignore"))
 
     def test_ios_update_checker(self) -> None:
         swift = read("ports/ios/VCPort/UpdateChecker.swift")
@@ -624,12 +630,10 @@ class MobileSrcOverlayTests(unittest.TestCase):
         self.assertIn("TC_PORT_NO_TOKEN", read("ports/overlay/src/Common/SecurityToken.h"))
         self.assertIn("TC_PORT_NO_TOKEN", read("ports/overlay/src/Common/EMVToken.h"))
 
-    def test_desktop_extras_are_archived_not_built(self) -> None:
+    def test_no_desktop_fork_extras(self) -> None:
         if not FULL_TREE:
-            self.skipTest("archive/ lives in Veracrypt_port")
-        self.assertTrue(resolve("archive/desktop/README.md").is_file())
-        self.assertTrue(resolve("archive/desktop/src/Main/OfflineUpdate.cpp").is_file())
-        self.assertTrue(resolve("archive/desktop/src/Main/MacOSXBiometric.h").is_file())
+            self.skipTest("src/ lives in Veracrypt_port")
+        self.assertFalse(resolve("archive/desktop").exists())
         self.assertFalse(resolve("src/Main/OfflineUpdate.cpp").exists())
         self.assertFalse(resolve("src/Main/PortFileWrap.cpp").exists())
         self.assertFalse(resolve("src/Main/MacOSXBiometric.h").exists())
@@ -674,6 +678,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("Create form kept", view)
         self.assertIn("generatePassword(length: Int32 = 64)", read("ports/ios/VCPort/VcMobileBridge.swift"))
         self.assertIn("VC_ENTROPY_NEED = 8192", read("ports/shared/vc_mobile.cpp"))
+        self.assertIn('portTag("copy_once")', view)
+        self.assertIn('portTag("create_password")', view)
 
     def test_volume_tools_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")

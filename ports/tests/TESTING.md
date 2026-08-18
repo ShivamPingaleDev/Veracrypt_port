@@ -69,8 +69,10 @@ A "phone session" in the same binary walks every NativeBridge call: entropy,
 create, wrap/unwrap, open, store, dismount, reopen, header backup/restore,
 change password, read-only, backup header, hidden-volume write protection.
 Android emulator / device: `ports/android/run_device_sim.sh` (starts AVD
-`vcport-api35` when adb is empty; skips if there is no SDK/AVD). That test
-never calls `UpdateChecker.check()`. `DeviceSimulationTest` is a person-session
+`vcport-api35` when adb is empty; skips if there is no SDK/AVD). iPad Simulator:
+`ports/ios/run_ipad_sim.sh` (skips if CoreSimulator has no iPad runtime). Device
+sideload under your Apple ID: `ports/ios/sideload-sign.sh` (needs a Team ID).
+That Android test never calls `UpdateChecker.check()`. `DeviceSimulationTest` is a person-session
 on NativeBridge: wrap/unwrap (wrong password and a flipped byte fail), create,
 open, FAT mkdir/import/list/export/copy-to-folder/rename/delete, wipe free
 space, dismount/reopen, read-only, backup header, change password, PIM 0
@@ -96,8 +98,13 @@ A second method (`nestedCreateMinimizeKeepsWizard`) enables a nested
 volume, generates outer and nested passwords, Homes twice, and checks
 that the nested checkbox, both passwords, PIM, KDF, filename, and basket
 size are still there. Home keeping the Create wizard is intentional;
-Dismount / Panic wipe still clear it.
-Appearance is Original plus Dark mode on the foss APK
+Dismount / Panic wipe still clear it. `AppInterfaceSessionTest` finishes
+Create through the UI (save wipes secrets), leaves and reopens, decrypts,
+mounts two volumes, copies/moves files, then uses read-only / backup
+header / hidden-volume protection. Tests must not tap Panic wipe.
+iPad Simulator has the same session as `ports/ios/VCPortTests/AppInterfaceSessionTests.swift`
+(`ports/ios/run_ios_session_test.sh`; skips Files/share sheets like Android
+skips SAF). Appearance is Original plus Dark mode on the foss APK
 (`connectedFossDebugAndroidTest`). Cyberpunk / Matrix / MAGI are archived
 under `archive/looks/` and are not built. Tests must not tap Panic wipe.
 

@@ -18,10 +18,8 @@ hardcoded in `ports/version.json` (copied into the apps at compile time):
 ```
 Layer 2  ports/                 VC Port apps, wrap, FOSS, overlay tooling
 Layer 1  ports/overlay/src/     Same paths as src/ (File.cpp, Token.cpp, token headers)
-Layer 0  src/                   Unmodified VeraCrypt (crypto, volume, Windows, Linux, Mac GUI, …)
+Layer 0  src/                   Unmodified official VeraCrypt (crypto, volume, and their computer GUI source). VC Port does not build that GUI.
 ```
-
-Mac/Linux GUI extras that used to live in this fork are frozen under `archive/desktop/` and are not built.
 
 Pin today: VeraCrypt 1.26.29 / `b48e31f5…` (see `ports/UPSTREAM_COMMIT`).
 

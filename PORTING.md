@@ -1,8 +1,8 @@
 # VC Port — phones
 
-This tree is a working fork of [VeraCrypt](https://github.com/veracrypt/VeraCrypt) for **Android and iPhone**. The apps are named **VC Port**. The VeraCrypt license does not allow a derived work to be called VeraCrypt.
+VC Port is **Android and iPhone** apps that use official [VeraCrypt](https://github.com/veracrypt/VeraCrypt) source for crypto and volumes. The apps are named **VC Port**. The VeraCrypt license does not allow a derived work to be called VeraCrypt.
 
-This repo keeps original VeraCrypt `src/` byte-identical to the pin so a source update is a git merge. Phone hunks live under [ports/overlay/src/](ports/overlay/README.md) using the same relative paths as VeraCrypt (`Platform/Unix/File.cpp`, `Common/Token.cpp`, token headers) and are compiled instead of those `src/` files. Mac/Linux GUI extras from this fork are frozen under [archive/desktop/](archive/desktop/README.md) and are not built.
+This repo keeps original VeraCrypt `src/` byte-identical to the pin so a source update is a git merge. Phone hunks live under [ports/overlay/src/](ports/overlay/README.md) using the same relative paths as VeraCrypt (`Platform/Unix/File.cpp`, `Common/Token.cpp`, token headers) and are compiled instead of those `src/` files. There is no computer GUI from this project. On a PC or Mac, use official VeraCrypt.
 
 Mobile-only GitHub repo: https://github.com/ShivamPingaleDev/VCPort  
 Full tree: https://github.com/ShivamPingaleDev/Veracrypt_port
@@ -33,7 +33,7 @@ Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](port
 
 ## iOS
 
-`ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Each Apple user **signs their own** IPA with their Apple ID (AltStore / SideStore or Xcode Team). The GitHub IPA is unsigned on purpose. See [ports/FOSS.md](ports/FOSS.md), [ports/PUBLIC.md](ports/PUBLIC.md), and `ports/ios/README.md`.
+`ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Each Apple user **signs their own** IPA with their Apple ID (AltStore / SideStore or Xcode Team). The GitHub IPA is unsigned on purpose. iPad Simulator: `ports/ios/run_ipad_sim.sh`. Device sideload under your name: Xcode Team, or `ports/ios/sideload-sign.sh`. See [ports/FOSS.md](ports/FOSS.md), [ports/PUBLIC.md](ports/PUBLIC.md), and `ports/ios/README.md`.
 
 The SwiftUI app uses the same `vc_mobile` C API. Fingerprint / Face ID unlock is on `experimental-biometrics`, not master.
 

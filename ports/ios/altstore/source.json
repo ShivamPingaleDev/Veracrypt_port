@@ -1,6 +1,6 @@
 {
   "name": "VC Port",
-  "subtitle": "VeraCrypt-compatible volumes on iPhone, built from source",
+  "subtitle": "VeraCrypt-compatible volumes on iPhone and iPad, built from source",
   "description": "Sideload VC Port. The app stays offline, uses no trackers, and is not named VeraCrypt. Portions are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
   "website": "https://github.com/ShivamPingaleDev/VCPort",
   "tintColor": "#1A2332",
@@ -20,6 +20,15 @@
       "category": "utilities",
       "screenshotURLs": [],
       "versions": [
+        {
+          "version": "0.3.4",
+          "buildVersion": "9",
+          "date": "2026-08-18T00:00:00-00:00",
+          "localizedDescription": "Draft listing. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
         {
           "version": "0.3.3",
           "buildVersion": "8",

@@ -16,11 +16,13 @@ private struct MountedVolume: Identifiable {
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var containerURL: URL?
     @State private var password = ""
     @State private var pim = "0"
     @State private var useTextPassword = true
     @State private var keyfileURLs: [URL] = []
+    @State private var headerKeyfileURLs: [URL] = []
     @State private var keyfileGenName = "keyfile.bin"
     @State private var keyfileGenCount = "1"
     @State private var keyfileImporterPresented = false
@@ -104,16 +106,22 @@ struct ContentView: View {
                         volumeTab
                             .tag(0)
                             .tabItem { Label("Volume", systemImage: "lock") }
+                            .portTag("tab_volume")
                         createTab
                             .tag(1)
                             .tabItem { Label("Create", systemImage: "plus.rectangle.on.folder") }
+                            .portTag("tab_create")
                         toolsTab
                             .tag(2)
                             .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+                            .portTag("tab_tools")
                         mountedVolumeForm
                             .tag(3)
                             .tabItem { Label("Mounted", systemImage: "externaldrive") }
+                            .portTag("tab_mounted")
                     }
+                    .frame(maxWidth: horizontalSizeClass == .regular ? 760 : .infinity)
+                    .frame(maxWidth: .infinity)
             }
             .disabled(busy)
             .navigationTitle("VC Port")
@@ -246,7 +254,9 @@ struct ContentView: View {
             }
             .alert("New folder", isPresented: $newFolderPresented) {
                 TextField("Name", text: $namePromptValue)
+                    .portTag("name_prompt")
                 Button("Create") { mkdirInVolume(namePromptValue) }
+                    .portTag("name_prompt_ok")
                 Button("Cancel", role: .cancel) {}
             }
             .alert("Rename", isPresented: $renamePresented) {
@@ -327,6 +337,11 @@ struct ContentView: View {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }
+        .onAppear { installTestingHooks() }
+        .onReceive(NotificationCenter.default.publisher(for: .vcPortTestingColdStart)) { _ in
+            resetLaunchState()
+            installTestingHooks()
+        }
     }
 
     @ViewBuilder
@@ -337,6 +352,8 @@ struct ContentView: View {
                     .fill(statusTone)
                     .frame(width: 4, height: 36)
                 Text(status)
+                    .portTag("status")
+                    .accessibilityValue(status)
             }
         }
     }
@@ -392,10 +409,14 @@ struct ContentView: View {
             holdLock = true
             keyfileImporterPresented = true
         }
+        .portTag("add_keyfiles")
         TextField("Keyfile name (any extension)", text: $keyfileGenName)
+            .portTag("create_keyfile_name")
         TextField("How many (1–8)", text: $keyfileGenCount)
             .keyboardType(.numberPad)
+            .portTag("create_keyfile_count")
         Button("Generate keyfile and add") { generateKeyfile(nested: false) }
+            .portTag("create_generate_keyfile")
     }
 
     @ViewBuilder
@@ -407,7 +428,7 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Text("Slots are this session only, like the desktop slot list. Not a system drive. Select files, then Copy to volume or Move to volume.")
+                Text("Slots are this session only. Not a system drive. Select files, then Copy to volume or Move to volume.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
@@ -435,6 +456,7 @@ struct ContentView: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                            .portTag("mount_slot_\(slot)")
                             Spacer()
                             Button {
                                 dismountMountedAt(slot)
@@ -536,6 +558,7 @@ struct ContentView: View {
                         namePromptValue = ""
                         newFolderPresented = true
                     }
+                    .portTag("new_folder")
                     Button("Rename") {
                         guard let name = selectedNames.first else {
                             status = "Tap a file or folder, then Rename."
@@ -548,6 +571,7 @@ struct ContentView: View {
                     Button("Properties") { showEntryProperties() }
                 }
                 Button("Wipe free space") { wipeFreeSpace() }
+                    .portTag("wipe_free_space")
                 ForEach(entries) { entry in
                     HStack {
                         ZStack {
@@ -641,23 +665,31 @@ struct ContentView: View {
                 if useTextPassword {
                     SecureField("Password", text: $password)
                         .neverSaveHistory()
+                        .portTag("volume_password")
                 }
                 TextField("PIM (0 = default)", text: $pim)
                     .keyboardType(.numberPad)
+                    .portTag("volume_pim")
                 keyfileRows
                 Text("Mount options")
                     .font(.headline)
                 Toggle("Use backup header", isOn: $useBackupHeader)
+                    .portTag("use_backup_header")
                 Toggle("Read-only", isOn: $readOnlyOpen)
+                    .portTag("read_only")
                 Toggle("TrueCrypt Mode", isOn: $trueCryptMode)
                 Toggle("Protect hidden volume against damage caused by writing to outer volume", isOn: $protectHidden)
+                    .portTag("protect_hidden")
                 if protectHidden {
                     SecureField("Password to hidden volume", text: $hiddenProtectPassword)
                         .neverSaveHistory()
+                        .portTag("hidden_protect_password")
                     TextField("Hidden volume PIM (0 = default)", text: $hiddenProtectPim)
                         .keyboardType(.numberPad)
+                        .portTag("hidden_protect_pim")
                 }
                 Button("Open volume") { openVolume() }
+                    .portTag("open_volume")
             }
         }
     }
@@ -710,23 +742,28 @@ struct ContentView: View {
                 Picker("Encryption Algorithm", selection: $createCipher) {
                     ForEach(VcMobileBridge.ciphers, id: \.self) { Text($0).tag($0) }
                 }
+                .portTag("create_cipher")
                 Picker("KDF", selection: $createKdf) {
                     ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
                 }
+                .portTag("create_kdf")
                 Picker("Inside the volume", selection: $createFilesystem) {
                     Text("FAT").tag("FAT")
                     Text("exFAT").tag("exFAT")
                 }
+                .portTag("create_filesystem")
                 Text("exFAT if a file is over 4 GiB.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 TextField("File name (any extension)", text: $createFileName)
+                    .portTag("create_filename")
                 Text("The name is only a disguise — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack(alignment: .center, spacing: 8) {
                     TextField("Size", text: $createSizeAmount)
                         .keyboardType(.numberPad)
+                        .portTag("create_size")
                     Picker("Unit", selection: $createSizeUnit) {
                         ForEach(SizeUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
@@ -739,11 +776,13 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                 SecureField("Volume password (never stored)", text: $createPassword)
                     .neverSaveHistory()
+                    .portTag("create_password")
                 Text(PasswordEntropy.label(createPassword))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 TextField("PIM (0 = default)", text: $createPim)
                     .keyboardType(.numberPad)
+                    .portTag("create_pim")
                 Button("Generate strong password") {
                     if let generated = VcMobileBridge.generatePassword() {
                         createPassword = generated
@@ -755,6 +794,7 @@ struct ContentView: View {
                     SensitivePaste.copyOnce(createPassword)
                     status = "Copied once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
                 }
+                .portTag("copy_once")
                 Button("Forget password") {
                     createPassword = ""
                     SensitivePaste.forget()
@@ -799,14 +839,17 @@ struct ContentView: View {
                         DragGesture(minimumDistance: 0)
                             .onChanged { collectCreateEntropy($0) }
                     )
+                    .portTag("entropy_pad")
                 }
                 Toggle("Nested volume (VeraCrypt hidden volume)", isOn: $createHidden)
+                    .portTag("create_hidden")
                 if createHidden {
                     Text("Same cipher and KDF. Different password. Do not fill the outer volume.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     SecureField("Nested volume password", text: $createHiddenPassword)
                         .neverSaveHistory()
+                        .portTag("create_hidden_password")
                     Text(PasswordEntropy.label(createHiddenPassword))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -822,6 +865,7 @@ struct ContentView: View {
                             SensitivePaste.copyOnce(createHiddenPassword)
                             status = "Copied nested password once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
                         }
+                        .portTag("copy_nested_once")
                         Button("Forget nested") {
                             createHiddenPassword = ""
                             SensitivePaste.forget()
@@ -830,9 +874,11 @@ struct ContentView: View {
                     }
                     TextField("Nested PIM (0 = default)", text: $createHiddenPim)
                         .keyboardType(.numberPad)
+                        .portTag("create_hidden_pim")
                     HStack(alignment: .center, spacing: 8) {
                         TextField("Nested size", text: $createHiddenSizeAmount)
                             .keyboardType(.numberPad)
+                            .portTag("create_hidden_size")
                         Picker("Unit", selection: $createHiddenSizeUnit) {
                             ForEach(SizeUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                         }
@@ -862,6 +908,7 @@ struct ContentView: View {
                 }
                 Button("Create volume") { createVolume() }
                     .disabled(entropyPercent < 100)
+                    .portTag("create_volume")
             }
         }
     }
@@ -873,24 +920,36 @@ struct ContentView: View {
             Section("Tools") {
                 SecureField("New password (empty = keep current)", text: $newPassword)
                     .neverSaveHistory()
+                    .portTag("tools_new_password")
                 TextField("New PIM (0 = VeraCrypt default)", text: $newPim)
                     .keyboardType(.numberPad)
+                    .portTag("tools_new_pim")
                 Button("Change volume password") { changeVolumePassword() }
+                    .portTag("tools_change_password")
                 Picker("Header KDF", selection: $headerKdf) {
                     Text("(keep current)").tag("(keep current)")
                     ForEach(VcMobileBridge.kdfs, id: \.self) { Text($0).tag($0) }
                 }
+                .portTag("tools_header_kdf")
                 Button("Set header key derivation algorithm") { setHeaderKdf() }
+                    .portTag("tools_set_kdf")
                 Button("Add/Remove keyfiles to/from volume") { applyKeyfilesToVolume() }
+                    .portTag("tools_apply_keyfiles")
                 Button("Remove all keyfiles from volume") { removeAllKeyfiles() }
+                    .portTag("tools_remove_all_keyfiles")
                 Button("Backup volume header") { backupVolumeHeader() }
+                    .portTag("tools_backup_header")
                 Button("Restore volume header") { restoreHeaderPresented = true }
                 Button("Restore from embedded backup header") { restoreEmbeddedHeader() }
+                    .portTag("tools_restore_embedded")
                 Button("Volume properties") { showVolumeProperties() }
+                    .portTag("tools_volume_properties")
                 TextField("Keyfile name (any extension)", text: $keyfileGenName)
+                    .portTag("tools_keyfile_name")
                 TextField("How many (1–8)", text: $keyfileGenCount)
                     .keyboardType(.numberPad)
                 Button("Keyfile generator") { generateKeyfile(nested: false) }
+                    .portTag("tools_generate_keyfile")
                 Button("Benchmark") { runBenchmark() }
                 Button("Test vectors") { runTestVectors() }
                 Button("Wipe cached passwords") {
@@ -1014,12 +1073,14 @@ struct ContentView: View {
         entropyPercent = Int(VcMobileBridge.entropyPercent())
     }
 
-    private func beginWork(_ title: String) {
+    private func beginWork(_ title: String, updateStatus: Bool = true) {
         VcMobileBridge.resetProgress()
         workTitle = title
         workPercent = -1
         busy = true
-        status = title
+        if updateStatus {
+            status = title
+        }
     }
 
     private func endWork() {
@@ -1296,6 +1357,7 @@ struct ContentView: View {
                     entries = files
                     listTruncated = truncated
                     selectedNames = []
+                    headerKeyfileURLs = keys
                     selectedTab = 3
                     var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Slots are on the Mounted tab. Tap Open on a folder, or select files. Copy to volume moves selected files into another mounted container."
                     if mountedVolumes.count > 1 {
@@ -1475,7 +1537,7 @@ struct ContentView: View {
                 } else {
                     status = "Copied \(copied) of \(toCopy.count) file(s) into \(label). \(lastError ?? "")"
                 }
-                reloadDir()
+                reloadDir(quiet: true)
                 persistActiveMount()
                 refreshMountedListing(dest)
             }
@@ -1677,8 +1739,22 @@ struct ContentView: View {
         createHiddenPim = "0"
         hiddenProtectPim = "0"
         pim = "0"
+        let keys = keyfileURLs + hiddenKeyfileURLs + headerKeyfileURLs
         keyfileURLs = []
+        headerKeyfileURLs = []
         hiddenKeyfileURLs = []
+        let tmp = FileManager.default.temporaryDirectory.path
+        for url in keys where url.path.hasPrefix(tmp) {
+            wipeFile(url)
+        }
+    }
+
+    private func clearMountOptions() {
+        useBackupHeader = false
+        readOnlyOpen = false
+        trueCryptMode = false
+        protectHidden = false
+        headerKeyfileURLs = []
     }
 
     private func lockSession() {
@@ -1697,6 +1773,7 @@ struct ContentView: View {
         hiddenProtectPim = "0"
         newPim = "0"
         keyfileURLs = []
+        headerKeyfileURLs = []
         hiddenKeyfileURLs = []
         basketHashes = [:]
         basketURLs = []
@@ -1717,6 +1794,7 @@ struct ContentView: View {
         listTruncated = false
         lastPlain = []
         selectedNames = []
+        clearMountOptions()
         wipeSessionFiles()
         endWork()
         if !status.hasPrefix("Panic") {
@@ -1749,6 +1827,7 @@ struct ContentView: View {
         basketURLs = []
         basketHashes = [:]
         hiddenKeyfileURLs = []
+        clearMountOptions()
     }
 
     private func shareVaultFile(_ entry: VaultEntry) {
@@ -1892,13 +1971,13 @@ struct ContentView: View {
         }
     }
 
-    private func reloadDir(append: Bool = false) {
+    private func reloadDir(append: Bool = false, quiet: Bool = false) {
         guard let handle = volumeHandle else { return }
         let path = dirPath.isEmpty ? "/" : dirPath
         let offset = append ? Int32(entries.count) : 0
         switch VcMobileBridge.listDir(handle, path: path, offset: offset) {
         case .failure(let err):
-            status = listErrorMessage(err.rawValue)
+            if !quiet { status = listErrorMessage(err.rawValue) }
         case .success(let listed):
             let truncated = listed.contains { $0.name == "!truncated!" }
             let files = listed.filter { $0.name != "!truncated!" }
@@ -2019,6 +2098,7 @@ struct ContentView: View {
             newPassword: "",
             newKdf: "",
             keepKeyfiles: true,
+            applySessionKeyfiles: true,
             success: "Applied the current keyfile list (Add/Remove keyfiles) to the volume header."
         )
     }
@@ -2032,9 +2112,15 @@ struct ContentView: View {
         )
     }
 
-    private func runChangeHeader(newPassword: String, newKdf: String, keepKeyfiles: Bool, success: String) {
+    private func runChangeHeader(newPassword: String, newKdf: String, keepKeyfiles: Bool, applySessionKeyfiles: Bool = false, success: String) {
         guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
-        let nextPassword = newPassword.isEmpty ? unlock.password : newPassword
+        let unlockKeys = headerKeyfileURLs.isEmpty ? unlock.keyfiles : headerKeyfileURLs.map(\.path)
+        let text = unlock.password
+        if text.isEmpty && unlockKeys.isEmpty {
+            status = "Enter the current password or keyfiles above."
+            return
+        }
+        let nextPassword = newPassword.isEmpty ? text : newPassword
         if !keepKeyfiles && nextPassword.isEmpty {
             status = "Removing all keyfiles needs a text password, or the volume cannot be opened."
             return
@@ -2045,23 +2131,41 @@ struct ContentView: View {
             }
             return Int32(newPim) ?? 0
         }()
+        let sessionKeys = unlock.keyfiles
         closeVolume()
         beginWork("Rewriting volume header…")
         DispatchQueue.global(qos: .userInitiated).async {
+            let newKeys: [String]
+            if !keepKeyfiles {
+                newKeys = []
+            } else if applySessionKeyfiles {
+                newKeys = sessionKeys
+            } else {
+                newKeys = unlockKeys
+            }
             let rc = VcMobileBridge.changeHeader(
                 path: path,
-                password: unlock.password,
+                password: text,
                 pim: Int32(pim) ?? 0,
-                keyfiles: unlock.keyfiles,
+                keyfiles: unlockKeys,
                 backup: useBackupHeader,
                 newPassword: newPassword,
                 newPim: nextPim,
                 newKdf: newKdf,
-                newKeyfiles: keepKeyfiles ? unlock.keyfiles : []
+                newKeyfiles: newKeys
             )
             unlock.temps.forEach { try? FileManager.default.removeItem(at: $0) }
             DispatchQueue.main.async {
                 endWork()
+                if rc == 0 {
+                    if !keepKeyfiles {
+                        headerKeyfileURLs = []
+                    } else if applySessionKeyfiles {
+                        headerKeyfileURLs = keyfileURLs
+                    } else {
+                        headerKeyfileURLs = headerKeyfileURLs.isEmpty ? keyfileURLs : headerKeyfileURLs
+                    }
+                }
                 status = rc == 0 ? success : headerErrorMessage(rc)
             }
         }
@@ -2423,6 +2527,274 @@ struct ContentView: View {
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(size))
     }
+
+    private func resetLaunchState() {
+        closeVolume()
+        containerURL = nil
+        password = ""
+        pim = "0"
+        useTextPassword = true
+        keyfileURLs = []
+        headerKeyfileURLs = []
+        keyfileGenName = "keyfile.bin"
+        keyfileGenCount = "1"
+        status = "Offline. Choose a VeraCrypt container, or share an encrypted file as-is."
+        entries = []
+        incomingFile = nil
+        wrapPassword = ""
+        dirPath = ""
+        listTruncated = false
+        lastPlain = []
+        selectedNames = []
+        createCipher = VcMobileBridge.defaultCipher
+        createKdf = VcMobileBridge.defaultKdf
+        createSizeAmount = "16"
+        createSizeUnit = .mib
+        createFilesystem = "FAT"
+        createHiddenSizeAmount = "4"
+        createHiddenSizeUnit = .mib
+        createPassword = ""
+        createPim = "0"
+        createHidden = false
+        createHiddenPassword = ""
+        createHiddenPim = "0"
+        createFileName = "volume.hc"
+        entropyPercent = 0
+        entropyMarks = []
+        VcMobileBridge.resetEntropy()
+        newPassword = ""
+        newPim = "0"
+        headerKdf = "(keep current)"
+        hiddenProtectPassword = ""
+        hiddenProtectPim = "0"
+        namePromptValue = ""
+        basketURLs = []
+        basketHashes = [:]
+        hiddenKeyfileURLs = []
+        selectedTab = 0
+        wrapHold = ""
+        holdLock = false
+        clearMountOptions()
+        wipeSessionFiles()
+        endWork()
+    }
+
+    private func installTestingHooks() {
+        let testing = VcPortTesting.shared
+        testing.status = { status }
+        testing.createPassword = { createPassword }
+        testing.volumePassword = { password }
+        testing.createPim = { createPim }
+        testing.volumePim = { pim }
+        testing.hiddenCreatePassword = { createHiddenPassword }
+        testing.basketEmpty = { basketURLs.isEmpty }
+        testing.entryNames = { entries.map(\.name) }
+        testing.volumeInfo = {
+            guard let handle = volumeHandle else { return nil }
+            return VcMobileBridge.volumeInfo(handle)
+        }
+        testing.keyfileURLs = { keyfileURLs }
+        testing.containerName = { containerURL?.lastPathComponent ?? "" }
+        testing.selectTab = { selectedTab = $0 }
+        testing.setCreateCipher = { createCipher = $0 }
+        testing.setCreateKdf = { createKdf = $0 }
+        testing.setCreatePim = { createPim = $0 }
+        testing.setCreateFilename = { createFileName = $0 }
+        testing.setCreateSize = { createSizeAmount = $0 }
+        testing.setCreateHidden = { createHidden = $0 }
+        testing.setCreateHiddenPim = { createHiddenPim = $0 }
+        testing.setCreateHiddenSize = { createHiddenSizeAmount = $0 }
+        testing.setVolumePassword = { password = $0 }
+        testing.setVolumePim = { pim = $0 }
+        testing.setProtectHidden = { protectHidden = $0 }
+        testing.setHiddenProtectPassword = { hiddenProtectPassword = $0 }
+        testing.setHiddenProtectPim = { hiddenProtectPim = $0 }
+        testing.setUseBackupHeader = { useBackupHeader = $0 }
+        testing.setReadOnly = { readOnlyOpen = $0 }
+        testing.setNewPassword = { newPassword = $0 }
+        testing.setNewPim = { newPim = $0 }
+        testing.setHeaderKdf = { headerKdf = $0 }
+        testing.setKeyfileGenName = { keyfileGenName = $0 }
+        testing.fillEntropy = {
+            var i = 0
+            while VcMobileBridge.entropyPercent() < 100 && i < 2000 {
+                var bytes = Data(count: 64)
+                bytes.withUnsafeMutableBytes { buf in
+                    guard let base = buf.baseAddress else { return }
+                    arc4random_buf(base, 64)
+                }
+                VcMobileBridge.addEntropy(bytes)
+                i += 1
+            }
+            entropyPercent = Int(VcMobileBridge.entropyPercent())
+        }
+        testing.generateCreatePassword = {
+            if let generated = VcMobileBridge.generatePassword() {
+                createPassword = generated
+                status = PasswordEntropy.label(generated) + " Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
+            }
+        }
+        testing.copyOnce = {
+            guard !createPassword.isEmpty else { return }
+            SensitivePaste.copyOnce(createPassword)
+            status = "Copied once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
+        }
+        testing.generateNestedPassword = {
+            if let generated = VcMobileBridge.generatePassword() {
+                createHiddenPassword = generated
+                status = PasswordEntropy.label(generated) + " Nested password generated in memory. Copy once if you need it elsewhere. It is not saved."
+            }
+        }
+        testing.copyNestedOnce = {
+            guard !createHiddenPassword.isEmpty else { return }
+            SensitivePaste.copyOnce(createHiddenPassword)
+            status = "Copied nested password once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
+        }
+        testing.generateKeyfile = { generateKeyfile(nested: false) }
+        testing.generateToolsKeyfile = { generateKeyfile(nested: false) }
+        testing.createVolume = { createVolume() }
+        testing.openVolume = { openVolume() }
+        testing.lockSession = { lockSession() }
+        testing.showVolumeProperties = { showVolumeProperties() }
+        testing.backupHeader = { backupVolumeHeader() }
+        testing.changePassword = { changeVolumePassword() }
+        testing.setKdf = { setHeaderKdf() }
+        testing.applyKeyfiles = { applyKeyfilesToVolume() }
+        testing.removeAllKeyfiles = { removeAllKeyfiles() }
+        testing.restoreEmbedded = { restoreEmbeddedHeader() }
+        testing.wipeFreeSpace = { wipeFreeSpace() }
+        testing.mkdir = { mkdirInVolume($0) }
+        testing.addBasketFiles = { urls in
+            for url in urls where !basketURLs.contains(url) {
+                basketURLs.append(url)
+            }
+            status = "Basket: \(basketSummary(basketURLs)). SHA-256 runs in this session only."
+            selectedTab = 1
+            DispatchQueue.global(qos: .utility).async {
+                var extra: [String: String] = [:]
+                for url in urls {
+                    if let hex = sha256File(url) {
+                        extra[url.path] = hex
+                    }
+                }
+                DispatchQueue.main.async {
+                    basketHashes.merge(extra) { _, new in new }
+                }
+            }
+        }
+        testing.finishCreateSave = { dest in
+            guard let src = containerURL else { return false }
+            let fm = FileManager.default
+            try? fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? fm.removeItem(at: dest)
+            do {
+                try fm.copyItem(at: src, to: dest)
+            } catch {
+                return false
+            }
+            incomingFile = nil
+            containerURL = dest
+            wipeCreateSecrets()
+            status = "Saved \(dest.lastPathComponent). Type the volume password and Open volume. Create secrets were wiped."
+            selectedTab = 0
+            return fm.fileExists(atPath: dest.path)
+        }
+        testing.selectContainer = { url in
+            incomingFile = nil
+            containerURL = url
+            status = "Selected \(url.lastPathComponent). Open volume to browse folders here."
+            selectedTab = 0
+        }
+        testing.clearKeyfiles = {
+            keyfileURLs = []
+            hiddenKeyfileURLs = []
+        }
+        testing.addKeyfiles = { urls in
+            for url in urls where !keyfileURLs.contains(url) {
+                keyfileURLs.append(url)
+            }
+        }
+        testing.importFiles = { urls in
+            guard let handle = volumeHandle else { return }
+            beginWork("Copying from device…")
+            let destDir = dirPath.isEmpty ? "/" : dirPath
+            DispatchQueue.global(qos: .userInitiated).async {
+                for url in urls {
+                    _ = VcMobileBridge.importFile(
+                        handle,
+                        destDir: destDir,
+                        src: url.path,
+                        destName: url.lastPathComponent
+                    )
+                }
+                DispatchQueue.main.async {
+                    endWork()
+                    reloadDir(quiet: true)
+                    persistActiveMount()
+                }
+            }
+        }
+        testing.exportNamed = { name, dest in
+            guard let handle = volumeHandle else { return false }
+            let rel = joinDir(dirPath, name)
+            try? FileManager.default.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: dest)
+            return VcMobileBridge.exportFile(handle, name: rel, dest: dest.path) == 0
+        }
+        testing.openDir = { name in
+            dirPath = joinDir(dirPath, name)
+            selectedNames = []
+            reloadDir()
+        }
+        testing.goParent = {
+            dirPath = parentDir(dirPath)
+            selectedNames = []
+            reloadDir()
+        }
+        testing.transferNamed = { names, destLabel, move in
+            persistActiveMount()
+            let dest = mountedVolumes.first { vol in
+                vol.url.lastPathComponent.compare(destLabel, options: .caseInsensitive) == .orderedSame
+                    || vol.label.compare(destLabel, options: .caseInsensitive) == .orderedSame
+            }
+            guard let dest else { return false }
+            let src = mountedVolumes.first { vol in
+                vol.handle != dest.handle && vol.entries.contains { names.contains($0.name) && !$0.isDir }
+            } ?? mountedVolumes.first { $0.handle != dest.handle }
+            guard let src, src.handle != dest.handle else { return false }
+            if let srcIndex = mountedVolumes.firstIndex(where: { $0.handle == src.handle }) {
+                persistActiveMount()
+                selectMount(srcIndex)
+            }
+            var files = src.entries.filter { names.contains($0.name) && !$0.isDir }
+            if files.isEmpty {
+                files = entries.filter { names.contains($0.name) && !$0.isDir }
+            }
+            guard !files.isEmpty else { return false }
+            selectedNames = names
+            transferBetweenVolumes(entries: files, dest: dest, move: move)
+            return true
+        }
+        testing.restoreHeader = { bak in
+            restoreVolumeHeader(bak)
+        }
+        testing.copyHeaderBackup = { dest in
+            let src = FileManager.default.temporaryDirectory.appendingPathComponent("volume-header.bak")
+            guard FileManager.default.fileExists(atPath: src.path) else { return false }
+            try? FileManager.default.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? FileManager.default.removeItem(at: dest)
+            do {
+                try FileManager.default.copyItem(at: src, to: dest)
+                return true
+            } catch {
+                return false
+            }
+        }
+        testing.homeLeave = { dismountOnLeave() }
+        testing.selectMountSlot = { selectMount($0) }
+        testing.ready = true
+    }
+
 }
 
 private struct WorkOverlay: View {

@@ -17,7 +17,9 @@ open VCPort.xcodeproj
 ```
 
 4. **Sign it yourself.** There is no Apple-signed VC Port from this project. Each Apple user signs **their own** copy:
-   - In Xcode: Signing & Capabilities → your Team (free Apple ID = 7-day cert; paid Developer = 1 year). Run on the iPhone.
+   - iPad Simulator (no Apple ID): `./run_ipad_sim.sh`
+   - Full app-interface session on that Simulator (basket, nested volume, save-wipe, reopen, copy/move, header backup/restore, KDF, keyfiles; does not tap Panic wipe): `./run_ios_session_test.sh`
+   - Your iPad: plug it in, open the Xcode project, Signing & Capabilities → Team → **your name**, then Run. Or `VC_PORT_IOS_TEAM=YOUR10CHARID ./sideload-sign.sh` and drop the IPA on the iPad in Finder.
    - Or sideload `VCPort-*-unsigned-preview.ipa` with **AltStore / SideStore**, which signs it with **your** Apple ID.
    - Trust the developer cert under Settings → General → VPN & Device Management.
    - A signature you create will not install on someone else’s phone. AltStore `downloadURL` stays empty until a signed IPA exists.

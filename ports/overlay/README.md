@@ -30,4 +30,4 @@ scripts/check-upstream-layout.sh
 
 If they change a replaced file, rebase the copy under `ports/overlay/src/` (`src-port.patch` is the last snapshot) and leave `src/` as theirs.
 
-Mac/Linux GUI extras from this fork are frozen under `archive/desktop/` and are not built.
+This repo does not ship a computer GUI. On a PC or Mac, use official VeraCrypt. `src/` here is that official tree so phone volumes stay compatible.

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.3.4
+
+Phone release: session-test fixes on Android and iOS, full app-interface tests.
+
+- Copy/move success is no longer overwritten by “Reading folder…”.
+- Dismount clears backup-header / read-only / TrueCrypt / hidden-protect so the next open is not a wrong-password mix.
+- Add/Remove keyfiles unlocks with the last successful keyfile mix, then writes the new list.
+- App-interface session tests on the Android emulator and iPad Simulator: basket + nested volume, save wipes secrets, reopen, multi-mount copy/move, header backup/restore, KDF, keyfiles. Tests do not tap Panic wipe or Check for updates.
+- Removed `archive/desktop/`. This repo is phone apps plus official VeraCrypt `src/`. On a computer, use official VeraCrypt.
+- iPad Simulator run (`ports/ios/run_ipad_sim.sh`) and Xcode development sideload under your Apple ID (`ports/ios/sideload-sign.sh`).
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.4.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.4-unsigned-preview.ipa`). Same `applicationId` as 0.3.3; it replaces the old install.
+
 ## 0.3.3
 
 Phone release: save/open fix, wipe Create secrets after save, Mounted tab.

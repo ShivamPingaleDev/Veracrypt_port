@@ -39,7 +39,7 @@ A compelled password still wins. Prefer a long password and a keyfile.
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.3). Those are test files, not store files. Installing one Android copy replaces the others.
+Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.4). Those are test files, not store files. Installing one Android copy replaces the others.
 
 The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the phone apps.
 
@@ -51,7 +51,7 @@ The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://g
 
 ![Create](docs/screenshots/03-create.png)
 
-**Mounted** — folders inside. Slots are this session only, like the desktop list. Not a system drive.
+**Mounted** — folders inside. Slots are this session only. Not a system drive.
 
 ![Mounted](docs/screenshots/05-mounted.png)
 

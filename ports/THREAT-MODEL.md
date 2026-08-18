@@ -8,7 +8,7 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 | --- | --- | --- | --- |
 | Border / police seizure (device off or locked) | Image flash, cloud backup, recents screenshots | No backups, FLAG_SECURE (Recents is a blank card, not a screenshot), panic wipe, no SAF export | Compelled password; hardware implants |
 | Compelled biometrics | Finger on the sensor | Biometrics optional; warned; not the default “Remember” | A remembered factor set still opens if they get the finger |
-| Network MITM (user CA / captive portal) | Fake TLS | No INTERNET on master phone builds; desktop update check uses system CAs only, no cleartext, no redirects, host allowlist | A compromised system CA store |
+| Network MITM (user CA / captive portal) | Fake TLS | No INTERNET on master phone builds | A compromised system CA store |
 | Malware with root / MDM | Read RAM, keylog, screenshots | Dismount open volume on background; no dumps (`PR_SET_DUMPABLE`); mlock wrap keys | Rooted implant while unlocked; Create wizard (including nested password) stays in RAM until Dismount/Panic so Copy once → Notes can finish |
 | Forensic leftovers | Cache, clipboard, URI grants | Wipe session files; 30s clipboard; no persistable SAF grants; 0600 wrap files | Unmount delay; other apps you shared *to* |
 | Store / update supply chain | Trojan APK | Rebuild from public source; no GMS; no obfuscation (reviewable) | A malicious mirror or a debug-signed preview you treated as production |

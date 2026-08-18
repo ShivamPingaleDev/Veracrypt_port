@@ -12,8 +12,8 @@ settings:
   base:
     PRODUCT_BUNDLE_IDENTIFIER: dev.shivampingale.vcport
     PRODUCT_NAME: VCPort
-    MARKETING_VERSION: 0.3.3
-    CURRENT_PROJECT_VERSION: 8
+    MARKETING_VERSION: 0.3.4
+    CURRENT_PROJECT_VERSION: 9
     SWIFT_VERSION: "5.0"
     IPHONEOS_DEPLOYMENT_TARGET: "16.0"
     TARGETED_DEVICE_FAMILY: "1,2"
@@ -22,8 +22,13 @@ settings:
     SWIFT_OBJC_BRIDGING_HEADER: VCPort/VCPort-Bridging-Header.h
     CODE_SIGN_ENTITLEMENTS: VCPort/VCPort.entitlements
     CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: Apple Development
     ENABLE_USER_SCRIPT_SANDBOXING: false
     CLANG_ENABLE_MODULES: YES
+    ENABLE_TESTABILITY: YES
+configFiles:
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
 targets:
   VCPort:
     type: application
@@ -49,3 +54,31 @@ targets:
           export IOS_SDK="${PLATFORM_NAME:-iphoneos}"
           export IOS_ARCH="$(echo "${ARCHS:-arm64}" | awk '{print $1}')"
           exec "${SRCROOT}/build-native.sh"
+  VCPortTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: VCPortTests
+    dependencies:
+      - target: VCPort
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_NAME: VCPortTests
+        PRODUCT_MODULE_NAME: VCPortTests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.shivampingale.vcport.tests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/VCPort.app/VCPort
+        BUNDLE_LOADER: $(TEST_HOST)
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+schemes:
+  VCPort:
+    build:
+      targets:
+        VCPort: all
+        VCPortTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - VCPortTests

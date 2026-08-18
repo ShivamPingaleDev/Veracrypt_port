@@ -1,0 +1,5 @@
+// Device sideload uses your Apple ID in Xcode (Signing & Capabilities → Team).
+// Optional: copy to Signing.local.xcconfig and set DEVELOPMENT_TEAM (gitignored).
+#include? "Signing.local.xcconfig"
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
