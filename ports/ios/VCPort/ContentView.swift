@@ -19,6 +19,8 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var containerURL: URL?
     @State private var password = ""
+    @State private var lastUnlockPassword = ""
+    @State private var lastUnlockPim = "0"
     @State private var pim = "0"
     @State private var useTextPassword = true
     @State private var keyfileURLs: [URL] = []
@@ -39,9 +41,6 @@ struct ContentView: View {
     @State private var dirPath = ""
     @State private var listTruncated = false
     @State private var incomingFile: URL?
-    @State private var wrapPassword = ""
-    @State private var wrapImporterPresented = false
-    @State private var unwrapImporterPresented = false
     @State private var lastPlain: [URL] = []
     @State private var selectedNames: Set<String> = []
     @State private var createCipher = VcMobileBridge.defaultCipher
@@ -77,7 +76,6 @@ struct ContentView: View {
     @State private var workTitle = ""
     @State private var workPercent = -1
     @State private var entropyMarks: [CGPoint] = []
-    @State private var wrapHold = ""
     @State private var holdLock = false
     @State private var basketURLs: [URL] = []
     @State private var basketHashes: [String: String] = [:]
@@ -92,7 +90,7 @@ struct ContentView: View {
     }
 
     private var holdingForPicker: Bool {
-        holdLock || wrapImporterPresented || unwrapImporterPresented || importerPresented
+        holdLock || importerPresented
             || shareEncImporterPresented || keyfileImporterPresented
             || restoreHeaderPresented || copyFromDevicePresented || basketImporterPresented
             || hiddenKeyfileImporterPresented || showOpenAnotherUnlock || pendingOpenAnother
@@ -166,26 +164,6 @@ struct ContentView: View {
                     if urls.isEmpty { return }
                     status = "Sharing \(urls.count) encrypted file(s) as-is."
                     SystemShare.present(items: urls)
-                }
-            }
-            .fileImporter(isPresented: $wrapImporterPresented, allowedContentTypes: [.item, .data]) { result in
-                switch result {
-                case .success(let url):
-                    _ = url.startAccessingSecurityScopedResource()
-                    wrapURL(url, password: wrapHold.count >= 16 ? wrapHold : wrapPassword)
-                case .failure:
-                    holdLock = false
-                    wrapHold = ""
-                }
-            }
-            .fileImporter(isPresented: $unwrapImporterPresented, allowedContentTypes: [.item, .data]) { result in
-                switch result {
-                case .success(let url):
-                    _ = url.startAccessingSecurityScopedResource()
-                    unwrapURL(url, password: wrapHold.isEmpty ? wrapPassword : wrapHold)
-                case .failure:
-                    holdLock = false
-                    wrapHold = ""
                 }
             }
             .fileImporter(
@@ -312,12 +290,8 @@ struct ContentView: View {
             .onOpenURL { url in
                 _ = url.startAccessingSecurityScopedResource()
                 incomingFile = url
-                if url.pathExtension.lowercased() == "vcpw" {
-                    status = "Received wrapped file \(url.lastPathComponent). Enter the wrap password and decrypt it."
-                } else {
-                    containerURL = url
-                    status = "Received \(url.lastPathComponent). Any extension can be a volume. Open with the correct password, PIM, and keyfiles."
-                }
+                containerURL = url
+                status = "Received \(url.lastPathComponent). Any extension can be a volume. Open with the correct password, PIM, and keyfiles."
             }
         }
         .animation(.easeOut(duration: 0.15), value: busy)
@@ -371,11 +345,6 @@ struct ContentView: View {
                 Button("Share encrypted file") {
                     SystemShare.present(items: [incoming])
                 }
-                if incoming.pathExtension.lowercased() == "vcpw" {
-                    SecureField("Wrap password (never stored)", text: $wrapPassword)
-                        .neverSaveHistory()
-                    Button("Decrypt wrap") { unwrapURL(incoming) }
-                }
             }
         }
     }
@@ -422,7 +391,7 @@ struct ContentView: View {
     @ViewBuilder
     private var mountedVolumeForm: some View {
         Form {
-            Section("Mounted in this app") {
+            Section {
                 if mountedVolumes.count > 1 {
                     Text("\(mountedVolumes.count) volumes mounted")
                         .font(.caption)
@@ -437,31 +406,29 @@ struct ContentView: View {
                     Text("Volume")
                     Spacer()
                 }
-                .font(.caption.weight(.semibold))
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 ForEach(0..<mountSlots, id: \.self) { slot in
                     let vol = mountedVolumes.indices.contains(slot) ? mountedVolumes[slot] : nil
                     HStack(spacing: 8) {
                         Text("\(slot + 1)")
                             .frame(width: 28, alignment: .leading)
                             .font(.body.monospacedDigit())
+                            .foregroundStyle(.secondary)
                         if let vol {
                             Button {
                                 selectMount(slot)
                             } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(vol.label)
-                                    Text(slot == activeMountIndex ? "Selected" : "Mounted")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text(vol.label)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(.plain)
                             .portTag("mount_slot_\(slot)")
-                            Spacer()
                             Button {
                                 dismountMountedAt(slot)
                             } label: {
-                                Image(systemName: "xmark.circle.fill")
+                                Image(systemName: "xmark")
+                                    .font(.caption.weight(.semibold))
                             }
                             .buttonStyle(.plain)
                             .foregroundStyle(.secondary)
@@ -472,15 +439,11 @@ struct ContentView: View {
                                 pendingOpenAnother = true
                                 importerPresented = true
                             } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Empty")
-                                    Text("Tap to open")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text("Empty")
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(.plain)
-                            Spacer()
                         }
                     }
                     .listRowBackground(vol != nil && slot == activeMountIndex ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -490,20 +453,11 @@ struct ContentView: View {
                     pendingOpenAnother = true
                     importerPresented = true
                 }
-                if mountedVolumes.count > 1 {
-                    HStack {
-                        Button("Copy to volume") { transferMove = false }
-                        Button("Move to volume") { transferMove = true }
-                    }
-                }
-                Button(selectableFileNames.isSubset(of: selectedNames) && !selectableFileNames.isEmpty ? "Clear selection" : "Select files") {
-                    if selectableFileNames.isSubset(of: selectedNames) && !selectableFileNames.isEmpty {
-                        selectedNames = []
-                    } else {
-                        selectedNames = selectableFileNames
-                    }
-                }
-                .disabled(selectableFileNames.isEmpty)
+            } header: {
+                Text("Mounted in this app")
+            }
+
+            Section {
                 if mountedVolumes.isEmpty {
                     Text("No volume in this slot. Open volume on the Volume tab, or tap an empty slot. This is not a system drive.")
                         .font(.caption)
@@ -539,7 +493,63 @@ struct ContentView: View {
                         }
                     }
                 }
+                ForEach(entries) { entry in
+                    Button {
+                        if entry.isDir {
+                            dirPath = joinDir(dirPath, entry.name)
+                            selectedNames = []
+                            reloadDir()
+                        } else if selectedNames.contains(entry.name) {
+                            selectedNames.remove(entry.name)
+                        } else {
+                            selectedNames.insert(entry.name)
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: entry.isDir ? "folder" : (selectedNames.contains(entry.name) ? "checkmark.circle.fill" : "circle"))
+                                .foregroundStyle(selectedNames.contains(entry.name) ? Color.accentColor : Color.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.name)
+                                    .foregroundStyle(.primary)
+                                Text(entry.isDir ? "Folder — tap Open" : byteCount(entry.size))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                if listTruncated {
+                    Button("Load more") { reloadDir(append: true) }
+                }
+            }
+
+            Section {
+                if mountedVolumes.count > 1 {
+                    HStack {
+                        Button("Copy to volume") { transferMove = false }
+                        Button("Move to volume") { transferMove = true }
+                    }
+                }
+                Button(selectableFileNames.isSubset(of: selectedNames) && !selectableFileNames.isEmpty ? "Clear selection" : "Select files") {
+                    if selectableFileNames.isSubset(of: selectedNames) && !selectableFileNames.isEmpty {
+                        selectedNames = []
+                    } else {
+                        selectedNames = selectableFileNames
+                    }
+                }
+                .disabled(selectableFileNames.isEmpty)
                 HStack {
+                    Button("New folder") {
+                        namePromptValue = ""
+                        newFolderPresented = true
+                    }
+                    .portTag("new_folder")
+                    Button("Wipe free space") { wipeFreeSpace() }
+                        .portTag("wipe_free_space")
+                }
+                Menu("Folder") {
                     Button("Copy from device") {
                         moveFromDevice = false
                         copyFromDevicePresented = true
@@ -548,17 +558,8 @@ struct ContentView: View {
                         moveFromDevice = true
                         copyFromDevicePresented = true
                     }
-                }
-                HStack {
                     Button("Copy to device") { copySelectedToDevice(move: false) }
                     Button("Move to device") { copySelectedToDevice(move: true) }
-                }
-                HStack {
-                    Button("New folder") {
-                        namePromptValue = ""
-                        newFolderPresented = true
-                    }
-                    .portTag("new_folder")
                     Button("Rename") {
                         guard let name = selectedNames.first else {
                             status = "Tap a file or folder, then Rename."
@@ -569,54 +570,14 @@ struct ContentView: View {
                     }
                     Button("Delete") { deleteSelected() }
                     Button("Properties") { showEntryProperties() }
-                }
-                Button("Wipe free space") { wipeFreeSpace() }
-                    .portTag("wipe_free_space")
-                ForEach(entries) { entry in
-                    HStack {
-                        ZStack {
-                            Circle()
-                                .fill(selectedNames.contains(entry.name) ? Color.accentColor : Color.secondary.opacity(0.18))
-                                .frame(width: 28, height: 28)
-                            if selectedNames.contains(entry.name) {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.white)
-                            } else {
-                                Image(systemName: entry.isDir ? "folder" : "doc")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        VStack(alignment: .leading) {
-                            Text(entry.name)
-                            Text(entry.isDir ? "Folder — tap Open" : byteCount(entry.size))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        if entry.isDir {
-                            Button("Open") {
-                                dirPath = joinDir(dirPath, entry.name)
-                                selectedNames = []
-                                reloadDir()
-                            }
-                        } else {
-                            Button(selectedNames.contains(entry.name) ? "Selected" : "Select") {
-                                if selectedNames.contains(entry.name) {
-                                    selectedNames.remove(entry.name)
-                                } else {
-                                    selectedNames.insert(entry.name)
-                                }
-                            }
-                            Button("Share decrypted") { shareVaultFile(entry) }
+                    Button("Share decrypted") {
+                        if let entry = entries.first(where: { selectedNames.contains($0.name) && !$0.isDir }) {
+                            shareVaultFile(entry)
                         }
                     }
                 }
-                if listTruncated {
-                    Button("Load more") { reloadDir(append: true) }
-                }
             }
+
             inFrontSection
             statusSection
         }
@@ -957,22 +918,6 @@ struct ContentView: View {
                     status = "Wipe cached passwords complete. Volume closed."
                 }
             }
-            Section("Leftover wrap") {
-                Text("Decrypt a leftover .vcpw.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                SecureField("Wrap password (never stored)", text: $wrapPassword)
-                    .neverSaveHistory()
-                Button("Decrypt wrap…") {
-                    if wrapPassword.isEmpty {
-                        status = "Enter the wrap password first. It is not stored."
-                    } else {
-                        wrapHold = wrapPassword
-                        holdLock = true
-                        unwrapImporterPresented = true
-                    }
-                }
-            }
             Section("Not on this phone") {
                 Text("Root / jailbreak: this app will not ask for superuser.")
                     .font(.caption)
@@ -1021,9 +966,6 @@ struct ContentView: View {
         if let live = lastPlain.first, FileManager.default.fileExists(atPath: live.path) {
             return live.lastPathComponent + " — decrypted copy"
         }
-        if let incoming = incomingFile, incoming.pathExtension.lowercased() == "vcpw" {
-            return "\(incoming.lastPathComponent) — encrypted wrap in front"
-        }
         if let containerURL {
             return "\(containerURL.lastPathComponent) — encrypted file in front"
         }
@@ -1036,7 +978,6 @@ struct ContentView: View {
     private var canShareDecrypted: Bool {
         entries.contains { selectedNames.contains($0.name) && !$0.isDir }
             || lastPlain.contains { FileManager.default.fileExists(atPath: $0.path) }
-            || (incomingFile?.pathExtension.lowercased() == "vcpw" && !wrapPassword.isEmpty)
     }
 
     private var statusTone: Color {
@@ -1044,7 +985,7 @@ struct ContentView: View {
         if ["fail", "could not", "wrong", "empty"].contains(where: { lower.contains($0) }) {
             return .red
         }
-        if ["opened", "copied", "created", "moved", "wiped", "complete", "saved", "unwrapped", "wrapped", "renamed", "deleted"].contains(where: { lower.contains($0) }) {
+        if ["opened", "copied", "created", "moved", "wiped", "complete", "saved", "renamed", "deleted"].contains(where: { lower.contains($0) }) {
             return Color(red: 0.15, green: 0.48, blue: 0.25)
         }
         return Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255)
@@ -1115,11 +1056,7 @@ struct ContentView: View {
             SystemShare.present(items: lastPlain.filter { FileManager.default.fileExists(atPath: $0.path) })
             return
         }
-        if let incoming = incomingFile, incoming.pathExtension.lowercased() == "vcpw" {
-            unwrapURL(incoming)
-            return
-        }
-        status = "Tap files in an open volume, or decrypt a wrap, then Share decrypted."
+        status = "Tap files in an open volume, then Share decrypted."
     }
 
     private func createVolume() {
@@ -1240,8 +1177,6 @@ struct ContentView: View {
                     return
                 }
                 containerURL = dest
-                self.password = password
-                self.pim = createPim
                 var msg = "Created \(SizeUnit.formatBytes(sizeBytes)) \(cipher) / \(kdf) \(filesystem) volume as \(dest.lastPathComponent) (standard VeraCrypt file; the name is only a disguise). Open volume, or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
                 if packed > 0 {
                     msg += " Copied \(packed) file(s) from the basket into the volume. SHA-256 proof is BASKET.sha256 inside the volume."
@@ -1307,7 +1242,8 @@ struct ContentView: View {
         let backup = useBackupHeader
         let readOnly = readOnlyOpen
         let tcMode = trueCryptMode
-        let pimValue = Int32(pim) ?? 0
+        let pimText = pim
+        let pimValue = Int32(pimText) ?? 0
         let keys = keyfileURLs
         let protect = protectHidden
         let hiddenPw = hiddenProtectPassword
@@ -1358,6 +1294,8 @@ struct ContentView: View {
                     listTruncated = truncated
                     selectedNames = []
                     headerKeyfileURLs = keys
+                    rememberUnlock(text, pimText)
+                    wipeUnlockForm()
                     selectedTab = 3
                     var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Slots are on the Mounted tab. Tap Open on a folder, or select files. Copy to volume moves selected files into another mounted container."
                     if mountedVolumes.count > 1 {
@@ -1568,9 +1506,12 @@ struct ContentView: View {
         closeVolume()
         password = ""
         hiddenProtectPassword = ""
+        newPassword = ""
         pim = "0"
         hiddenProtectPim = "0"
+        newPim = "0"
         lastPlain = []
+        forgetUnlock()
         if wasOpen && !status.hasPrefix("Panic") {
             status = "Dismounted. Create form kept. Dismount or Panic wipe also clears the generated password."
         }
@@ -1739,6 +1680,8 @@ struct ContentView: View {
         createHiddenPim = "0"
         hiddenProtectPim = "0"
         pim = "0"
+        newPim = "0"
+        newPassword = ""
         let keys = keyfileURLs + hiddenKeyfileURLs + headerKeyfileURLs
         keyfileURLs = []
         headerKeyfileURLs = []
@@ -1747,6 +1690,7 @@ struct ContentView: View {
         for url in keys where url.path.hasPrefix(tmp) {
             wipeFile(url)
         }
+        forgetUnlock()
     }
 
     private func clearMountOptions() {
@@ -1760,8 +1704,6 @@ struct ContentView: View {
     private func lockSession() {
         closeVolume()
         password = ""
-        wrapPassword = ""
-        wrapHold = ""
         holdLock = false
         createPassword = ""
         createHiddenPassword = ""
@@ -1796,6 +1738,7 @@ struct ContentView: View {
         selectedNames = []
         clearMountOptions()
         wipeSessionFiles()
+        forgetUnlock()
         endWork()
         if !status.hasPrefix("Panic") {
             status = "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays."
@@ -1805,13 +1748,15 @@ struct ContentView: View {
     private func panicWipe() {
         closeVolume()
         password = ""
-        wrapPassword = ""
-        wrapHold = ""
         holdLock = false
         createPassword = ""
         createHiddenPassword = ""
         hiddenProtectPassword = ""
         newPassword = ""
+        pim = "0"
+        newPim = "0"
+        createPim = "0"
+        hiddenProtectPim = "0"
         entries = []
         dirPath = ""
         lastPlain = []
@@ -1828,6 +1773,7 @@ struct ContentView: View {
         basketHashes = [:]
         hiddenKeyfileURLs = []
         clearMountOptions()
+        forgetUnlock()
     }
 
     private func shareVaultFile(_ entry: VaultEntry) {
@@ -2056,19 +2002,53 @@ struct ContentView: View {
         }
     }
 
-    private func currentUnlockPaths() -> (password: String, keyfiles: [String], temps: [URL])? {
+    private func unlockPassword() -> String {
+        if !useTextPassword { return "" }
+        return password.isEmpty ? lastUnlockPassword : password
+    }
+
+    private func unlockPimText() -> String {
+        if password.isEmpty && !lastUnlockPassword.isEmpty {
+            return lastUnlockPim
+        }
+        return pim
+    }
+
+    private func rememberUnlock(_ password: String, _ pimText: String) {
+        lastUnlockPassword = password
+        lastUnlockPim = pimText.isEmpty ? "0" : pimText
+    }
+
+    private func forgetUnlock() {
+        lastUnlockPassword = ""
+        lastUnlockPim = "0"
+    }
+
+    /// Clear Volume-tab unlock fields after a successful mount. Tools still uses lastUnlockPassword.
+    private func wipeUnlockForm() {
+        password = ""
+        pim = "0"
+        hiddenProtectPassword = ""
+        hiddenProtectPim = "0"
+        useBackupHeader = false
+        readOnlyOpen = false
+        trueCryptMode = false
+        protectHidden = false
+    }
+
+    private func currentUnlockPaths() -> (password: String, pim: String, keyfiles: [String], temps: [URL])? {
         guard containerURL != nil else {
             status = "Choose a container first."
             return nil
         }
-        let text = useTextPassword ? password : ""
+        let text = unlockPassword()
         if text.isEmpty && keyfileURLs.isEmpty {
             status = "Enter the current password or keyfiles above."
             return nil
         }
         var temps: [URL] = []
         var paths = keyfileURLs.map(\.path)
-        return (text, paths, temps)
+        return (text, unlockPimText(), paths, temps)
     }
 
     private func changeVolumePassword() {
@@ -2125,9 +2105,10 @@ struct ContentView: View {
             status = "Removing all keyfiles needs a text password, or the volume cannot be opened."
             return
         }
+        let pimUsed = unlock.pim
         let nextPim: Int32 = {
             if newPassword.isEmpty && (newPim.isEmpty || newPim == "0") {
-                return Int32(pim) ?? 0
+                return Int32(pimUsed) ?? 0
             }
             return Int32(newPim) ?? 0
         }()
@@ -2146,7 +2127,7 @@ struct ContentView: View {
             let rc = VcMobileBridge.changeHeader(
                 path: path,
                 password: text,
-                pim: Int32(pim) ?? 0,
+                pim: Int32(pimUsed) ?? 0,
                 keyfiles: unlockKeys,
                 backup: useBackupHeader,
                 newPassword: newPassword,
@@ -2165,6 +2146,8 @@ struct ContentView: View {
                     } else {
                         headerKeyfileURLs = headerKeyfileURLs.isEmpty ? keyfileURLs : headerKeyfileURLs
                     }
+                    rememberUnlock(nextPassword, String(nextPim))
+                    wipeUnlockForm()
                 }
                 status = rc == 0 ? success : headerErrorMessage(rc)
             }
@@ -2179,7 +2162,7 @@ struct ContentView: View {
             volumePath: path,
             backupPath: dest.path,
             password: unlock.password,
-            pim: Int32(pim) ?? 0,
+            pim: Int32(unlock.pim) ?? 0,
             keyfiles: unlock.keyfiles
         )
         unlock.temps.forEach { try? FileManager.default.removeItem(at: $0) }
@@ -2198,7 +2181,7 @@ struct ContentView: View {
             volumePath: path,
             backupPath: backup.path,
             password: unlock.password,
-            pim: Int32(pim) ?? 0,
+            pim: Int32(unlock.pim) ?? 0,
             keyfiles: unlock.keyfiles
         )
         unlock.temps.forEach { try? FileManager.default.removeItem(at: $0) }
@@ -2214,7 +2197,7 @@ struct ContentView: View {
             volumePath: path,
             backupPath: "",
             password: unlock.password,
-            pim: Int32(pim) ?? 0,
+            pim: Int32(unlock.pim) ?? 0,
             keyfiles: unlock.keyfiles
         )
         unlock.temps.forEach { try? FileManager.default.removeItem(at: $0) }
@@ -2395,80 +2378,6 @@ struct ContentView: View {
         }
     }
 
-    private func wrapURL(_ url: URL, password: String? = nil) {
-        let secret = password ?? (wrapHold.count >= 16 ? wrapHold : wrapPassword)
-        guard secret.count >= 16 else {
-            holdLock = false
-            wrapHold = ""
-            status = "Use Generate strong password, or type at least 16 characters. Nothing is saved."
-            return
-        }
-        beginWork("Wrapping \(url.lastPathComponent)…")
-        holdLock = false
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let src = copyScopedFile(url) else {
-                DispatchQueue.main.async {
-                    endWork()
-                    status = "Could not read \(url.lastPathComponent). Pick it again from Files."
-                }
-                return
-            }
-            let dest = FileManager.default.temporaryDirectory
-                .appendingPathComponent(url.lastPathComponent + ".vcpw")
-            let rc = VcMobileBridge.wrapFile(
-                src: src.path,
-                dest: dest.path,
-                password: secret,
-                originalName: url.lastPathComponent
-            )
-            DispatchQueue.main.async {
-                endWork()
-                if rc != 0 {
-                    status = "Wrap failed (code \(rc))."
-                    return
-                }
-                status = "Wrapped \(url.lastPathComponent). Password was not saved."
-                incomingFile = dest
-                SystemShare.present(items: [dest])
-            }
-        }
-    }
-
-    private func unwrapURL(_ url: URL, password: String? = nil) {
-        let secret = password ?? (wrapHold.isEmpty ? wrapPassword : wrapHold)
-        guard !secret.isEmpty else {
-            holdLock = false
-            wrapHold = ""
-            status = "Enter the wrap password first. It is not stored."
-            return
-        }
-        beginWork("Unwrapping \(url.lastPathComponent)…")
-        holdLock = false
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let src = copyScopedFile(url) else {
-                DispatchQueue.main.async {
-                    endWork()
-                    status = "Could not read \(url.lastPathComponent). Pick it again from Files."
-                }
-                return
-            }
-            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("unwrapped", isDirectory: true)
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let out = VcMobileBridge.unwrapFile(src: src.path, destDir: dir.path, password: secret)
-            DispatchQueue.main.async {
-                endWork()
-                guard let out else {
-                    status = "Unwrap failed. Wrong password or not a VC Port wrap."
-                    return
-                }
-                let file = URL(fileURLWithPath: out)
-                lastPlain = [file]
-                status = "Unwrapped \(file.lastPathComponent). Password was not saved."
-                SystemShare.present(items: [file])
-            }
-        }
-    }
-
     private func copyScopedFile(_ url: URL) -> URL? {
         let accessed = url.startAccessingSecurityScopedResource()
         defer {
@@ -2541,7 +2450,6 @@ struct ContentView: View {
         status = "Offline. Choose a VeraCrypt container, or share an encrypted file as-is."
         entries = []
         incomingFile = nil
-        wrapPassword = ""
         dirPath = ""
         listTruncated = false
         lastPlain = []
@@ -2572,10 +2480,10 @@ struct ContentView: View {
         basketHashes = [:]
         hiddenKeyfileURLs = []
         selectedTab = 0
-        wrapHold = ""
         holdLock = false
         clearMountOptions()
         wipeSessionFiles()
+        forgetUnlock()
         endWork()
     }
 

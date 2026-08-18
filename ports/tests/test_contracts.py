@@ -437,15 +437,58 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertNotIn("BiometricVault", hard)
         self.assertNotIn("takePersistableUriPermission", hard)
 
-    def test_wrap_keeps_password_across_file_picker(self) -> None:
+    def test_pickers_keep_session_across_file_picker(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("holdLockForPicker()", main)
-        self.assertIn("wrapHold", main)
+        self.assertNotIn("wrapHold", main)
         self.assertIn("override fun onResume()", main)
         self.assertIn("holdingForPicker", view)
-        self.assertIn("wrapHold", view)
+        self.assertNotIn("wrapHold", view)
         self.assertIn("holdLock", view)
+
+    def test_tools_pim_is_wiped_and_not_copied_from_volume(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertNotIn("newPim = pim", main)
+        create_wipe = main.split("private fun wipeCreateSecrets()")[1].split("private fun wipeRamSecrets()")[0]
+        self.assertIn('newPimState.value = "0"', create_wipe)
+        leave = main.split("private fun dismountOnLeave()")[1].split("private fun wipeCreateSecrets()")[0]
+        self.assertIn('newPimState.value = "0"', leave)
+        ios_wipe = view.split("private func wipeCreateSecrets()")[1].split("private func clearMountOptions()")[0]
+        self.assertIn('newPim = "0"', ios_wipe)
+        ios_leave = view.split("private func dismountOnLeave()")[1].split("private func isTemporaryContainer")[0]
+        self.assertIn('newPim = "0"', ios_leave)
+
+    def test_volume_unlock_form_wiped_after_successful_open(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertIn("lastUnlockPassword", main)
+        self.assertIn("lastUnlockPassword", view)
+        self.assertIn("private fun wipeUnlockForm()", main)
+        self.assertIn("private func wipeUnlockForm()", view)
+        self.assertIn("rememberUnlock(text, pimText)", main)
+        self.assertIn("rememberUnlock(text, pimText)", view)
+        android_open = main.split("private fun openVolumeWithFactors")[1].split("private fun handleIncoming")[0]
+        self.assertNotIn("unlockPassword(", android_open)
+        self.assertIn("wipeUnlockForm()", android_open)
+        ios_open = view.split("private func startOpenVolume()")[1].split("private func wipeFile")[0]
+        self.assertNotIn("unlockPassword()", ios_open)
+        self.assertIn("wipeUnlockForm()", ios_open)
+        self.assertIn("unlockPassword(password, useTextPassword)", main)
+        self.assertIn("unlock.pim", view)
+        leave = main.split("private fun dismountOnLeave()")[1].split("private fun wipeCreateSecrets()")[0]
+        self.assertIn("forgetUnlock()", leave)
+        ram = main.split("private fun wipeRamSecrets()")[1].split("private fun resetCreateWizard()")[0]
+        self.assertIn("forgetUnlock()", ram)
+        ios_leave = view.split("private func dismountOnLeave()")[1].split("private func isTemporaryContainer")[0]
+        self.assertIn("forgetUnlock()", ios_leave)
+        ios_lock = view.split("private func lockSession()")[1].split("private func panicWipe()")[0]
+        self.assertIn("forgetUnlock()", ios_lock)
+        form = main.split("private fun wipeUnlockForm()")[1].split("/**")[0]
+        self.assertNotIn("keyfileUrisState", form)
+        ios_form = view.split("private func wipeUnlockForm()")[1].split("private func currentUnlockPaths()")[0]
+        self.assertNotIn("keyfileURLs", ios_form)
 
     def test_choose_container_keeps_session_and_shows_name(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
@@ -649,7 +692,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
     def test_wrap_panic_share_stay_offline_on_android(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         self.assertIn("Panic wipe", main)
-        self.assertIn("Decrypt wrap", main)
+        self.assertNotIn("Decrypt wrap", main)
+        self.assertNotIn("Leftover wrap", main)
         self.assertIn("Share encrypted", main)
         self.assertIn("Stay offline", main)
         self.assertIn("compelled", main.lower())
@@ -668,7 +712,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
     def test_wrap_panic_share_stay_offline_on_ios(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("Panic wipe", view)
-        self.assertIn("Decrypt wrap", view)
+        self.assertNotIn("Decrypt wrap", view)
+        self.assertNotIn("Leftover wrap", view)
         self.assertIn("Share encrypted file", view)
         self.assertIn("Stay offline", view)
         self.assertIn("compelled", view.lower())

@@ -126,6 +126,8 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.addKeyfiles(keyfiles) }
         onMain { t.openVolume() }
         waitStatus("Mounted in this app", 180)
+        XCTAssertEqual(onMainValue { t.volumePassword() }, "")
+        XCTAssertEqual(onMainValue { t.volumePim() }, "0")
 
         onMain { t.selectTab(2) }
         onMain { t.showVolumeProperties() }

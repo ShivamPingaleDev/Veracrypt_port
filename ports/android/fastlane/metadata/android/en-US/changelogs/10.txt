@@ -1,0 +1,1 @@
+VC Port 0.3.5: wrap UI gone from the phones; Volume unlock fields wipe after Open; quieter Mounted tab. Session tests still cover the app interface. GitHub APKs stay debug-signed previews. Not unbreakable.

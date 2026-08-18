@@ -90,7 +90,7 @@ stores random files with those extensions, and checks hashes after backup
 header restore, KDF change, keyfile add/remove, password change, and
 biometric+keyfile unlock. Compose UI coverage is
 `MainActivityUiTest` (FLAG_SECURE, tabs Volume/Create/Tools/Mounted, Panic wipe
-visible, Stay offline, Decrypt wrap leftover, Generate strong password,
+visible, Stay offline, Generate strong password,
 Copy once then Home then resume so the Create form continues;
 does not tap Panic wipe or Check for updates; writes GitHub shots under
 app files for `run_device_sim.sh` to pull into `ports/docs/screenshots/`).
@@ -104,7 +104,9 @@ size are still there. Home keeping the Create wizard is intentional;
 Dismount / Panic wipe still clear it. `AppInterfaceSessionTest` finishes
 Create through the UI (save wipes secrets), leaves and reopens, decrypts,
 mounts two volumes, copies/moves files, then uses read-only / backup
-header / hidden-volume protection. Tests must not tap Panic wipe.
+header / hidden-volume protection. After a successful Open the Volume password
+and PIM fields are empty; Tools header ops still use the last unlock in RAM.
+Tests must not tap Panic wipe.
 iPad Simulator has the same session as `ports/ios/VCPortTests/AppInterfaceSessionTests.swift`
 (`ports/ios/run_ios_session_test.sh`; skips Files/share sheets like Android
 skips SAF). Appearance is Original plus Dark mode on the foss APK

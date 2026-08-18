@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -44,6 +43,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
@@ -113,7 +114,6 @@ class MainActivity : AppCompatActivity() {
     private val statusState = mutableStateOf("Stay offline. Select a VeraCrypt container, or share an encrypted file as-is.")
     private val incomingState = mutableStateOf<File?>(null)
     private val passwordState = mutableStateOf("")
-    private val wrapPasswordState = mutableStateOf("")
     private val pimState = mutableStateOf("0")
     private val createPimState = mutableStateOf("0")
     private val createHiddenPimState = mutableStateOf("0")
@@ -156,12 +156,44 @@ class MainActivity : AppCompatActivity() {
     private val newPasswordState = mutableStateOf("")
     private val hiddenProtectPasswordState = mutableStateOf("")
     private var suppressLock = false
-    private var wrapHold = ""
+    private var lastUnlockPassword = ""
+    private var lastUnlockPim = "0"
     private var pendingContainerPfd: ParcelFileDescriptor? = null
     private val liveContainerPfds = mutableMapOf<Long, ParcelFileDescriptor>()
-    /** File pickers stop this activity. Do not wipe the wrap password in that gap. */
+    /** File pickers stop this activity. Do not wipe session fields in that gap. */
     private fun holdLockForPicker() {
         suppressLock = true
+    }
+
+    private fun unlockPassword(form: String, useText: Boolean): String {
+        if (!useText) return ""
+        return form.ifEmpty { lastUnlockPassword }
+    }
+
+    private fun unlockPimText(formPassword: String, formPim: String): String {
+        return if (formPassword.isEmpty() && lastUnlockPassword.isNotEmpty()) lastUnlockPim else formPim
+    }
+
+    private fun rememberUnlock(password: String, pimText: String) {
+        lastUnlockPassword = password
+        lastUnlockPim = pimText.ifBlank { "0" }
+    }
+
+    private fun forgetUnlock() {
+        lastUnlockPassword = ""
+        lastUnlockPim = "0"
+    }
+
+    /** Clear Volume-tab unlock fields after a successful mount. Tools still uses [lastUnlockPassword]. */
+    private fun wipeUnlockForm() {
+        passwordState.value = ""
+        pimState.value = "0"
+        hiddenProtectPasswordState.value = ""
+        hiddenProtectPimState.value = "0"
+        useBackupHeaderState.value = false
+        readOnlyOpenState.value = false
+        trueCryptModeState.value = false
+        protectHiddenState.value = false
     }
 
     /**
@@ -467,7 +499,6 @@ class MainActivity : AppCompatActivity() {
                 var containerUri by containerUriState
                 var password by passwordState
                 var pim by pimState
-                var wrapPassword by wrapPasswordState
                 var keyfileUris by keyfileUrisState
                 var basketUris by basketUrisState
                 var basketHashes by basketHashesState
@@ -554,11 +585,6 @@ class MainActivity : AppCompatActivity() {
                         if (overlayTitle != nextTitle) overlayTitle = nextTitle
                         if (overlayPercent != nextPct) overlayPercent = nextPct
                         delay(100)
-                    }
-                }
-                LaunchedEffect(tab) {
-                    if (tab == 2) {
-                        newPim = pim
                     }
                 }
                 val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -689,20 +715,6 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
-                val unwrapPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-                    val secret = wrapHold.ifEmpty { wrapPassword }
-                    if (uri != null) {
-                        unwrapSelectedFile(uri, secret, { status = it }) { plain ->
-                            pendingExportFile = plain
-                            lastPlainFiles = listOf(plain)
-                            holdLockForPicker()
-                            window.decorView.post {
-                                holdLockForPicker()
-                                toolSaver.launch(plain.name)
-                            }
-                        }
-                    }
-                }
                 val restoreHeaderPicker = rememberLauncherForActivityResult(
                     ActivityResultContracts.OpenDocument()
                 ) { uri: Uri? ->
@@ -757,7 +769,6 @@ class MainActivity : AppCompatActivity() {
                 fun runPanic() {
                     panicWipe()
                     password = ""
-                    wrapPassword = ""
                     createPassword = ""
                     createHiddenPassword = ""
                     hiddenProtectPassword = ""
@@ -831,8 +842,6 @@ class MainActivity : AppCompatActivity() {
                         val incomingFile = incoming
                         val selectedFiles = entries.filter { it.name in selectedNames && !it.isDir }
                         val cipherName = when {
-                            incomingFile != null && ShareHelper.looksLikeWrap(incomingFile.name) ->
-                                incomingFile.name
                             containerLabel.isNotEmpty() -> containerLabel
                             incomingFile != null -> incomingFile.name
                             else -> containerUri?.let { ShareHelper.displayName(this@MainActivity, it) }
@@ -843,16 +852,13 @@ class MainActivity : AppCompatActivity() {
                                 selectedFiles.joinToString { it.name } + " — decrypted from the open volume"
                             lastPlainFiles.any { it.exists() } ->
                                 lastPlainFiles.joinToString { it.name } + " — decrypted copy"
-                            incomingFile != null && ShareHelper.looksLikeWrap(incomingFile.name) ->
-                                "${incomingFile.name} — encrypted wrap in front"
                             cipherName != null ->
                                 "$cipherName — encrypted file in front"
                             else ->
                                 "Nothing in front. Select a container or file, then share from here."
                         }
                         val canDecrypted = selectedFiles.isNotEmpty() ||
-                            lastPlainFiles.any { it.exists() } ||
-                            (incomingFile != null && ShareHelper.looksLikeWrap(incomingFile.name) && wrapPassword.isNotEmpty())
+                            lastPlainFiles.any { it.exists() }
                         InFrontShareBar(
                             label = inFrontLabel,
                             canShareEncrypted = true,
@@ -875,9 +881,7 @@ class MainActivity : AppCompatActivity() {
                                     handle = handle,
                                     dirPath = dirPath,
                                     selected = selectedFiles,
-                                    lastPlain = lastPlainFiles,
-                                    incoming = incomingFile,
-                                    wrapPassword = wrapPassword
+                                    lastPlain = lastPlainFiles
                                 ) { status = it }
                             }
                         )
@@ -913,21 +917,6 @@ class MainActivity : AppCompatActivity() {
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) { Text("Share encrypted") }
-                                if (ShareHelper.looksLikeWrap(file.name)) {
-                                    SecretField(
-                                        wrapPassword,
-                                        { wrapPassword = it },
-                                        "Wrap password (never stored)",
-                                        enabled = !busy
-                                    )
-                                    OutlinedButton(
-                                        onClick = {
-                                            unwrapIncomingFile(file, wrapPassword) { status = it }
-                                        },
-                                        enabled = !busy,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text("Decrypt wrap") }
-                                }
                             }
                         }
                             ScrollableTabRow(
@@ -1489,8 +1478,6 @@ class MainActivity : AppCompatActivity() {
                                                         onPath = {
                                                             path = it
                                                             containerLabel = File(it).name
-                                                            password = createPassword
-                                                            pim = createPim
                                                         },
                                                         onStatus = { status = it },
                                                         onSaved = {
@@ -1817,7 +1804,6 @@ class MainActivity : AppCompatActivity() {
                                                 onClick = {
                                                     lockSession()
                                                     password = ""
-                                                    wrapPassword = ""
                                                     handle = 0
                                                     entries = emptyList()
                                                     status = "Wipe cached passwords complete. Volume closed."
@@ -1825,29 +1811,6 @@ class MainActivity : AppCompatActivity() {
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Wipe cached passwords") }
-                                        }
-                                        VcCard {
-                                            Text("Leftover wrap", style = MaterialTheme.typography.titleMedium)
-                                            VcHint("Decrypt a leftover .vcpw.")
-                                            SecretField(
-                                                wrapPassword,
-                                                { wrapPassword = it },
-                                                "Wrap password (never stored)",
-                                                enabled = !busy
-                                            )
-                                            OutlinedButton(
-                                                onClick = {
-                                                    if (wrapPassword.isEmpty()) {
-                                                        status = "Enter the wrap password first. It is not stored."
-                                                    } else {
-                                                        wrapHold = wrapPassword
-                                                        holdLockForPicker()
-                                                        unwrapPicker.launch(arrayOf("*/*"))
-                                                    }
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Decrypt wrap") }
                                         }
                                         VcCard {
                                             Text("Not on this phone", style = MaterialTheme.typography.titleMedium)
@@ -2320,8 +2283,11 @@ class MainActivity : AppCompatActivity() {
         lastPlainFilesState.value = emptyList()
         passwordState.value = ""
         hiddenProtectPasswordState.value = ""
+        newPasswordState.value = ""
         pimState.value = "0"
         hiddenProtectPimState.value = "0"
+        newPimState.value = "0"
+        forgetUnlock()
         if (wasOpen && !statusState.value.startsWith("Panic")) {
             statusState.value =
                 "Dismounted. Create form kept. Dismount or Panic wipe also clears the generated password."
@@ -2343,6 +2309,8 @@ class MainActivity : AppCompatActivity() {
         createHiddenPimState.value = "0"
         hiddenProtectPimState.value = "0"
         pimState.value = "0"
+        newPimState.value = "0"
+        newPasswordState.value = ""
         val keys = keyfileUrisState.value + hiddenKeyfileUrisState.value
         keyfileUrisState.value = emptyList()
         headerKeyfileUrisState.value = emptyList()
@@ -2353,6 +2321,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         Hardening.wipeDir(File(cacheDir, "keyfiles"))
+        forgetUnlock()
     }
 
     private fun wipeRamSecrets() {
@@ -2361,13 +2330,12 @@ class MainActivity : AppCompatActivity() {
         hiddenProtectPasswordState.value = ""
         newPasswordState.value = ""
         passwordState.value = ""
-        wrapPasswordState.value = ""
-        wrapHold = ""
         pimState.value = "0"
         createPimState.value = "0"
         createHiddenPimState.value = "0"
         newPimState.value = "0"
         hiddenProtectPimState.value = "0"
+        forgetUnlock()
         keyfileUrisState.value = emptyList()
         headerKeyfileUrisState.value = emptyList()
         hiddenKeyfileUrisState.value = emptyList()
@@ -2859,7 +2827,7 @@ class MainActivity : AppCompatActivity() {
             onStatus("Choose a container first.")
             return
         }
-        val text = if (useTextPassword) password else ""
+        val text = unlockPassword(password, useTextPassword)
         val unlockUris = headerKeyfileUrisState.value.ifEmpty { keyfileUris }
         if (text.isEmpty() && unlockUris.isEmpty()) {
             onStatus("Enter the current password or keyfiles on the Volume tab.")
@@ -2870,8 +2838,9 @@ class MainActivity : AppCompatActivity() {
             onStatus("Removing all keyfiles needs a text password, or the volume cannot be opened.")
             return
         }
+        val pimUsed = unlockPimText(password, pimText)
         val nextPim = if (newPassword.isEmpty() && (newPimText.isBlank() || newPimText == "0")) {
-            pimText.toIntOrNull() ?: 0
+            pimUsed.toIntOrNull() ?: 0
         } else {
             newPimText.toIntOrNull() ?: 0
         }
@@ -2909,7 +2878,7 @@ class MainActivity : AppCompatActivity() {
                 val rc = NativeBridge.changeHeader(
                     path,
                     text,
-                    pimText.toIntOrNull() ?: 0,
+                    pimUsed.toIntOrNull() ?: 0,
                     temps.map { it.absolutePath }.toTypedArray(),
                     useBackupHeader,
                     newPassword,
@@ -2928,6 +2897,8 @@ class MainActivity : AppCompatActivity() {
                             applySessionKeyfiles -> keyfileUris
                             else -> unlockUris
                         }
+                        rememberUnlock(nextPassword, nextPim.toString())
+                        wipeUnlockForm()
                     }
                     onStatus(if (rc == 0) successMessage else headerErrorMessage(rc))
                 }
@@ -2958,7 +2929,8 @@ class MainActivity : AppCompatActivity() {
             onStatus("Choose a container first.")
             return
         }
-        val text = if (useTextPassword) password else ""
+        val text = unlockPassword(password, useTextPassword)
+        val pimUsed = unlockPimText(password, pimText)
         closeMountedVolume()
         beginWork("Backing up volume header…")
         Thread {
@@ -2978,7 +2950,7 @@ class MainActivity : AppCompatActivity() {
                     volumePath,
                     dest.absolutePath,
                     text,
-                    pimText.toIntOrNull() ?: 0,
+                    pimUsed.toIntOrNull() ?: 0,
                     temps.map { it.absolutePath }.toTypedArray()
                 )
                 runOnUiThread {
@@ -3018,7 +2990,8 @@ class MainActivity : AppCompatActivity() {
             onStatus("Choose a container first.")
             return
         }
-        val text = if (useTextPassword) password else ""
+        val text = unlockPassword(password, useTextPassword)
+        val pimUsed = unlockPimText(password, pimText)
         closeMountedVolume()
         beginWork("Restoring volume header…")
         Thread {
@@ -3047,7 +3020,7 @@ class MainActivity : AppCompatActivity() {
                     volumePath,
                     backup.absolutePath,
                     text,
-                    pimText.toIntOrNull() ?: 0,
+                    pimUsed.toIntOrNull() ?: 0,
                     temps.map { it.absolutePath }.toTypedArray()
                 )
                 backup.delete()
@@ -3240,6 +3213,8 @@ class MainActivity : AppCompatActivity() {
                         mountedVolumesState.value = next
                         activeMountIndexState.intValue = next.lastIndex
                         headerKeyfileUrisState.value = keyfileUris
+                        rememberUnlock(text, pimText)
+                        wipeUnlockForm()
                         onHandle(result)
                         onEntries(files)
                         dirPathState.value = ""
@@ -3291,144 +3266,10 @@ class MainActivity : AppCompatActivity() {
             ShareHelper.persistRead(this, uris.first())
             containerUriState.value = uris.first()
         }
-        if (ShareHelper.looksLikeWrap(first.name) || NativeBridge.isWrap(first.absolutePath)) {
-            tabState.intValue = 1
-            statusState.value = "Received wrapped file ${first.name}. Enter the wrap password and tap Decrypt wrap."
-        } else {
-            tabState.intValue = 0
-            pathState.value = copyIncomingAsContainer(first)
-            containerLabelState.value = first.name
-            statusState.value = "Received ${first.name}. Any extension can be a volume. Open with the correct password, PIM, and keyfiles, or share as-is."
-        }
-    }
-
-    private fun unwrapIncomingFile(file: File, password: String, onStatus: (String) -> Unit) {
-        if (password.isEmpty()) {
-            onStatus("Enter the wrap password first. It is not stored.")
-            return
-        }
-        beginWork("Unwrapping file…")
-        Thread {
-            val destDir = File(cacheDir, "unwrapped").apply { mkdirs() }
-            val outPath = NativeBridge.unwrapFile(file.absolutePath, destDir.absolutePath, password)
-            runOnUiThread {
-                endWork()
-                if (outPath == null) {
-                    onStatus("Unwrap failed. Wrong password or not a VC Port wrap.")
-                } else {
-                    val plain = File(outPath)
-                    lastPlainFilesState.value = listOf(plain)
-                    onStatus("Unwrapped ${plain.name}. Password was not saved.")
-                    beginShare()
-                    ShareHelper.shareFiles(this, listOf(plain), "Share unwrapped file")
-                }
-            }
-        }.start()
-    }
-
-    private fun wrapSelectedFile(
-        uri: Uri,
-        password: String,
-        onStatus: (String) -> Unit,
-        onSaved: (File) -> Unit
-    ) {
-        if (password.length < 16) {
-            onStatus("Use Generate strong password, or type at least 16 characters. Nothing is saved.")
-            return
-        }
-        beginWork("Wrapping file…")
-        Thread {
-            val name = ShareHelper.displayName(this, uri) ?: "file.bin"
-            val plain = File(cacheDir, "wrap-in-${ShareHelper.safeName(name)}")
-            val wrapped = File(ShareHelper.shareDir(this), ShareHelper.safeName(name) + ".vcpw")
-            try {
-                val input = KeyfileIo.openReadable(this, uri)
-                if (input == null) {
-                    runOnUiThread {
-                        endWork()
-                        onStatus("Could not read $name. Pick it again, or open it from the Files app with VC Port.")
-                    }
-                    return@Thread
-                }
-                input.use { stream ->
-                    plain.outputStream().use { output ->
-                        copyStreamProgress(stream, output, uriLength(uri), "Reading file")
-                    }
-                }
-                val rc = NativeBridge.wrapFile(plain.absolutePath, wrapped.absolutePath, password, name)
-                KeyfileIo.wipe(plain)
-                runOnUiThread {
-                    endWork()
-                    if (rc != 0 || !wrapped.exists()) {
-                        onStatus("Wrap failed (code $rc).")
-                    } else {
-                        onStatus("Wrapped $name. Save the .vcpw copy, then share it from the bar. The password was not saved.")
-                        onSaved(wrapped)
-                    }
-                }
-            } catch (e: Exception) {
-                KeyfileIo.wipe(plain)
-                runOnUiThread {
-                    endWork()
-                    onStatus("Wrap failed.")
-                }
-            }
-        }.start()
-    }
-
-    private fun unwrapSelectedFile(
-        uri: Uri,
-        password: String,
-        onStatus: (String) -> Unit,
-        onSaved: (File) -> Unit
-    ) {
-        if (password.isEmpty()) {
-            onStatus("Enter the wrap password first. It is not stored.")
-            return
-        }
-        beginWork("Unwrapping file…")
-        Thread {
-            val name = ShareHelper.displayName(this, uri) ?: "wrap.vcpw"
-            val wrapped = KeyfileIo.uniqueNamed(
-                File(cacheDir, "wraps").apply { mkdirs() },
-                ShareHelper.safeName(name)
-            )
-            val destDir = File(cacheDir, "unwrapped").apply { mkdirs() }
-            try {
-                val input = KeyfileIo.openReadable(this, uri)
-                if (input == null) {
-                    runOnUiThread {
-                        endWork()
-                        onStatus("Could not read $name. Pick it again, or open it from the Files app with VC Port.")
-                    }
-                    return@Thread
-                }
-                input.use { stream ->
-                    wrapped.outputStream().use { output ->
-                        copyStreamProgress(stream, output, uriLength(uri), "Reading wrap")
-                    }
-                }
-                val outPath = NativeBridge.unwrapFile(wrapped.absolutePath, destDir.absolutePath, password)
-                wrapped.delete()
-                runOnUiThread {
-                    endWork()
-                    if (outPath == null) {
-                        onStatus("Unwrap failed. Wrong password or not a VC Port wrap.")
-                    } else {
-                        val file = File(outPath)
-                        lastPlainFilesState.value = listOf(file)
-                        onStatus("Unwrapped ${file.name}. Save a copy. The password was not saved.")
-                        onSaved(file)
-                    }
-                }
-            } catch (e: Exception) {
-                wrapped.delete()
-                runOnUiThread {
-                    endWork()
-                    onStatus("Unwrap failed.")
-                }
-            }
-        }.start()
+        tabState.intValue = 0
+        pathState.value = copyIncomingAsContainer(first)
+        containerLabelState.value = first.name
+        statusState.value = "Received ${first.name}. Any extension can be a volume. Open with the correct password, PIM, and keyfiles, or share as-is."
     }
 
     private fun beginShare() {
@@ -3461,8 +3302,6 @@ class MainActivity : AppCompatActivity() {
         dirPath: String,
         selected: List<VaultEntry>,
         lastPlain: List<File>,
-        incoming: File?,
-        wrapPassword: String,
         onStatus: (String) -> Unit
     ) {
         val livePlain = lastPlain.filter { it.exists() }
@@ -3473,9 +3312,7 @@ class MainActivity : AppCompatActivity() {
                 onStatus("Sharing decrypted ${livePlain.joinToString { it.name }}.")
                 ShareHelper.shareFiles(this, livePlain, "Share decrypted files")
             }
-            incoming != null && ShareHelper.looksLikeWrap(incoming.name) ->
-                unwrapIncomingFile(incoming, wrapPassword, onStatus)
-            else -> onStatus("Tap files in an open volume, or decrypt a wrap, then Share decrypted.")
+            else -> onStatus("Tap files in an open volume, then Share decrypted.")
         }
     }
 
@@ -3928,7 +3765,8 @@ class MainActivity : AppCompatActivity() {
             onStatus("Choose a container first.")
             return
         }
-        val text = if (useTextPassword) password else ""
+        val text = unlockPassword(password, useTextPassword)
+        val pimUsed = unlockPimText(password, pimText)
         closeMountedVolume()
         beginWork("Restoring from the embedded backup header…")
         Thread {
@@ -3947,7 +3785,7 @@ class MainActivity : AppCompatActivity() {
                     volumePath,
                     "",
                     text,
-                    pimText.toIntOrNull() ?: 0,
+                    pimUsed.toIntOrNull() ?: 0,
                     temps.map { it.absolutePath }.toTypedArray()
                 )
                 runOnUiThread {
@@ -4185,101 +4023,96 @@ private fun VaultPane(
     val fileCount = entries.count { !it.isDir }
     val allFilesSelected = fileCount > 0 && entries.filter { !it.isDir }.all { it.name in selectedNames }
     val live = mounts.isNotEmpty()
+    var folderMenu by remember { mutableStateOf(false) }
     Column(modifier.fillMaxSize()) {
         Text(
             if (mounts.size > 1) "${mounts.size} volumes mounted" else "Mounted in this app",
             style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
         )
         Text(
             "Slots are this session only. Not a system drive. Select files, then Copy to volume or Move to volume.",
             style = MaterialTheme.typography.bodySmall,
             color = colors.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
-        Column(
+        Row(
             Modifier
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-                .heightIn(max = 220.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            OutlinedButton(
-                onClick = onOpenAnother,
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("Open another container") }
+            TextButton(onClick = onOpenAnother, enabled = !busy) { Text("Open another container") }
+            TextButton(onClick = onSelectAll, enabled = !busy && live && fileCount > 0) {
+                Text(if (allFilesSelected) "Clear selection" else "Select files")
+            }
             if (canTransfer) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(
-                        onClick = onCopyToVolume,
-                        enabled = !busy && live,
-                        modifier = Modifier.weight(1f).testTag("copy_to_volume")
-                    ) { Text("Copy to volume", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                    OutlinedButton(
-                        onClick = onMoveToVolume,
-                        enabled = !busy && live,
-                        modifier = Modifier.weight(1f).testTag("move_to_volume")
-                    ) { Text("Move to volume", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                }
+                TextButton(
+                    onClick = onCopyToVolume,
+                    enabled = !busy && live,
+                    modifier = Modifier.testTag("copy_to_volume")
+                ) { Text("Copy to volume") }
+                TextButton(
+                    onClick = onMoveToVolume,
+                    enabled = !busy && live,
+                    modifier = Modifier.testTag("move_to_volume")
+                ) { Text("Move to volume") }
             }
-            OutlinedButton(
-                onClick = onSelectAll,
-                enabled = !busy && live && fileCount > 0,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text(if (allFilesSelected) "Clear selection" else "Select files") }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(
-                    onClick = onCopyFromDevice,
-                    enabled = !busy && live,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Copy from device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onMoveFromDevice,
-                    enabled = !busy && live,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Move from device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(
-                    onClick = onCopyToDevice,
-                    enabled = !busy && live,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Copy to device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onMoveToDevice,
-                    enabled = !busy && live,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Move to device", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(
-                    onClick = onNewFolder,
-                    enabled = !busy && live,
-                    modifier = Modifier.weight(1f).testTag("new_folder")
-                ) { Text("New folder", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onRename,
-                    enabled = !busy && live,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Rename", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onDelete,
-                    enabled = !busy && live,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Delete", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-                OutlinedButton(
-                    onClick = onProperties,
-                    enabled = !busy && live,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Properties", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
-            }
-            OutlinedButton(
+            TextButton(
+                onClick = onNewFolder,
+                enabled = !busy && live,
+                modifier = Modifier.testTag("new_folder")
+            ) { Text("New folder") }
+            TextButton(
                 onClick = onWipeFreeSpace,
                 enabled = !busy && live,
-                modifier = Modifier.fillMaxWidth().testTag("wipe_free_space")
+                modifier = Modifier.testTag("wipe_free_space")
             ) { Text("Wipe free space") }
+            Box {
+                TextButton(onClick = { folderMenu = true }, enabled = !busy && live) { Text("Folder") }
+                DropdownMenu(expanded = folderMenu, onDismissRequest = { folderMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Copy from device") },
+                        onClick = { folderMenu = false; onCopyFromDevice() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Move from device") },
+                        onClick = { folderMenu = false; onMoveFromDevice() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Copy to device") },
+                        onClick = { folderMenu = false; onCopyToDevice() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Move to device") },
+                        onClick = { folderMenu = false; onMoveToDevice() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Rename") },
+                        onClick = { folderMenu = false; onRename() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        onClick = { folderMenu = false; onDelete() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Properties") },
+                        onClick = { folderMenu = false; onProperties() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Share decrypted") },
+                        onClick = {
+                            folderMenu = false
+                            entries.firstOrNull { it.name in selectedNames && !it.isDir }?.let(onShare)
+                        }
+                    )
+                }
+            }
         }
+        HorizontalDivider(color = colors.outline.copy(alpha = 0.25f))
         Row(
             Modifier
                 .weight(1f)
@@ -4287,7 +4120,7 @@ private fun VaultPane(
         ) {
             Column(
                 Modifier
-                    .width(132.dp)
+                    .width(120.dp)
                     .fillMaxHeight()
                     .verticalScroll(rememberScrollState())
                     .padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
@@ -4295,11 +4128,10 @@ private fun VaultPane(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .background(colors.primary)
-                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    Text("No.", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(24.dp))
-                    Text("Volume", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall)
+                    Text("No.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(22.dp))
+                    Text("Volume", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 }
                 for (slot in 0 until MOUNT_SLOTS) {
                     val vol = mounts.getOrNull(slot)
@@ -4307,38 +4139,28 @@ private fun VaultPane(
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .background(if (selected) colors.primaryContainer else colors.surface)
+                            .background(if (selected) colors.primaryContainer else Color.Transparent)
                             .clickable(enabled = !busy) {
                                 if (vol != null) onSelectMount(slot) else onOpenAnother()
                             }
-                            .padding(horizontal = 8.dp, vertical = 8.dp)
+                            .padding(horizontal = 8.dp, vertical = 7.dp)
                             .testTag("mount_slot_$slot"),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             "${slot + 1}",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.width(24.dp)
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.onSurfaceVariant,
+                            modifier = Modifier.width(22.dp)
                         )
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                vol?.label ?: "Empty",
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = if (vol == null) colors.onSurfaceVariant else colors.onSurface
-                            )
-                            Text(
-                                when {
-                                    vol == null -> "Tap to open"
-                                    selected -> "Selected"
-                                    else -> "Mounted"
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colors.onSurfaceVariant,
-                                maxLines = 1
-                            )
-                        }
+                        Text(
+                            vol?.label ?: "Empty",
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = if (vol == null) colors.onSurfaceVariant else colors.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
                         if (vol != null) {
                             Icon(
                                 Icons.Filled.Close,
@@ -4385,11 +4207,10 @@ private fun VaultPane(
         Row(
             Modifier
                 .fillMaxWidth()
-                .background(colors.primary)
-                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
-            Text("Name", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-            Text("Size", color = colors.onPrimary, style = MaterialTheme.typography.labelSmall)
+            Text("Name", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+            Text("Size", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
         }
         if (entries.isEmpty() && !busy) {
             Column(
@@ -4454,17 +4275,21 @@ private fun VaultPane(
                         }
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(entry.name, style = MaterialTheme.typography.bodyLarge)
+                        Text(entry.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (entry.isDir) {
+                            Text(
+                                "Folder — tap to open",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (!entry.isDir) {
                         Text(
-                            if (entry.isDir) "Folder — tap to open" else formatSize(entry.size),
+                            formatSize(entry.size),
                             style = MaterialTheme.typography.bodySmall,
                             color = colors.onSurfaceVariant
                         )
-                    }
-                    if (!entry.isDir) {
-                        TextButton(onClick = { onShare(entry) }, enabled = !busy) {
-                            Text("Share decrypted")
-                        }
                     }
                 }
                 HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))

@@ -199,6 +199,10 @@ class AppInterfaceSessionTest {
         rule.onNodeWithText("TrueCrypt Mode").performScrollTo().assertIsDisplayed()
         rule.onNodeWithTag("open_volume").performScrollTo().performClick()
         waitStatus("Mounted in this app", 180_000)
+        rule.onNodeWithTag("tab_volume").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("volume_password").assert(hasText(""))
+        rule.onNodeWithTag("volume_pim").assert(hasText("0"))
 
         rule.onNodeWithTag("tab_tools").performClick()
         rule.waitForIdle()

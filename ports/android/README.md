@@ -6,7 +6,7 @@ Kotlin / Jetpack Compose client with:
 - Password, PIM, keyfiles, and mount options (backup header, read-only, TrueCrypt Mode, hidden-volume protection). Fingerprint unlock is on `experimental-biometrics`, not master.
 - In-app FAT or exFAT folder browse, extract, copy/move (including Copy to volume / Move to volume between several mounted containers), New folder / Rename / Delete / Properties, and wipe free space. Files larger than 4 GiB need exFAT. This app cannot mount a whole USB disk. Several containers can stay mounted in one session (up to 8).
 - System share sheet for decrypted files inside a volume, and **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no unlock)
-- Wrap/unwrap individual files (`.vcpw`) and an in-memory password generator that never saves history
+- In-memory password generator that never saves history
 - Incoming share / open: other apps can send a file into VC Port
 - In-app FAT browser only (no DocumentsProvider; that was a seizure leak). Copy/move uses the system file picker.
 

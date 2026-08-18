@@ -256,7 +256,8 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("createAndroidComposeRule", ui)
         self.assertIn("Panic wipe", ui)
         self.assertIn("Stay offline. This build has no network.", ui)
-        self.assertIn("Decrypt wrap", ui)
+        self.assertNotIn("Decrypt wrap", ui)
+        self.assertIn("Change volume password", ui)
         self.assertIn("tab_create", ui)
         self.assertIn("generateCopyBackgroundPasteContinue", ui)
         self.assertIn("copy_once", ui)
@@ -485,7 +486,7 @@ class FunctionalTests(unittest.TestCase):
 class SmokeSanityTests(unittest.TestCase):
     def test_version_json_parses(self) -> None:
         v = json.loads(read("ports/version.json"))
-        self.assertEqual(v["port_version"], "0.3.4")
+        self.assertEqual(v["port_version"], "0.3.5")
         self.assertEqual(len(v["upstream_commit"]), 40)
 
     def test_pin_file_matches_json(self) -> None:

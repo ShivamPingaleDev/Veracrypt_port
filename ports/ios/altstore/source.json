@@ -14,12 +14,21 @@
       "bundleIdentifier": "dev.shivampingale.vcport",
       "developerName": "Shivam Mangesh Pingale",
       "subtitle": "Open VeraCrypt-compatible containers offline",
-      "localizedDescription": "VC Port opens VeraCrypt-compatible volumes on iPhone, shares encrypted containers as-is, and wraps individual files. No ads, analytics, or crash reporters. Volume passwords stay on this device.\n\nPortions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/\n\nThis derived work is not named VeraCrypt. Not unbreakable.\n\nContact: shivampingaledev@proton.me / shivampingaledev@gmail.com\n\nFootnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.",
+      "localizedDescription": "VC Port opens VeraCrypt-compatible volumes on iPhone and shares encrypted containers as-is. No ads, analytics, or crash reporters. Volume passwords stay on this device.\n\nPortions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/\n\nThis derived work is not named VeraCrypt. Not unbreakable.\n\nContact: shivampingaledev@proton.me / shivampingaledev@gmail.com\n\nFootnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.",
       "iconURL": "https://raw.githubusercontent.com/ShivamPingaleDev/VCPort/master/android/fastlane/metadata/android/en-US/images/icon.png",
       "tintColor": "#1A2332",
       "category": "utilities",
       "screenshotURLs": [],
       "versions": [
+        {
+          "version": "0.3.5",
+          "buildVersion": "10",
+          "date": "2026-08-19T00:00:00-00:00",
+          "localizedDescription": "Draft listing. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
         {
           "version": "0.3.4",
           "buildVersion": "9",

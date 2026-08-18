@@ -2,7 +2,16 @@
 
 ## Unreleased
 
+## 0.3.5
+
+Phone release: wrap UI gone, Volume secrets wipe after Open, quieter Mounted tab.
+
+- Drop wrap (`.vcpw`) from the Android and iOS apps. Copy files in and out of a volume instead.
+- Tools no longer copies Volume PIM into New PIM. Home, save, and Dismount wipe Tools PIM with the other secrets.
+- Mounted tab: one slim action row and a Folder menu instead of a stack of full-width buttons. Slot and file lists are quieter.
+- After a successful Open, the Volume tab clears password, PIM, and mount-option checkboxes. Tools still uses the last unlock in RAM until Dismount.
 - CI builds Android APKs and the unsigned iOS IPA in parallel (`.github/workflows/vcport.yml`). Local: `ports/scripts/build-phones.sh`. Sign the IPA with your Apple Team ID: `VC_PORT_IOS_TEAM=YOUR10CHARID ports/ios/sideload-sign.sh`.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.5.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.5-unsigned-preview.ipa`). Same `applicationId` as 0.3.4; it replaces the old install.
 
 ## 0.3.4
 

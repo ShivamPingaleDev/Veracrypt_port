@@ -62,7 +62,7 @@ class MainActivityUiTest {
         captureShot("03-create.png")
 
         rule.onNodeWithTag("tab_tools").performClick()
-        rule.onNodeWithText("Decrypt wrap").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Change volume password").performScrollTo().assertIsDisplayed()
         captureShot("04-tools.png")
 
         rule.onNodeWithTag("tab_mounted").performClick()

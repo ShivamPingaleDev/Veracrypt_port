@@ -21,8 +21,6 @@ This app does the next-best thing:
 
 **Create** makes a new locked file. After you save it, type the password again to open it. Same password opens it on a PC or Mac.
 
-**Wrap** is a separate trick: one extra password on a single file (`.vcpw`). It is not a volume.
-
 A compelled password still wins. Prefer a long password and a keyfile.
 
 ## Phones (the main thing)
@@ -33,13 +31,12 @@ A compelled password still wins. Prefer a long password and a keyfile.
 - Keep several volumes mounted and move files between them
 - Make a new locked file
 - Send the locked file as-is (no password on the send)
-- Lock one extra file with its own password
 - Stay offline
 - Wipe this phone’s secrets if you need to
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.4). Those are test files, not store files. Installing one Android copy replaces the others.
+Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.5). Those are test files, not store files. Installing one Android copy replaces the others.
 
 **Volume** — pick a locked file and type the password.
 

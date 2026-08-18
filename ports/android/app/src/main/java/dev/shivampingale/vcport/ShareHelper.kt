@@ -148,8 +148,4 @@ object ShareHelper {
         val lower = name.lowercase()
         return lower.endsWith(".hc") || lower.endsWith(".tc") || lower.endsWith(".vera")
     }
-
-    fun looksLikeWrap(name: String): Boolean {
-        return name.lowercase().endsWith(".vcpw")
-    }
 }

@@ -1,6 +1,6 @@
 {
-  "port_version": "0.3.4",
-  "android_version_code": 9,
+  "port_version": "0.3.5",
+  "android_version_code": 10,
   "upstream_name": "VeraCrypt",
   "upstream_git": "https://github.com/veracrypt/VeraCrypt.git",
   "upstream_releases": "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest",
@@ -9,7 +9,7 @@
   "upstream_commit": "b48e31f5b47da7d41025e3f0e02751675e15005a",
   "source_repo": "https://github.com/ShivamPingaleDev/Veracrypt_port",
   "update_manifest": "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json",
-  "notes": "VC Port 0.3.4: session-test fixes for copy/move status, Dismount mount options, and Add/Remove keyfiles. Full app-interface tests on Android and iPad Simulator. GitHub APKs remain debug-signed previews. Not unbreakable.",
+  "notes": "VC Port 0.3.5: wrap UI gone from the phones; Volume unlock fields wipe after Open; quieter Mounted tab. GitHub APKs remain debug-signed previews. Not unbreakable.",
   "download_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
   "macos_url": "",
   "android_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",

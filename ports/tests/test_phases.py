@@ -314,21 +314,21 @@ class Phase8CiTests(unittest.TestCase):
 
 
 class Phase9LegalVersionTests(unittest.TestCase):
-    def test_current_version_is_0_3_4(self) -> None:
+    def test_current_version_is_0_3_5(self) -> None:
         v = load_version()
-        self.assertEqual(v["port_version"], "0.3.4")
+        self.assertEqual(v["port_version"], "0.3.5")
         self.assertEqual(v["upstream_version"], "1.26.29")
         self.assertEqual(v["upstream_commit"], "b48e31f5b47da7d41025e3f0e02751675e15005a")
         self.assertEqual(v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
         self.assertEqual(v["upstream_tag"], "VeraCrypt_1.26.29")
         plist = read("ports/ios/VCPort/Info.plist")
-        self.assertIn("0.3.4", plist)
+        self.assertIn("0.3.5", plist)
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
-        self.assertEqual(v["android_version_code"], 9)
-        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/9.txt")
-        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 9")
+        self.assertEqual(v["android_version_code"], 10)
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/10.txt")
+        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 10")
         self.assertIn("session tests", notes.read_text(encoding="utf-8").lower())
         self.assertIn("not unbreakable", notes.read_text(encoding="utf-8").lower())
 
