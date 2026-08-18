@@ -340,7 +340,12 @@ int main ()
 		expect (vc_mkdir (createdVol, "/", "INBOX") == VC_OK, "mkdir INBOX");
 		n = vc_list_root (createdVol, entries, 32);
 		expect (n >= 1 && has_name (entries, n, "INBOX", 1), "INBOX folder after mkdir");
+		expect (vc_import_file (createdVol, "/", srcin, "photo.jpg") == VC_OK, "import photo.jpg root");
 		expect (vc_import_file (createdVol, "INBOX", srcin, "NOTE.TXT") == VC_OK, "import into INBOX");
+		expect (vc_import_file (createdVol, "INBOX", srcin, "clip.mp4") == VC_OK, "import clip.mp4 into INBOX");
+		expect (vc_export_file (createdVol, "INBOX/clip.mp4", tmpout) == VC_OK, "export INBOX/clip.mp4");
+		expect (vc_delete_file (createdVol, "photo.jpg") == VC_OK, "delete photo.jpg");
+		expect (vc_delete_file (createdVol, "INBOX/clip.mp4") == VC_OK, "delete INBOX/clip.mp4");
 		expect (vc_rename (createdVol, "INBOX/NOTE.TXT", "MEMO.TXT") == VC_OK, "rename NOTE to MEMO");
 		n = vc_list_dir (createdVol, "INBOX", entries, 32);
 		expect (has_name (entries, n, "MEMO.TXT", 0), "MEMO.TXT after rename");
@@ -390,6 +395,9 @@ int main ()
 			fclose (f);
 		expect (got == 9 && memcmp (buf, "exfat-ok\n", 9) == 0, "exFAT contents match");
 		expect (vc_mkdir (exVol, "/", "DOCS") == VC_OK, "exFAT mkdir");
+		expect (vc_import_file (exVol, "DOCS", srcin, "notes.txt") == VC_OK, "import into exFAT DOCS");
+		expect (vc_export_file (exVol, "DOCS/notes.txt", tmpout) == VC_OK, "export exFAT DOCS/notes.txt");
+		expect (vc_delete_file (exVol, "DOCS/notes.txt") == VC_OK, "delete exFAT DOCS/notes.txt");
 		expect (vc_delete_file (exVol, "BIGNAME.TXT") == VC_OK, "exFAT delete");
 		expect (vc_rmdir (exVol, "DOCS") == VC_OK, "exFAT rmdir");
 		expect (vc_wipe_free_space (exVol) == VC_OK, "exFAT wipe free space");

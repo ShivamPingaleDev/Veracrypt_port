@@ -77,6 +77,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -1503,6 +1504,7 @@ fun EntropyPad(
         Text("$percent%", style = MaterialTheme.typography.bodySmall)
         Box(
             modifier = Modifier
+                .testTag("entropy_pad")
                 .fillMaxWidth()
                 .height(240.dp)
                 .border(

@@ -432,6 +432,310 @@ class DeviceSimulationTest {
         Hardening.wipeDir(dir)
     }
 
+    /**
+     * Combinations a person would actually try: disguise extensions, random
+     * files inside, biometric keyfile, extra keyfile, KDF change, header
+     * backup/corrupt/restore, password change. Payload hashes must match
+     * before and after each header operation.
+     */
+    @Test
+    fun securityMeasureCombos() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val dir = File(ctx.cacheDir, "device-sim-combos").apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        fillEntropy()
+        val pim = 1
+        val size = 2L shl 20
+
+        data class Inner(val name: String, val file: File, val hash: String)
+        fun inners(prefix: String): List<Inner> {
+            val specs = listOf(
+                "photo.jpg" to ByteArray(1800) { (it + prefix.hashCode()).toByte() },
+                "clip.mp4" to ByteArray(3200) { (it * 5 + prefix.length).toByte() },
+                "notes.txt" to "payload-$prefix\n".toByteArray(),
+                "scan.pdf" to ByteArray(900) { 0x25 },
+                "pack.zip" to ByteArray(640) { it.toByte() },
+                "icon.png" to ByteArray(220) { 0x89.toByte() },
+                "weights.safetensors" to ByteArray(4096) { (it xor prefix.hashCode()).toByte() },
+                "adapter.lora" to ByteArray(512) { 0xA5.toByte() }
+            )
+            return specs.map { (name, bytes) ->
+                val file = File(dir, "$prefix-$name").apply { writeBytes(bytes) }
+                Inner(name, file, sha256(file))
+            }
+        }
+
+        fun pack(handle: Long, files: List<Inner>) {
+            assertEquals("mkdir DATA", 0, NativeBridge.mkdir(handle, "/", "DATA"))
+            for (item in files) {
+                val dest = item.name
+                assertEquals(
+                    "import /$dest",
+                    0,
+                    NativeBridge.importFile(handle, "/", item.file.absolutePath, dest)
+                )
+                assertEquals(
+                    "import DATA/$dest",
+                    0,
+                    NativeBridge.importFile(handle, "DATA", item.file.absolutePath, dest)
+                )
+            }
+        }
+
+        fun check(handle: Long, files: List<Inner>, label: String) {
+            for (item in files) {
+                val dest = item.name
+                val out = File(dir, "$label-$dest")
+                assertEquals("$label export $dest", 0, NativeBridge.exportFile(handle, dest, out.absolutePath))
+                assertEquals("$label hash $dest", item.hash, sha256(out))
+                val nested = File(dir, "$label-data-$dest")
+                assertEquals(
+                    "$label export DATA/$dest",
+                    0,
+                    NativeBridge.exportFile(handle, "DATA/$dest", nested.absolutePath)
+                )
+                assertEquals(item.hash, sha256(nested))
+            }
+        }
+
+        fun openOk(path: File, password: String, keys: Array<String>): Long {
+            val handle = NativeBridge.openVolume(path.absolutePath, password, pim, false, keys, false)
+            assertTrue("open ${path.name} failed $handle", NativeBridge.isOpen(handle))
+            return handle
+        }
+
+        val bioKey = FactorCodec.randomBiometricKey()
+        assertEquals(64, bioKey.size)
+        val bioFile = KeyfileIo.writeSecret(ctx, bioKey)
+        val extraKf = File(dir, "extra.key")
+        assertEquals(0, NativeBridge.generateKeyfile(extraKf.absolutePath, 128))
+        BiometricVault(ctx).isAvailable()
+
+        val jpgFiles = inners("jpg")
+        val jpgPw = "vcport-combo-jpg-password"
+        val jpgVol = File(dir, "vacation.jpg")
+        val jpgKeys = arrayOf(bioFile.absolutePath)
+        assertEquals(0, makeVolume(jpgVol, jpgPw, pim, size, "AES", "HMAC-SHA-256", jpgKeys, "FAT"))
+        assertTrue(
+            "bio volume must not open without the extra keyfile",
+            !NativeBridge.isOpen(
+                NativeBridge.openVolume(jpgVol.absolutePath, jpgPw, pim, false, emptyArray(), false)
+            )
+        )
+        var handle = openOk(jpgVol, jpgPw, jpgKeys)
+        pack(handle, jpgFiles)
+        check(handle, jpgFiles, "jpg-before")
+        NativeBridge.closeVolume(handle)
+        handle = openOk(jpgVol, jpgPw, jpgKeys)
+        check(handle, jpgFiles, "jpg-reopen")
+        NativeBridge.closeVolume(handle)
+
+        val bak = File(dir, "vacation.bak")
+        assertEquals(0, NativeBridge.backupHeaders(jpgVol.absolutePath, bak.absolutePath, jpgPw, pim, jpgKeys))
+        corruptPrimaryHeader(jpgVol)
+        assertTrue(
+            !NativeBridge.isOpen(
+                NativeBridge.openVolume(jpgVol.absolutePath, jpgPw, pim, false, jpgKeys, false)
+            )
+        )
+        handle = NativeBridge.openVolume(jpgVol.absolutePath, jpgPw, pim, true, jpgKeys, false)
+        assertTrue("open vacation.jpg with backup header failed $handle", NativeBridge.isOpen(handle))
+        check(handle, jpgFiles, "jpg-backup-open")
+        NativeBridge.closeVolume(handle)
+        assertEquals(0, NativeBridge.restoreHeaders(jpgVol.absolutePath, bak.absolutePath, jpgPw, pim, jpgKeys))
+        handle = openOk(jpgVol, jpgPw, jpgKeys)
+        check(handle, jpgFiles, "jpg-after-bak")
+        NativeBridge.closeVolume(handle)
+        corruptPrimaryHeader(jpgVol)
+        assertEquals(0, NativeBridge.restoreHeaders(jpgVol.absolutePath, "", jpgPw, pim, jpgKeys))
+        handle = openOk(jpgVol, jpgPw, jpgKeys)
+        check(handle, jpgFiles, "jpg-after-embedded")
+        NativeBridge.closeVolume(handle)
+
+        val mp4Files = inners("mp4")
+        val mp4Pw = "vcport-combo-mp4-password"
+        val mp4Vol = File(dir, "lecture.mp4")
+        val mp4Keys = arrayOf(extraKf.absolutePath)
+        assertEquals(0, makeVolume(mp4Vol, mp4Pw, pim, size, "Serpent", "HMAC-SHA-256", mp4Keys, "FAT"))
+        handle = openOk(mp4Vol, mp4Pw, mp4Keys)
+        pack(handle, mp4Files)
+        check(handle, mp4Files, "mp4-before")
+        NativeBridge.closeVolume(handle)
+        assertEquals(
+            0,
+            NativeBridge.changeHeader(
+                mp4Vol.absolutePath, mp4Pw, pim, mp4Keys, false,
+                "", pim, "HMAC-SHA-512", mp4Keys
+            )
+        )
+        handle = openOk(mp4Vol, mp4Pw, mp4Keys)
+        val mp4Info = NativeBridge.volumeInfo(handle)
+        assertNotNull(mp4Info)
+        assertTrue("expected HMAC-SHA-512, got $mp4Info", mp4Info!!.contains("HMAC-SHA-512"))
+        check(handle, mp4Files, "mp4-after-kdf")
+        NativeBridge.closeVolume(handle)
+        assertEquals(
+            0,
+            NativeBridge.changeHeader(
+                mp4Vol.absolutePath, mp4Pw, pim, mp4Keys, false,
+                "", pim, "", emptyArray()
+            )
+        )
+        assertTrue(
+            "old keyfile must not open after remove-all",
+            !NativeBridge.isOpen(
+                NativeBridge.openVolume(mp4Vol.absolutePath, mp4Pw, pim, false, mp4Keys, false)
+            )
+        )
+        handle = openOk(mp4Vol, mp4Pw, emptyArray())
+        check(handle, mp4Files, "mp4-after-remove-kf")
+        NativeBridge.closeVolume(handle)
+        val mp4Changed = "vcport-combo-mp4-changed"
+        assertEquals(
+            0,
+            NativeBridge.changeHeader(
+                mp4Vol.absolutePath, mp4Pw, pim, emptyArray(), false,
+                mp4Changed, pim, "", emptyArray()
+            )
+        )
+        handle = openOk(mp4Vol, mp4Changed, emptyArray())
+        check(handle, mp4Files, "mp4-after-password")
+        NativeBridge.closeVolume(handle)
+
+        val zipFiles = inners("zip")
+        val zipPw = "vcport-combo-zip-password"
+        val zipVol = File(dir, "archive.zip")
+        assertEquals(0, makeVolume(zipVol, zipPw, pim, 3L shl 20, "Twofish", "HMAC-SHA-256", emptyArray(), "exFAT"))
+        handle = openOk(zipVol, zipPw, emptyArray())
+        pack(handle, zipFiles)
+        check(handle, zipFiles, "zip-before")
+        NativeBridge.closeVolume(handle)
+        handle = openOk(zipVol, zipPw, emptyArray())
+        check(handle, zipFiles, "zip-reopen")
+        NativeBridge.closeVolume(handle)
+
+        val stFiles = inners("st")
+        val stPw = "vcport-combo-st-password"
+        val stVol = File(dir, "model.safetensors")
+        val stKeys = arrayOf(bioFile.absolutePath, extraKf.absolutePath)
+        assertEquals(0, makeVolume(stVol, stPw, pim, size, "AES", "HMAC-SHA-256", stKeys, "FAT"))
+        assertTrue(
+            "bio+keyfile volume must not open with password only",
+            !NativeBridge.isOpen(
+                NativeBridge.openVolume(stVol.absolutePath, stPw, pim, false, emptyArray(), false)
+            )
+        )
+        assertTrue(
+            "bio+keyfile volume must not open with only the biometric keyfile",
+            !NativeBridge.isOpen(
+                NativeBridge.openVolume(stVol.absolutePath, stPw, pim, false, arrayOf(bioFile.absolutePath), false)
+            )
+        )
+        handle = openOk(stVol, stPw, stKeys)
+        pack(handle, stFiles)
+        check(handle, stFiles, "st-before")
+        NativeBridge.closeVolume(handle)
+        handle = openOk(stVol, stPw, stKeys)
+        check(handle, stFiles, "st-reopen")
+        NativeBridge.closeVolume(handle)
+
+        val hcFiles = inners("hc")
+        val hcPw = "vcport-combo-hc-password"
+        val hcVol = File(dir, "vault.hc")
+        assertEquals(0, makeVolume(hcVol, hcPw, pim, size, "Camellia", "HMAC-SHA-256", emptyArray(), "FAT"))
+        handle = openOk(hcVol, hcPw, emptyArray())
+        pack(handle, hcFiles)
+        check(handle, hcFiles, "hc-before")
+        NativeBridge.closeVolume(handle)
+        handle = openOk(hcVol, hcPw, emptyArray())
+        check(handle, hcFiles, "hc-reopen")
+        NativeBridge.closeVolume(handle)
+
+        val loraFiles = inners("lora")
+        val loraPw = "vcport-combo-lora-password"
+        val loraVol = File(dir, "adapter.lora")
+        assertEquals(0, makeVolume(loraVol, loraPw, pim, size, "AES", "HMAC-SHA-256", emptyArray(), "FAT"))
+        handle = openOk(loraVol, loraPw, emptyArray())
+        pack(handle, loraFiles)
+        check(handle, loraFiles, "lora-before")
+        NativeBridge.closeVolume(handle)
+
+        KeyfileIo.wipe(bioFile)
+        Hardening.wipeDir(dir)
+    }
+
+    @Test
+    fun nestedBasketRoundtrip() {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val dir = File(ctx.cacheDir, "device-sim-nested-basket").apply {
+            deleteRecursively()
+            mkdirs()
+        }
+        fillEntropy()
+        val outerPw = "vcport-nested-outer-password"
+        val hiddenPw = "vcport-nested-hidden-password"
+        val pim = 1
+        val photo = File(dir, "photo.jpg").apply { writeBytes(ByteArray(1800) { it.toByte() }) }
+        val note = File(dir, "memo.txt").apply { writeText("outer-basket-ok\n") }
+        val secret = File(dir, "hidden.txt").apply { writeText("only-in-nested\n") }
+        val hashPhoto = sha256(photo)
+        val hashNote = sha256(note)
+        val hashSecret = sha256(secret)
+        val volume = File(dir, "photos.jpg")
+        assertEquals(
+            0,
+            NativeBridge.createVolume(
+                volume.absolutePath,
+                outerPw,
+                pim,
+                8L shl 20,
+                "AES",
+                "HMAC-SHA-256",
+                emptyArray(),
+                hiddenPw,
+                pim,
+                2L shl 20,
+                emptyArray(),
+                "FAT"
+            )
+        )
+        var outer = NativeBridge.openVolume(volume.absolutePath, outerPw, pim, false, emptyArray(), false)
+        assertTrue("open outer failed $outer", NativeBridge.isOpen(outer))
+        assertEquals(0, NativeBridge.importFile(outer, "/", photo.absolutePath, "photo.jpg"))
+        assertEquals(0, NativeBridge.importFile(outer, "/", note.absolutePath, "memo.txt"))
+        NativeBridge.closeVolume(outer)
+
+        var hidden = NativeBridge.openVolume(volume.absolutePath, hiddenPw, pim, false, emptyArray(), false)
+        assertTrue("open nested failed $hidden", NativeBridge.isOpen(hidden))
+        val hiddenInfo = NativeBridge.volumeInfo(hidden)
+        assertNotNull(hiddenInfo)
+        assertTrue("expected hidden volume, got $hiddenInfo", hiddenInfo!!.contains("Volume type: Hidden"))
+        assertEquals(0, NativeBridge.importFile(hidden, "/", secret.absolutePath, "hidden.txt"))
+        NativeBridge.closeVolume(hidden)
+
+        outer = NativeBridge.openVolume(volume.absolutePath, outerPw, pim, false, emptyArray(), false)
+        assertTrue(NativeBridge.isOpen(outer))
+        val outPhoto = File(dir, "out-photo.jpg")
+        val outNote = File(dir, "out-memo.txt")
+        assertEquals(0, NativeBridge.exportFile(outer, "photo.jpg", outPhoto.absolutePath))
+        assertEquals(0, NativeBridge.exportFile(outer, "memo.txt", outNote.absolutePath))
+        assertEquals(hashPhoto, sha256(outPhoto))
+        assertEquals(hashNote, sha256(outNote))
+        assertFalse(NativeBridge.listRoot(outer).any { it.startsWith("hidden.txt\t") })
+        NativeBridge.closeVolume(outer)
+
+        hidden = NativeBridge.openVolume(volume.absolutePath, hiddenPw, pim, false, emptyArray(), false)
+        assertTrue(NativeBridge.isOpen(hidden))
+        val outSecret = File(dir, "out-hidden.txt")
+        assertEquals(0, NativeBridge.exportFile(hidden, "hidden.txt", outSecret.absolutePath))
+        assertEquals(hashSecret, sha256(outSecret))
+        NativeBridge.closeVolume(hidden)
+
+        Hardening.wipeDir(dir)
+    }
+
     @Test
     fun hiddenVolumeWriteProtection() {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext

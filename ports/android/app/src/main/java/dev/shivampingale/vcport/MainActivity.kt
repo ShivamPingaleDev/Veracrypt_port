@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
@@ -113,6 +115,16 @@ class MainActivity : AppCompatActivity() {
     private val bioSecretState = mutableStateOf<ByteArray?>(null)
     private val createPasswordState = mutableStateOf("")
     private val createHiddenPasswordState = mutableStateOf("")
+    private val createCipherState = mutableStateOf(NativeBridge.DEFAULT_CIPHER)
+    private val createKdfState = mutableStateOf(NativeBridge.DEFAULT_KDF)
+    private val createFilesystemState = mutableStateOf("FAT")
+    private val createFileNameState = mutableStateOf("volume.hc")
+    private val createSizeAmountState = mutableStateOf("16")
+    private val createSizeUnitState = mutableStateOf(SizeUnit.MiB)
+    private val createHiddenState = mutableStateOf(false)
+    private val createHiddenSizeAmountState = mutableStateOf("4")
+    private val createHiddenSizeUnitState = mutableStateOf(SizeUnit.MiB)
+    private val entropyPercentState = mutableIntStateOf(0)
     private val newPasswordState = mutableStateOf("")
     private val hiddenProtectPasswordState = mutableStateOf("")
     private var suppressLock = false
@@ -122,6 +134,20 @@ class MainActivity : AppCompatActivity() {
     /** File pickers stop this activity. Do not wipe the wrap password in that gap. */
     private fun holdLockForPicker() {
         suppressLock = true
+    }
+
+    /** Instrumented tests add basket files without the system picker. */
+    @androidx.annotation.VisibleForTesting
+    fun testingAddBasketFiles(files: List<File>) {
+        val uris = files.map { Uri.fromFile(it) }
+        runOnUiThread {
+            basketUrisState.value = basketUrisState.value + uris
+            val extra = uris.associate { uri ->
+                uri.toString() to (BasketHash.sha256(this, uri) ?: "")
+            }
+            basketHashesState.value = basketHashesState.value + extra
+            tabState.intValue = 1
+        }
     }
 
     private fun lookPrefs() = getSharedPreferences("vc_port_look", MODE_PRIVATE)
@@ -172,19 +198,19 @@ class MainActivity : AppCompatActivity() {
                 val tabScroll = rememberScrollState()
                 LaunchedEffect(tab) { tabScroll.scrollTo(0) }
                 var moreFactors by remember { mutableStateOf(false) }
-                var createCipher by remember { mutableStateOf(NativeBridge.DEFAULT_CIPHER) }
-                var createKdf by remember { mutableStateOf(NativeBridge.DEFAULT_KDF) }
-                var createSizeAmount by remember { mutableStateOf("16") }
-                var createSizeUnit by remember { mutableStateOf(SizeUnit.MiB) }
-                var createFilesystem by remember { mutableStateOf("FAT") }
-                var createHiddenSizeAmount by remember { mutableStateOf("4") }
-                var createHiddenSizeUnit by remember { mutableStateOf(SizeUnit.MiB) }
+                var createCipher by createCipherState
+                var createKdf by createKdfState
+                var createSizeAmount by createSizeAmountState
+                var createSizeUnit by createSizeUnitState
+                var createFilesystem by createFilesystemState
+                var createHiddenSizeAmount by createHiddenSizeAmountState
+                var createHiddenSizeUnit by createHiddenSizeUnitState
                 var createPassword by createPasswordState
                 var createPim by createPimState
-                var createHidden by remember { mutableStateOf(false) }
+                var createHidden by createHiddenState
                 var createHiddenPassword by createHiddenPasswordState
                 var createHiddenPim by createHiddenPimState
-                var createFileName by remember { mutableStateOf("volume.hc") }
+                var createFileName by createFileNameState
                 LaunchedEffect(basketUris, createHidden, createHiddenSizeAmount, createHiddenSizeUnit) {
                     if (basketUris.isEmpty()) return@LaunchedEffect
                     val hidden = if (createHidden) {
@@ -197,7 +223,7 @@ class MainActivity : AppCompatActivity() {
                     createSizeAmount = n.toString()
                     createSizeUnit = unit
                 }
-                var entropyPercent by remember { mutableIntStateOf(0) }
+                var entropyPercent by entropyPercentState
                 var newPassword by newPasswordState
                 var newPim by newPimState
                 var headerKdf by remember { mutableStateOf("(keep current)") }
@@ -240,10 +266,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 LaunchedEffect(tab) {
-                    if (tab == 1) {
-                        NativeBridge.resetEntropy()
-                        entropyPercent = 0
-                    }
                     if (tab == 2) {
                         newPim = pim
                     }
@@ -323,7 +345,15 @@ class MainActivity : AppCompatActivity() {
                         if (uri !in kept) kept += uri
                     }
                     basketUris = kept
-                    status = "Basket: ${basketSummary(kept)}. SHA-256 runs in this session only."
+                    val hidden = if (createHidden) {
+                        SizeUnits.toBytes(
+                            createHiddenSizeAmount.toLongOrNull() ?: 0L,
+                            createHiddenSizeUnit
+                        )
+                    } else {
+                        0L
+                    }
+                    status = "Basket: ${basketSummary(kept, hidden)}. SHA-256 runs in this session only."
                     Thread {
                         val extra = kept.associate { uri ->
                             uri.toString() to (BasketHash.sha256(this@MainActivity, uri) ?: "")
@@ -767,7 +797,20 @@ class MainActivity : AppCompatActivity() {
                                             if (basketUris.isEmpty()) {
                                                 Text("No files in the basket.", style = MaterialTheme.typography.bodySmall)
                                             } else {
-                                                Text(basketSummary(basketUris), style = MaterialTheme.typography.bodySmall)
+                                                Text(
+                                                    basketSummary(
+                                                        basketUris,
+                                                        if (createHidden) {
+                                                            SizeUnits.toBytes(
+                                                                createHiddenSizeAmount.toLongOrNull() ?: 0L,
+                                                                createHiddenSizeUnit
+                                                            )
+                                                        } else {
+                                                            0L
+                                                        }
+                                                    ),
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
                                                 basketUris.forEach { uri ->
                                                     val hex = basketHashes[uri.toString()]
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -817,28 +860,31 @@ class MainActivity : AppCompatActivity() {
                                                 NativeBridge.CIPHERS,
                                                 createCipher,
                                                 { createCipher = it },
-                                                enabled = !busy
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth().testTag("create_cipher")
                                             )
                                             OptionDropdown(
                                                 "KDF",
                                                 NativeBridge.KDFS,
                                                 createKdf,
                                                 { createKdf = it },
-                                                enabled = !busy
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth().testTag("create_kdf")
                                             )
                                             OptionDropdown(
                                                 "Inside the volume",
                                                 listOf("FAT", "exFAT"),
                                                 createFilesystem,
                                                 { createFilesystem = it },
-                                                enabled = !busy
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth().testTag("create_filesystem")
                                             )
                                             VcHint("exFAT if a file is over 4 GiB.")
                                             OutlinedTextField(
                                                 createFileName,
                                                 { createFileName = it.filterNot { ch -> ch == '/' || ch == '\\' }.take(120) },
                                                 label = { Text("File name (any extension)") },
-                                                modifier = Modifier.fillMaxWidth(),
+                                                modifier = Modifier.fillMaxWidth().testTag("create_filename"),
                                                 enabled = !busy,
                                                 singleLine = true
                                             )
@@ -851,7 +897,7 @@ class MainActivity : AppCompatActivity() {
                                                     createSizeAmount,
                                                     { createSizeAmount = it.filter { ch -> ch.isDigit() }.take(6) },
                                                     label = { Text("Size") },
-                                                    modifier = Modifier.weight(1f),
+                                                    modifier = Modifier.weight(1f).testTag("create_size"),
                                                     enabled = !busy,
                                                     singleLine = true,
                                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -875,7 +921,7 @@ class MainActivity : AppCompatActivity() {
                                                 createPim,
                                                 { createPim = it },
                                                 label = { Text("PIM (0 = default)") },
-                                                modifier = Modifier.fillMaxWidth(),
+                                                modifier = Modifier.fillMaxWidth().testTag("create_pim"),
                                                 enabled = !busy,
                                                 singleLine = true,
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -939,8 +985,23 @@ class MainActivity : AppCompatActivity() {
                                                     entropyPercent = NativeBridge.entropyPercent()
                                                 }
                                             )
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Checkbox(createHidden, { createHidden = it }, enabled = !busy)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("create_hidden")
+                                                    .toggleable(
+                                                        value = createHidden,
+                                                        enabled = !busy,
+                                                        role = Role.Checkbox,
+                                                        onValueChange = { createHidden = it }
+                                                    )
+                                            ) {
+                                                Checkbox(
+                                                    createHidden,
+                                                    onCheckedChange = null,
+                                                    enabled = !busy
+                                                )
                                                 Text("Nested volume (VeraCrypt hidden volume)")
                                             }
                                             if (createHidden) {
@@ -953,6 +1014,7 @@ class MainActivity : AppCompatActivity() {
                                                     createHiddenPassword,
                                                     { createHiddenPassword = it },
                                                     "Nested volume password",
+                                                    modifier = Modifier.testTag("create_hidden_password"),
                                                     enabled = !busy
                                                 )
                                                 Text(PasswordEntropy.label(createHiddenPassword), style = MaterialTheme.typography.bodySmall)
@@ -961,17 +1023,36 @@ class MainActivity : AppCompatActivity() {
                                                         val generated = NativeBridge.generatePassword(64)
                                                         if (generated != null) {
                                                             createHiddenPassword = generated
-                                                            status = PasswordEntropy.label(generated) + " Nested password generated in memory. It is not saved."
+                                                            status = PasswordEntropy.label(generated) + " Nested password generated in memory. Copy once if you need it elsewhere. It is not saved."
                                                         }
                                                     },
                                                     enabled = !busy,
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) { Text("Generate nested password") }
+                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            if (createHiddenPassword.isNotEmpty()) {
+                                                                SensitiveClipboard.copyOnce(this@MainActivity, createHiddenPassword)
+                                                                status = "Copied nested password once. Clipboard clears in 30 seconds. No history is kept."
+                                                            }
+                                                        },
+                                                        modifier = Modifier.weight(1f).testTag("copy_nested_once")
+                                                    ) { Text("Copy nested once") }
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            SensitiveClipboard.forget(this@MainActivity)
+                                                            createHiddenPassword = ""
+                                                            status = "Nested password forgotten. Clipboard cleared."
+                                                        },
+                                                        modifier = Modifier.weight(1f)
+                                                    ) { Text("Forget nested") }
+                                                }
                                                 OutlinedTextField(
                                                     createHiddenPim,
                                                     { createHiddenPim = it },
                                                     label = { Text("Nested PIM (0 = default)") },
-                                                    modifier = Modifier.fillMaxWidth(),
+                                                    modifier = Modifier.fillMaxWidth().testTag("create_hidden_pim"),
                                                     enabled = !busy,
                                                     singleLine = true,
                                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -984,7 +1065,7 @@ class MainActivity : AppCompatActivity() {
                                                         createHiddenSizeAmount,
                                                         { createHiddenSizeAmount = it.filter { ch -> ch.isDigit() }.take(6) },
                                                         label = { Text("Nested size") },
-                                                        modifier = Modifier.weight(1f),
+                                                        modifier = Modifier.weight(1f).testTag("create_hidden_size"),
                                                         enabled = !busy,
                                                         singleLine = true,
                                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -1100,6 +1181,8 @@ class MainActivity : AppCompatActivity() {
                                                         },
                                                         onStatus = { status = it },
                                                         onSaved = {
+                                                            NativeBridge.resetEntropy()
+                                                            entropyPercent = 0
                                                             holdLockForPicker()
                                                             window.decorView.post {
                                                                 holdLockForPicker()
@@ -1900,9 +1983,9 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Home / Recents: close a mounted volume so plaintext is not sitting in RAM.
-     * Keep the Create form (generated password, basket, phone-unlock keyfile)
-     * so Copy once can be pasted into Notes and the wizard can continue.
-     * Dismount and Panic wipe still call [lockSession].
+     * Keep the Create wizard (generated passwords, nested checkbox, cipher/KDF/PIM,
+     * basket, size, phone-unlock keyfile) so Copy once can be pasted into Notes
+     * and creation can continue. Dismount and Panic wipe still call [lockSession].
      */
     private fun dismountOnLeave() {
         val wasOpen = NativeBridge.isOpen(handleState.value)
@@ -1938,8 +2021,24 @@ class MainActivity : AppCompatActivity() {
         keyfileUrisState.value = emptyList()
         hiddenKeyfileUrisState.value = emptyList()
         basketHashesState.value = emptyMap()
+        basketUrisState.value = emptyList()
         lastPlainFilesState.value.forEach { Hardening.wipeFile(it) }
         lastPlainFilesState.value = emptyList()
+        resetCreateWizard()
+    }
+
+    private fun resetCreateWizard() {
+        createCipherState.value = NativeBridge.DEFAULT_CIPHER
+        createKdfState.value = NativeBridge.DEFAULT_KDF
+        createFilesystemState.value = "FAT"
+        createFileNameState.value = "volume.hc"
+        createSizeAmountState.value = "16"
+        createSizeUnitState.value = SizeUnit.MiB
+        createHiddenState.value = false
+        createHiddenSizeAmountState.value = "4"
+        createHiddenSizeUnitState.value = SizeUnit.MiB
+        entropyPercentState.intValue = 0
+        NativeBridge.resetEntropy()
     }
 
     private fun lockSession() {
@@ -1973,18 +2072,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun uriLength(uri: Uri): Long {
-        return try {
+        try {
             contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
-                    if (idx >= 0) cursor.getLong(idx) else -1L
-                } else {
-                    -1L
+                    if (idx >= 0) {
+                        val n = cursor.getLong(idx)
+                        if (n > 0L) return n
+                    }
                 }
-            } ?: -1L
+            }
         } catch (_: Exception) {
-            -1L
         }
+        try {
+            contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                if (pfd.statSize > 0L) return pfd.statSize
+            }
+        } catch (_: Exception) {
+        }
+        if (uri.scheme == "file") {
+            val path = uri.path ?: return -1L
+            val n = File(path).length()
+            if (n > 0L) return n
+        }
+        return -1L
     }
 
     private fun volumeBytesForBasket(askedBytes: Long, uris: List<Uri>, hiddenBytes: Long): Long {
@@ -2000,7 +2111,7 @@ class MainActivity : AppCompatActivity() {
         return bytes
     }
 
-    private fun basketSummary(uris: List<Uri>): String {
+    private fun basketSummary(uris: List<Uri>, hiddenBytes: Long = 0L): String {
         var bytes = 0L
         var unknown = false
         for (uri in uris) {
@@ -2009,7 +2120,7 @@ class MainActivity : AppCompatActivity() {
         }
         val size = if (unknown && bytes == 0L) "size unknown" else SizeUnits.formatBytes(bytes)
         val files = if (uris.size == 1) "1 file" else "${uris.size} files"
-        val need = volumeBytesForBasket(SizeUnits.MIN_VOLUME, uris, 0)
+        val need = volumeBytesForBasket(SizeUnits.MIN_VOLUME, uris, hiddenBytes)
         return "$files, about $size. Volume will be at least ${SizeUnits.formatBytes(need)}."
     }
 

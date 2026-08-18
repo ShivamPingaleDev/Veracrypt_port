@@ -81,12 +81,24 @@ rejected, hidden-volume write protection, benchmark. A second method
 basket with `BASKET.sha256`, corrupts the primary header and restores from
 an external `.bak` and from the embedded backup, uses a 64-byte phone-unlock
 keyfile, changes the header KDF, adds then removes all keyfiles, changes
-the password, and checks Copy once. Compose UI coverage is
+the password, and checks Copy once. `securityMeasureCombos` creates volumes
+disguised as `.jpg` / `.mp4` / `.zip` / `.safetensors` / `.lora` / `.hc`,
+stores random files with those extensions, and checks hashes after backup
+header restore, KDF change, keyfile add/remove, password change, and
+biometric+keyfile unlock. Compose UI coverage is
 `MainActivityUiTest` (FLAG_SECURE, tabs Volume/Create/Tools, Panic wipe
 visible, Stay offline, Decrypt wrap leftover, Generate strong password,
 Copy once then Home then resume so the Create form continues;
 does not tap Panic wipe or Check for updates; writes GitHub shots under
 app files for `run_device_sim.sh` to pull into `ports/docs/screenshots/`).
+`SlowHumanSessionTest` scribbles the entropy pad, generates, Copy once,
+Homes for several seconds, pastes into a notes file, resumes, keeps the
+Create password, adds basket files, and asserts the Size field grows.
+A second method (`nestedCreateMinimizeKeepsWizard`) enables a nested
+volume, generates outer and nested passwords, Homes twice, and checks
+that the nested checkbox, both passwords, PIM, KDF, filename, and basket
+size are still there. Home keeping the Create wizard is intentional;
+Dismount / Panic wipe still clear it.
 Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`, no INTERNET)
 and a `looksgithub` APK (`connectedLooksgithubDebugAndroidTest`, tap-to-check; tests
 must not tap Check for updates) with the same `applicationId` as production;

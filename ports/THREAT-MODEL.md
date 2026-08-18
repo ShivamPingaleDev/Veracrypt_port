@@ -6,10 +6,10 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 
 | Adversary | What they can do | What this app tries to do | What still wins |
 | --- | --- | --- | --- |
-| Border / police seizure (device off or locked) | Image flash, cloud backup, recents screenshots | No backups, FLAG_SECURE, recents hidden, panic wipe, no SAF export | Compelled password; hardware implants |
+| Border / police seizure (device off or locked) | Image flash, cloud backup, recents screenshots | No backups, FLAG_SECURE (Recents is a blank card, not a screenshot), panic wipe, no SAF export | Compelled password; hardware implants |
 | Compelled biometrics | Finger on the sensor | Biometrics optional; warned; not the default “Remember” | A remembered factor set still opens if they get the finger |
 | Network MITM (user CA / captive portal) | Fake TLS | System CAs only, no cleartext, no redirects, host allowlist, F-Droid flavor has no INTERNET | A compromised system CA store |
-| Malware with root / MDM | Read RAM, keylog, screenshots | Wipe on background; no dumps (`PR_SET_DUMPABLE`); mlock wrap keys | Rooted implant while unlocked |
+| Malware with root / MDM | Read RAM, keylog, screenshots | Dismount open volume on background; no dumps (`PR_SET_DUMPABLE`); mlock wrap keys | Rooted implant while unlocked; Create wizard (including nested password) stays in RAM until Dismount/Panic so Copy once → Notes can finish |
 | Forensic leftovers | Cache, clipboard, URI grants | Wipe session files; 30s clipboard; no persistable SAF grants; 0600 wrap files | Unmount delay; other apps you shared *to* |
 | Store / update supply chain | Trojan APK | F-Droid from source; no GMS; no obfuscation (reviewable) | A malicious F-Droid mirror you did not verify |
 | Nation-state APT / intel service | Implant, compiler/OS compromise, 0-days, compelled password, TEMPEST, supply chain | No key escrow; no LEA/intel backdoor; F-Droid has no INTERNET; public source | **They still win.** Unit 8200, TAO, Office 121 / Lazarus, GRU/SVR, MSS, CIA/FBI with a warrant or implant — this app does not stop them |

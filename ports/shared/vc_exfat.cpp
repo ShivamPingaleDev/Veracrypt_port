@@ -620,6 +620,26 @@ const char *basename_of (const char *path)
 	return slash ? slash + 1 : s;
 }
 
+int parent_of (const char *path, char *out, size_t out_sz)
+{
+	if (!out || out_sz < 2)
+		return VC_ERR_ARGUMENT;
+	const char *s = path ? path : "";
+	const char *slash = strrchr (s, '/');
+	if (!slash || slash == s)
+	{
+		out[0] = '/';
+		out[1] = 0;
+		return VC_OK;
+	}
+	size_t n = (size_t) (slash - s);
+	if (n >= out_sz)
+		return VC_ERR_ARGUMENT;
+	memcpy (out, s, n);
+	out[n] = 0;
+	return VC_OK;
+}
+
 int name_bad (const char *name)
 {
 	if (!name || !name[0] || strcmp (name, ".") == 0 || strcmp (name, "..") == 0)
@@ -704,7 +724,8 @@ void build_file_set (uint8_t *set, size_t set_bytes, const uint16_t *name, size_
 	put16 (set + 2, set_checksum (set, set_bytes));
 }
 
-int insert_set (VcVolume *v, const Exfat *g, std::vector<uint8_t> &dir, const uint8_t *set, size_t set_bytes)
+int insert_set (VcVolume *v, const Exfat *g, std::vector<uint8_t> &dir, const uint8_t *set, size_t set_bytes,
+	const Found *into = nullptr)
 {
 	size_t slot = dir.size ();
 	for (size_t i = 0; i + set_bytes <= dir.size (); i += 32)
@@ -731,8 +752,19 @@ int insert_set (VcVolume *v, const Exfat *g, std::vector<uint8_t> &dir, const ui
 		}
 	}
 	if (slot + set_bytes > dir.size ())
+	{
+		if (into && into->entry.first_cluster >= 2)
+			return VC_ERR_MEMORY;
 		dir.resize (slot + set_bytes + g->cluster_size, 0);
+	}
 	memcpy (&dir[slot], set, set_bytes);
+	if (into && into->entry.first_cluster >= 2)
+	{
+		uint64_t cap = into->entry.size ? into->entry.size : g->cluster_size;
+		if (dir.size () > cap)
+			return VC_ERR_MEMORY;
+		return write_chain (v, g, into->entry.first_cluster, dir.data (), dir.size (), into->no_fat);
+	}
 	return save_root_prefix (v, g, dir);
 }
 
@@ -1047,8 +1079,24 @@ int vc_exfat_import (VcVolume *volume, const char *dest_dir, const char *src_pat
 	int rc = load_geom (volume, &g);
 	if (rc != VC_OK)
 		return rc;
-	if (!is_root (dest_dir))
-		return VC_ERR_UNSUPPORTED; /* basket and in-app copy use the root */
+
+	Found parent = {};
+	std::vector<uint8_t> dir;
+	const int in_root = is_root (dest_dir);
+	if (in_root)
+		rc = load_root_dir (volume, &g, dir);
+	else
+	{
+		rc = find_path (volume, &g, dest_dir, &parent);
+		if (rc != VC_OK)
+			return rc;
+		if (!parent.entry.is_dir)
+			return VC_ERR_UNSUPPORTED;
+		uint64_t bytes = parent.entry.size ? parent.entry.size : g.cluster_size;
+		rc = load_chain (volume, &g, parent.entry.first_cluster, bytes, parent.no_fat, dir);
+	}
+	if (rc != VC_OK)
+		return rc;
 
 	FILE *in = fopen (src_path, "rb");
 	if (!in)
@@ -1060,13 +1108,6 @@ int vc_exfat_import (VcVolume *volume, const char *dest_dir, const char *src_pat
 		return VC_ERR_IO;
 	}
 
-	std::vector<uint8_t> dir;
-	rc = load_root_dir (volume, &g, dir);
-	if (rc != VC_OK)
-	{
-		fclose (in);
-		return rc;
-	}
 	Found exists;
 	if (find_in_dir (dir.data (), dir.size (), name, &exists) == VC_OK)
 	{
@@ -1124,7 +1165,7 @@ int vc_exfat_import (VcVolume *volume, const char *dest_dir, const char *src_pat
 	size_t set_bytes = 32u * (2u + name_entries);
 	std::vector<uint8_t> set (set_bytes);
 	build_file_set (set.data (), set_bytes, name16, nlen, 0, first, size, 1);
-	return insert_set (volume, &g, dir, set.data (), set_bytes);
+	return insert_set (volume, &g, dir, set.data (), set_bytes, in_root ? nullptr : &parent);
 }
 
 int vc_exfat_delete (VcVolume *volume, const char *path)
@@ -1139,14 +1180,33 @@ int vc_exfat_delete (VcVolume *volume, const char *path)
 		return rc;
 	if (hit.entry.is_dir)
 		return VC_ERR_UNSUPPORTED;
-	std::vector<uint8_t> dir;
-	rc = load_root_dir (volume, &g, dir);
+	char parent[512];
+	rc = parent_of (path, parent, sizeof (parent));
 	if (rc != VC_OK)
 		return rc;
-	if (hit.offset + hit.set_bytes > dir.size ())
-		return VC_ERR_FORMAT;
-	for (size_t i = 0; i < hit.set_bytes; i += 32)
-		dir[hit.offset + i] = (uint8_t) (dir[hit.offset + i] & 0x7F);
+	Found into = {};
+	std::vector<uint8_t> dir;
+	const int in_root = is_root (parent);
+	if (in_root)
+		rc = load_root_dir (volume, &g, dir);
+	else
+	{
+		rc = find_path (volume, &g, parent, &into);
+		if (rc != VC_OK)
+			return rc;
+		if (!into.entry.is_dir)
+			return VC_ERR_UNSUPPORTED;
+		uint64_t bytes = into.entry.size ? into.entry.size : g.cluster_size;
+		rc = load_chain (volume, &g, into.entry.first_cluster, bytes, into.no_fat, dir);
+	}
+	if (rc != VC_OK)
+		return rc;
+	Found inDir;
+	rc = find_in_dir (dir.data (), dir.size (), basename_of (path), &inDir);
+	if (rc != VC_OK)
+		return rc;
+	for (size_t i = 0; i < inDir.set_bytes; i += 32)
+		dir[inDir.offset + i] = (uint8_t) (dir[inDir.offset + i] & 0x7F);
 	if (hit.entry.first_cluster >= 2 && hit.entry.size)
 	{
 		uint32_t count = (uint32_t) ((hit.entry.size + g.cluster_size - 1) / g.cluster_size);
@@ -1154,7 +1214,12 @@ int vc_exfat_delete (VcVolume *volume, const char *path)
 		if (rc != VC_OK)
 			return rc;
 	}
-	return save_root_prefix (volume, &g, dir);
+	if (in_root)
+		return save_root_prefix (volume, &g, dir);
+	uint64_t cap = into.entry.size ? into.entry.size : g.cluster_size;
+	if (dir.size () > cap)
+		return VC_ERR_MEMORY;
+	return write_chain (volume, &g, into.entry.first_cluster, dir.data (), dir.size (), into.no_fat);
 }
 
 int vc_exfat_mkdir (VcVolume *volume, const char *parent_dir, const char *name)

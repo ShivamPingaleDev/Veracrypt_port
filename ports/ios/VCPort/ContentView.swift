@@ -601,7 +601,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    Text("Basket size \(basketByteCount(basketURLs)) bytes. Volume will be at least that plus 8 MiB.")
+                    Text(basketSummary(basketURLs))
                         .font(.caption)
                 }
                 Button("Add files to basket") {
@@ -725,7 +725,19 @@ struct ContentView: View {
                     Button("Generate nested password") {
                         if let generated = VcMobileBridge.generatePassword() {
                             createHiddenPassword = generated
-                            status = PasswordEntropy.label(generated) + " Nested password generated in memory. It is not saved."
+                            status = PasswordEntropy.label(generated) + " Nested password generated in memory. Copy once if you need it elsewhere. It is not saved."
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        Button("Copy nested once") {
+                            guard !createHiddenPassword.isEmpty else { return }
+                            SensitivePaste.copyOnce(createHiddenPassword)
+                            status = "Copied nested password once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
+                        }
+                        Button("Forget nested") {
+                            createHiddenPassword = ""
+                            SensitivePaste.forget()
+                            status = "Nested password forgotten. Clipboard cleared."
                         }
                     }
                     TextField("Nested PIM (0 = default)", text: $createHiddenPim)
@@ -1411,10 +1423,10 @@ struct ContentView: View {
         selectedNames = []
     }
 
-    /// Home / app switcher: close a mounted volume. Keep the Create form
-    /// (generated password, basket, phone-unlock keyfile) so Copy once can
-    /// be pasted into Notes and the wizard can continue. Dismount / Panic
-    /// still call lockSession().
+    /// Home / app switcher: close a mounted volume. Keep the Create wizard
+    /// (generated passwords, nested volume options, basket, phone-unlock
+    /// keyfile) so Copy once can be pasted into Notes and creation can
+    /// continue. Dismount / Panic still call lockSession().
     private func dismountOnLeave() {
         let wasOpen = volumeHandle != nil
         closeVolume()
@@ -1475,10 +1487,6 @@ struct ContentView: View {
         return bytes
     }
 
-    private func basketByteCount(_ urls: [URL]) -> Int64 {
-        urls.reduce(Int64(0)) { $0 + max(fileSize($1), 0) }
-    }
-
     private func basketSummary(_ urls: [URL]) -> String {
         var bytes: Int64 = 0
         var unknown = false
@@ -1488,7 +1496,13 @@ struct ContentView: View {
         }
         let size = (unknown && bytes == 0) ? "size unknown" : SizeUnit.formatBytes(UInt64(max(bytes, 0)))
         let files = urls.count == 1 ? "1 file" : "\(urls.count) files"
-        let need = volumeBytesForBasket(asked: SizeUnit.minVolume, urls: urls, hiddenBytes: 0)
+        let hidden: UInt64
+        if createHidden, let n = parseSizeBytes(amount: createHiddenSizeAmount, unit: createHiddenSizeUnit) {
+            hidden = n
+        } else {
+            hidden = 0
+        }
+        let need = volumeBytesForBasket(asked: SizeUnit.minVolume, urls: urls, hiddenBytes: hidden)
         return "\(files), about \(size). Volume will be at least \(SizeUnit.formatBytes(need))."
     }
 
@@ -1596,6 +1610,19 @@ struct ContentView: View {
         keyfileURLs = []
         hiddenKeyfileURLs = []
         basketHashes = [:]
+        basketURLs = []
+        createHidden = false
+        createCipher = VcMobileBridge.defaultCipher
+        createKdf = VcMobileBridge.defaultKdf
+        createFilesystem = "FAT"
+        createFileName = "volume.hc"
+        createSizeAmount = "16"
+        createSizeUnit = .mib
+        createHiddenSizeAmount = "4"
+        createHiddenSizeUnit = .mib
+        entropyPercent = 0
+        entropyMarks = []
+        VcMobileBridge.resetEntropy()
         entries = []
         dirPath = ""
         listTruncated = false
