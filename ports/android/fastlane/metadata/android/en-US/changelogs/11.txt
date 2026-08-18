@@ -1,0 +1,1 @@
+VC Port 0.3.6: Open a saved container after Home or closing the app. Session tests still cover the app interface. GitHub APKs stay debug-signed previews. Not unbreakable.

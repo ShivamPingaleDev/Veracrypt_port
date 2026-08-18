@@ -36,7 +36,7 @@ A compelled password still wins. Prefer a long password and a keyfile.
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.5). Those are test files, not store files. Installing one Android copy replaces the others.
+Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.6). Those are test files, not store files. Installing one Android copy replaces the others.
 
 The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the phone apps.
 

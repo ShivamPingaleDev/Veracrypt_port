@@ -140,11 +140,7 @@ struct ContentView: View {
             .fileImporter(isPresented: $importerPresented, allowedContentTypes: [.item, .data]) { result in
                 switch result {
                 case .success(let url):
-                    _ = url.startAccessingSecurityScopedResource()
-                    incomingFile = nil
-                    containerURL = url
-                    holdLock = false
-                    status = "Selected \(url.lastPathComponent)"
+                    ingestPickedContainer(url)
                     if pendingOpenAnother {
                         pendingOpenAnother = false
                         showOpenAnotherUnlock = true
@@ -1206,6 +1202,36 @@ struct ContentView: View {
         }
     }
 
+    private func ingestPickedContainer(_ url: URL) {
+        incomingFile = nil
+        holdLock = false
+        _ = url.startAccessingSecurityScopedResource()
+        if isTemporaryContainer(url), FileManager.default.isReadableFile(atPath: url.path) {
+            containerURL = url
+            status = "Selected \(url.lastPathComponent)"
+            return
+        }
+        if let copied = copyScopedFile(url), FileManager.default.isReadableFile(atPath: copied.path) {
+            containerURL = copied
+            status = "Selected \(url.lastPathComponent)"
+            return
+        }
+        containerURL = nil
+        status = "Could not open the container. Pick it again from Files."
+    }
+
+    private func ensureContainerURL() -> URL? {
+        if let url = containerURL, FileManager.default.isReadableFile(atPath: url.path) {
+            return url
+        }
+        guard let url = containerURL, let copied = copyScopedFile(url),
+              FileManager.default.isReadableFile(atPath: copied.path) else {
+            return nil
+        }
+        containerURL = copied
+        return copied
+    }
+
     private func openVolume() {
         guard let path = containerURL?.path else {
             status = "Select a container first."
@@ -1220,8 +1246,8 @@ struct ContentView: View {
     }
 
     private func startOpenVolume() {
-        guard let url = containerURL else {
-            status = "Select a container first."
+        guard let url = ensureContainerURL() else {
+            status = "Could not read the container file. Pick it again from Files."
             return
         }
         let path = url.path
@@ -2037,8 +2063,8 @@ struct ContentView: View {
     }
 
     private func currentUnlockPaths() -> (password: String, pim: String, keyfiles: [String], temps: [URL])? {
-        guard containerURL != nil else {
-            status = "Choose a container first."
+        guard ensureContainerURL() != nil else {
+            status = "Could not read the container file. Pick it again from Files."
             return nil
         }
         let text = unlockPassword()
@@ -2093,7 +2119,7 @@ struct ContentView: View {
     }
 
     private func runChangeHeader(newPassword: String, newKdf: String, keepKeyfiles: Bool, applySessionKeyfiles: Bool = false, success: String) {
-        guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
+        guard let unlock = currentUnlockPaths(), let path = containerURL?.path else { return }
         let unlockKeys = headerKeyfileURLs.isEmpty ? unlock.keyfiles : headerKeyfileURLs.map(\.path)
         let text = unlock.password
         if text.isEmpty && unlockKeys.isEmpty {
@@ -2155,7 +2181,7 @@ struct ContentView: View {
     }
 
     private func backupVolumeHeader() {
-        guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
+        guard let unlock = currentUnlockPaths(), let path = containerURL?.path else { return }
         closeVolume()
         let dest = FileManager.default.temporaryDirectory.appendingPathComponent("volume-header.bak")
         let rc = VcMobileBridge.backupHeaders(
@@ -2175,7 +2201,7 @@ struct ContentView: View {
     }
 
     private func restoreVolumeHeader(_ backup: URL) {
-        guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
+        guard let unlock = currentUnlockPaths(), let path = containerURL?.path else { return }
         closeVolume()
         let rc = VcMobileBridge.restoreHeaders(
             volumePath: path,
@@ -2191,7 +2217,7 @@ struct ContentView: View {
     }
 
     private func restoreEmbeddedHeader() {
-        guard let path = containerURL?.path, let unlock = currentUnlockPaths() else { return }
+        guard let unlock = currentUnlockPaths(), let path = containerURL?.path else { return }
         closeVolume()
         let rc = VcMobileBridge.restoreHeaders(
             volumePath: path,

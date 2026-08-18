@@ -21,6 +21,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "0.3.6",
+          "buildVersion": "11",
+          "date": "2026-08-19T00:00:00-00:00",
+          "localizedDescription": "Draft listing. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "0.3.5",
           "buildVersion": "10",
           "date": "2026-08-19T00:00:00-00:00",

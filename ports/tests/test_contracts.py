@@ -496,7 +496,12 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("Selected: $containerLabel", main)
         self.assertNotIn('label = { Text("Container path") }', main)
         self.assertIn('bindContainerFd(uri, "rw")', main)
+        self.assertIn("ensureContainerPath", main)
+        self.assertIn("containerPathUsable", main)
+        self.assertIn("copyToCache(uri)", main.split("private fun bindContainer")[1].split("private fun bindContainerFd")[0])
         self.assertIn("Selected: \\(url.lastPathComponent)", view)
+        self.assertIn("ingestPickedContainer", view)
+        self.assertIn("ensureContainerURL", view)
 
     def test_wipe_create_secrets_after_save_keeps_cache_volume(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")

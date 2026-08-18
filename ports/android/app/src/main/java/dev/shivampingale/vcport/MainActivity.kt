@@ -2261,7 +2261,13 @@ class MainActivity : AppCompatActivity() {
         for (vol in mountedVolumesState.value) {
             if (NativeBridge.isOpen(vol.handle)) NativeBridge.closeVolume(vol.handle)
         }
-        releaseAllContainerPfds()
+        liveContainerPfds.values.forEach {
+            try {
+                it.close()
+            } catch (_: Exception) {
+            }
+        }
+        liveContainerPfds.clear()
         mountedVolumesState.value = emptyList()
         activeMountIndexState.intValue = 0
         handleState.value = 0L
@@ -2366,6 +2372,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun lockSession() {
         closeMountedVolume()
+        releasePendingPfd()
         wipeRamSecrets()
         endWork()
         Hardening.wipeSessionFiles(this)
@@ -2377,6 +2384,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun panicWipe() {
         closeMountedVolume()
+        releasePendingPfd()
         wipeRamSecrets()
         Hardening.panic(this)
         basketUrisState.value = emptyList()
@@ -2823,10 +2831,17 @@ class MainActivity : AppCompatActivity() {
         successMessage: String,
         applySessionKeyfiles: Boolean = false
     ) {
-        if (path.isEmpty()) {
-            onStatus("Choose a container first.")
+        val resolved = ensureContainerPath(path, containerUriState.value)
+        if (resolved.isEmpty()) {
+            onStatus(
+                if (path.isEmpty() && containerUriState.value == null)
+                    "Choose a container first."
+                else
+                    "Could not read the container file. Choose it again from Files."
+            )
             return
         }
+        if (resolved != path) pathState.value = resolved
         val text = unlockPassword(password, useTextPassword)
         val unlockUris = headerKeyfileUrisState.value.ifEmpty { keyfileUris }
         if (text.isEmpty() && unlockUris.isEmpty()) {
@@ -2876,7 +2891,7 @@ class MainActivity : AppCompatActivity() {
                     copied.map { it.absolutePath }.toTypedArray()
                 }
                 val rc = NativeBridge.changeHeader(
-                    path,
+                    resolved,
                     text,
                     pimUsed.toIntOrNull() ?: 0,
                     temps.map { it.absolutePath }.toTypedArray(),
@@ -2925,10 +2940,17 @@ class MainActivity : AppCompatActivity() {
         onStatus: (String) -> Unit,
         onSaved: (File) -> Unit
     ) {
-        if (volumePath.isEmpty()) {
-            onStatus("Choose a container first.")
+        val resolved = ensureContainerPath(volumePath, containerUriState.value)
+        if (resolved.isEmpty()) {
+            onStatus(
+                if (volumePath.isEmpty() && containerUriState.value == null)
+                    "Choose a container first."
+                else
+                    "Could not read the container file. Choose it again from Files."
+            )
             return
         }
+        if (resolved != volumePath) pathState.value = resolved
         val text = unlockPassword(password, useTextPassword)
         val pimUsed = unlockPimText(password, pimText)
         closeMountedVolume()
@@ -2947,7 +2969,7 @@ class MainActivity : AppCompatActivity() {
                 temps.addAll(copied)
                 val dest = File(cacheDir, "volume-header.bak")
                 val rc = NativeBridge.backupHeaders(
-                    volumePath,
+                    resolved,
                     dest.absolutePath,
                     text,
                     pimUsed.toIntOrNull() ?: 0,
@@ -2986,10 +3008,17 @@ class MainActivity : AppCompatActivity() {
         onEntries: (List<VaultEntry>) -> Unit,
         onStatus: (String) -> Unit
     ) {
-        if (volumePath.isEmpty()) {
-            onStatus("Choose a container first.")
+        val resolved = ensureContainerPath(volumePath, containerUriState.value)
+        if (resolved.isEmpty()) {
+            onStatus(
+                if (volumePath.isEmpty() && containerUriState.value == null)
+                    "Choose a container first."
+                else
+                    "Could not read the container file. Choose it again from Files."
+            )
             return
         }
+        if (resolved != volumePath) pathState.value = resolved
         val text = unlockPassword(password, useTextPassword)
         val pimUsed = unlockPimText(password, pimText)
         closeMountedVolume()
@@ -3017,7 +3046,7 @@ class MainActivity : AppCompatActivity() {
                     return@Thread
                 }
                 val rc = NativeBridge.restoreHeaders(
-                    volumePath,
+                    resolved,
                     backup.absolutePath,
                     text,
                     pimUsed.toIntOrNull() ?: 0,
@@ -3086,23 +3115,43 @@ class MainActivity : AppCompatActivity() {
             nativePath.startsWith(filesDir.absolutePath)
     }
 
+    private fun containerPathUsable(path: String): Boolean {
+        if (path.isEmpty() || path.startsWith("/proc/self/fd/")) return false
+        val file = File(path)
+        return file.isFile && file.canRead() && file.length() > 0L
+    }
+
+    /**
+     * Home / Dismount closes SAF descriptors. `/proc/self/fd/N` is then a dead
+     * path, and native open reports "Could not read the container file."
+     * Copy into cache so Open still has a real file.
+     */
+    private fun ensureContainerPath(path: String, uri: Uri?): String {
+        if (containerPathUsable(path)) return path
+        if (uri != null) {
+            val bound = bindContainer(uri)
+            if (containerPathUsable(bound) || bound.startsWith("/proc/self/fd/")) return bound
+        }
+        return ""
+    }
+
     private fun bindContainer(uri: Uri): String {
         releasePendingPfd()
         if (uri.scheme == "file") {
             val p = uri.path
-            if (!p.isNullOrEmpty() && File(p).canRead()) return p
+            if (!p.isNullOrEmpty() && containerPathUsable(p)) return p
         }
-        val writable = bindContainerFd(uri, "rw")
-        if (writable.isNotEmpty()) return writable
         val copied = copyToCache(uri)
         if (copied.isNotEmpty()) return copied
+        val writable = bindContainerFd(uri, "rw")
+        if (writable.isNotEmpty()) return writable
         return bindContainerFd(uri, "r")
     }
 
     private fun bindContainerFd(uri: Uri, mode: String): String {
         return try {
             val pfd = contentResolver.openFileDescriptor(uri, mode)
-            if (pfd != null && pfd.statSize >= 0L) {
+            if (pfd != null && pfd.statSize > 0L && nativeCanOpenFd(pfd.fd)) {
                 pendingContainerPfd = pfd
                 "/proc/self/fd/${pfd.fd}"
             } else {
@@ -3111,6 +3160,15 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (_: Exception) {
             ""
+        }
+    }
+
+    /** VeraCrypt File::Open reopens the path. Many SAF fds cannot be reopened. */
+    private fun nativeCanOpenFd(fd: Int): Boolean {
+        return try {
+            java.io.RandomAccessFile("/proc/self/fd/$fd", "r").use { it.length() > 0L }
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -3130,17 +3188,24 @@ class MainActivity : AppCompatActivity() {
         onEntries: (List<VaultEntry>) -> Unit,
         onStatus: (String) -> Unit
     ) {
-        if (path.isEmpty()) {
-            onStatus("Choose a container first.")
+        val resolved = ensureContainerPath(path, containerUriState.value)
+        if (resolved.isEmpty()) {
+            onStatus(
+                if (path.isEmpty() && containerUriState.value == null)
+                    "Choose a container first."
+                else
+                    "Could not read the container file. Choose it again from Files."
+            )
             return
         }
+        if (resolved != path) pathState.value = resolved
         val already = mountedVolumesState.value
         if (already.size >= MOUNT_SLOTS) {
             onStatus("This session already has 8 volumes mounted. Dismount one first.")
             return
         }
-        val key = containerUriState.value?.toString() ?: path
-        if (already.any { it.uriKey == key || it.path == path }) {
+        val key = containerUriState.value?.toString() ?: resolved
+        if (already.any { it.uriKey == key || it.path == resolved }) {
             onStatus("That container is already mounted. Switch to it on the Mounted tab.")
             return
         }
@@ -3166,7 +3231,7 @@ class MainActivity : AppCompatActivity() {
                     temps.add(copied)
                 }
                 val result = NativeBridge.openVolume(
-                    path,
+                    resolved,
                     text,
                     if (trueCryptMode) 0 else (pimText.toIntOrNull() ?: 0),
                     useBackupHeader,
@@ -3199,12 +3264,12 @@ class MainActivity : AppCompatActivity() {
                             pendingContainerPfd = null
                         }
                         persistActiveMount(dirPathState.value, entriesState.value, listTruncatedState.value)
-                        val label = containerLabelState.value.ifEmpty { File(path).name }
-                        val uriKey = containerUriState.value?.toString() ?: path
+                        val label = containerLabelState.value.ifEmpty { File(resolved).name }
+                        val uriKey = containerUriState.value?.toString() ?: resolved
                         val next = mountedVolumesState.value + MountedVolume(
                             handle = result,
                             label = label,
-                            path = path,
+                            path = resolved,
                             uriKey = uriKey,
                             dirPath = "",
                             entries = files,
@@ -3761,10 +3826,17 @@ class MainActivity : AppCompatActivity() {
         onEntries: (List<VaultEntry>) -> Unit,
         onStatus: (String) -> Unit
     ) {
-        if (volumePath.isEmpty()) {
-            onStatus("Choose a container first.")
+        val resolved = ensureContainerPath(volumePath, containerUriState.value)
+        if (resolved.isEmpty()) {
+            onStatus(
+                if (volumePath.isEmpty() && containerUriState.value == null)
+                    "Choose a container first."
+                else
+                    "Could not read the container file. Choose it again from Files."
+            )
             return
         }
+        if (resolved != volumePath) pathState.value = resolved
         val text = unlockPassword(password, useTextPassword)
         val pimUsed = unlockPimText(password, pimText)
         closeMountedVolume()
@@ -3782,7 +3854,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 temps.addAll(copied)
                 val rc = NativeBridge.restoreHeaders(
-                    volumePath,
+                    resolved,
                     "",
                     text,
                     pimUsed.toIntOrNull() ?: 0,
