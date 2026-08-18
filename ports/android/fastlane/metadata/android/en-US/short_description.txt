@@ -1,1 +1,1 @@
-Open VeraCrypt volumes offline with biometrics, share, and file wrap
+Open VeraCrypt-compatible volumes offline. No ads, no network.

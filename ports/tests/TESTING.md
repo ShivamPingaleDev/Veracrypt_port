@@ -13,7 +13,7 @@ python3 ports/tests/test_quality.py
 | --- | --- | --- |
 | **Unit** | Does one function do the right thing? | `test_factors.py` (VCF2), `test_wipe.py`, tag/version tables in `test_quality.py`, password generator in `test_wrap_main.cpp`, AES-256 FIPS-197 + wipe in `run_crypto_safety_test.sh` |
 | **Module** | Does one C/Kotlin/Swift unit keep its contract? | `run_wrap_test.sh`, `run_crypto_safety_test.sh` (ASan/UBSan), `run_volume_test.sh`, `run_lifecycle_test.sh`, SourcePin / UpdateChecker |
-| **White-box** | Do we look at the code paths? | Wrap wrong password / tamper MAC, F-Droid `check()` throws |
+| **White-box** | Do we look at the code paths? | Wrap wrong password / tamper MAC, FOSS `check()` throws |
 | **Black-box** | Does it behave from the outside? | Wrap in → unwrap out; create → open → list → export; create → store → close → reopen |
 | **Integration** | Do two layers talk? | JNI/C API; Kotlin/Swift VCF2; version.json → PortVersion.h / Info.plist |
 | **Functional** | Can a user finish a job? | Copy, wipe, panic, keyfiles, progress overlay — no open-time hidden checkbox. Lifecycle: password + PIM + biometric keyfile, Remember VCF2, files survive dismount, hidden-volume write protection |
@@ -21,7 +21,7 @@ python3 ports/tests/test_quality.py
 | **Smoke** | Does the pin parse? | `check_veracrypt_release.py --pin-only` |
 | **Regression** | Frozen pin / FOSS rule | Honesty freeze; app is still VC Port |
 | **Contract** | Clients stay in lockstep | `test_contracts.py` |
-| **Security / tamper** | Ciphertext and leftovers | Wrap HMAC; FLAG_SECURE; no F-Droid INTERNET |
+| **Security / tamper** | Ciphertext and leftovers | Wrap HMAC; FLAG_SECURE; no INTERNET |
 | **Negative / boundary** | Bad input | Generator length 8/65; import FAT 4 GiB-1; keyfile 1 MiB |
 | **Compatibility** | Same volume on a computer | AES(Twofish(Serpent)) / HMAC-SHA-512; FAT or exFAT |
 | **Recovery** | Header tools | Backup/restore, corrupt primary then restore from `.bak` and embedded backup in the volume fixture |
@@ -102,7 +102,7 @@ Dismount / Panic wipe still clear it.
 Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`, no INTERNET)
 and a `looksgithub` APK (`connectedLooksgithubDebugAndroidTest`, also no INTERNET on master)
 with the same `applicationId` as production;
-the F-Droid/GitHub packages stay Desktop-only. Tests must not tap Panic wipe.
+the FOSS/GitHub packages stay Desktop-only. Tests must not tap Panic wipe.
 
 ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-O3 -march=armv8-a+crypto`.
 `vc_runtime_start()` calls `DetectArmFeatures()` (getauxval HWCAP_AES on Android, always-on on Apple arm64) before any volume work so XTS uses the AES crypto extension instead of table AES. Debug NDK builds still use `-O2` on that slice so AES/SHA detection and

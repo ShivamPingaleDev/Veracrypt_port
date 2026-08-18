@@ -156,7 +156,7 @@ class AirgapTests(unittest.TestCase):
 
 
 class WhiteBoxTests(unittest.TestCase):
-    def test_fdroid_check_is_a_hard_error_path(self) -> None:
+    def test_foss_check_is_a_hard_error_path(self) -> None:
         checker = read(
             "ports/android/app/src/main/java/dev/shivampingale/vcport/UpdateChecker.kt"
         )
@@ -255,7 +255,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("NativeBridge.isOpen", sim)
         self.assertIn("createAndroidComposeRule", ui)
         self.assertIn("Panic wipe", ui)
-        self.assertIn("Stay offline. F-Droid: no network.", ui)
+        self.assertIn("Stay offline. This build has no network.", ui)
         self.assertIn("Decrypt wrap", ui)
         self.assertIn("tab_create", ui)
         self.assertIn("generateCopyBackgroundPasteContinue", ui)
@@ -284,7 +284,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("ENABLE_SKINS", gradle)
         self.assertNotIn("applicationIdSuffix", gradle)
         self.assertIn("vcport-api35", script)
-        self.assertIn("connectedFdroidDebugAndroidTest", script)
+        self.assertIn("connectedFossDebugAndroidTest", script)
         self.assertIn("connectedStyledDebugAndroidTest", script)
         self.assertIn("connectedLooksgithubDebugAndroidTest", script)
         cmake = read("ports/shared/CMakeLists.txt")
@@ -469,15 +469,15 @@ class SecurityTamperTests(unittest.TestCase):
         self.assertIn("minifyEnabled false", gradle)
         self.assertNotIn("play-services", gradle)
 
-    def test_fdroid_manifest_has_no_internet(self) -> None:
+    def test_foss_manifest_has_no_internet(self) -> None:
         manifest = read("ports/android/app/src/main/AndroidManifest.xml")
-        fdroid_manifest = read("ports/android/app/src/fdroid/AndroidManifest.xml")
-        fdroid = read(
+        foss_manifest = read("ports/android/app/src/foss/AndroidManifest.xml")
+        checker = read(
             "ports/android/app/src/main/java/dev/shivampingale/vcport/UpdateChecker.kt"
         )
         self.assertNotIn("android.permission.INTERNET", manifest)
-        self.assertIn('tools:node="remove"', fdroid_manifest)
-        self.assertIn("has no network", fdroid)
+        self.assertIn('tools:node="remove"', foss_manifest)
+        self.assertIn("has no network", checker)
 
     def test_wrap_uses_hmac(self) -> None:
         wrap = read("ports/shared/vc_wrap.cpp")

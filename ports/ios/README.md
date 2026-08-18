@@ -2,7 +2,7 @@
 
 SwiftUI client (`VCPort`) that talks to the shared VeraCrypt volume core in `shared/`.
 
-There is **no F-Droid for iPhone**. The FOSS path is: build from source, then sideload with AltStore / SideStore, or submit to the App Store if you want. Details: [FOSS.md](../FOSS.md).
+The FOSS path is: build from source, then sideload with AltStore / SideStore, or submit to the App Store if you want. Details: [FOSS.md](../FOSS.md).
 
 ## Build from source
 

@@ -28,7 +28,7 @@ Pin today: VeraCrypt 1.26.29 / `b48e31f5…` (see `ports/UPSTREAM_COMMIT`).
 
 | Build | Network | Updates |
 | --- | --- | --- |
-| Android (all flavors on master) | none | Refuses. A newer app is a new APK (F-Droid or git rebuild). |
+| Android (all flavors on master) | none | Refuses. A newer app is a git rebuild you sign. |
 | iOS (master) | none | Refuses. A newer IPA is a rebuild you sign. |
 | Desktop (StayOffline off) | one or two HTTPS GETs from Help → Check for updates | Reads **our** `version.json`, then the **official** GitHub latest release. Shows versions and SHA-256. **Does not install.** |
 | `experimental-biometrics` (Android GitHub / Looks GitHub / iOS opt-in) | one or two HTTPS GETs you tap for | Same live Check for updates as before: `version.json` + official latest. **Does not install.** |
@@ -80,7 +80,7 @@ If `check-upstream-layout.sh` prints `NEW upstream source not in mobile cmake`, 
 
 | Kind of change | Put it |
 | --- | --- |
-| Android / iOS UI, wrap, JNI, F-Droid | `ports/` |
+| Android / iOS UI, wrap, JNI, FOSS flavor | `ports/` |
 | New macOS-only helper | new file under `src/…`, add to `owned.txt` via refresh |
 | Must touch VeraCrypt UI/core | smallest hunk, then `refresh-overlay.sh` |
 | New cipher VeraCrypt added | `upstream-sources.cmake` if mobile needs it |

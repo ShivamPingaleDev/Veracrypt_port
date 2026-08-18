@@ -3,7 +3,7 @@
 **Footnote:** A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
 
 1. Keep the apps offline by default. Do not add Google Play services, Firebase, ads, analytics, or crash reporters.
-2. Android store builds use the `fdroid` product flavor (`./gradlew :app:assembleFdroidRelease`). Looks APKs (`assembleStyledRelease`, `assembleLooksgithubRelease`) are GitHub Release previews with the same `applicationId`, not a separate package and not the F-Droid app. Both are offline on master.
+2. Android production builds use the `foss` product flavor (`./gradlew :app:assembleFossRelease`). Looks APKs (`assembleStyledRelease`, `assembleLooksgithubRelease`) are GitHub Release previews with the same `applicationId`, not a separate package. Both are offline on master.
 3. New native code must build with the NDK from CMake. Do not commit prebuilt `.so` / `.a` blobs.
 4. Do not name the app VeraCrypt or anything confusingly similar.
 5. Report security issues as described in [SECURITY.md](../SECURITY.md). Do not add Play Integrity, obfuscation, or an open-time hidden-volume checkbox.

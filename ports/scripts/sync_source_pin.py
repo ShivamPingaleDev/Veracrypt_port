@@ -5,8 +5,7 @@
     python3 ports/scripts/sync_source_pin.py --write
 
 Android Gradle already reads version.json at build time. This script updates
-the files that cannot: PortVersion.h, iOS Info.plist / project.yml, and
-F-Droid CurrentVersion. It does not rewrite historical F-Droid Builds entries.
+the files that cannot: PortVersion.h and iOS Info.plist / project.yml.
 """
 
 from __future__ import annotations
@@ -101,12 +100,6 @@ def apply_write(v: dict) -> None:
     y = rewrite_yaml_field(y, "CURRENT_PROJECT_VERSION", e["android_version_code"])
     yml.write_text(y, encoding="utf-8")
 
-    fdroid = PORTS / "fdroiddata/metadata/dev.shivampingale.vcport.yml"
-    f = fdroid.read_text(encoding="utf-8")
-    f = rewrite_yaml_field(f, "CurrentVersion", e["port_version"])
-    f = rewrite_yaml_field(f, "CurrentVersionCode", e["android_version_code"])
-    fdroid.write_text(f, encoding="utf-8")
-
 
 def check(v: dict) -> list[str]:
     e = expected(v)
@@ -145,13 +138,6 @@ def check(v: dict) -> list[str]:
         problems.append("project.yml MARKETING_VERSION")
     if f"CURRENT_PROJECT_VERSION: {e['android_version_code']}" not in yml:
         problems.append("project.yml CURRENT_PROJECT_VERSION")
-    fdroid = (PORTS / "fdroiddata/metadata/dev.shivampingale.vcport.yml").read_text(
-        encoding="utf-8"
-    )
-    if f"CurrentVersion: {e['port_version']}" not in fdroid:
-        problems.append("fdroiddata CurrentVersion")
-    if f"CurrentVersionCode: {e['android_version_code']}" not in fdroid:
-        problems.append("fdroiddata CurrentVersionCode")
     gradle = (PORTS / "android/app/build.gradle").read_text(encoding="utf-8")
     if "versionJson.port_version" not in gradle or "android_version_code" not in gradle:
         problems.append("build.gradle does not read version.json")

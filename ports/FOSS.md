@@ -1,60 +1,57 @@
-# FOSS, F-Droid, and iPhone
+# FOSS
 
-There is **no F-Droid for iPhone**. Android and iOS are different stores, different licenses, and different definitions of “open.” This file is the checklist for both.
+VC Port is free software you can study, change, and share. Original VC Port
+code is Apache License 2.0. The volume core is VeraCrypt, dual-licensed
+Apache-2.0 **and** TrueCrypt License 3.0. TrueCrypt 3.0 is **not** OSI / FSF /
+Debian-free; this tree still follows it: public source whenever a binary ships,
+and the TrueCrypt attribution in About.
 
-## Android — F-Droid main repo
+This is not a store listing checklist. The method is: keep the source public,
+ship nothing proprietary, let people rebuild and sign their own copies.
 
-F-Droid builds the APK from public source on their servers. The `fdroid` flavor is the one to submit:
+## What this tree keeps doing
+
+- Public git ([Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port); mobile-only [VCPort](https://github.com/ShivamPingaleDev/VCPort))
+- No Google Play / Firebase / Crashlytics / ads / analytics
+- AndroidX + Kotlin + NDK only on Android; no prebuilt `.so` / `.a` blobs
+- `minifyEnabled false` (reviewable bytecode)
+- Gradle Wrapper 8.7 with a published SHA-256
+- No Play Integrity, SafetyNet, or obfuscation
+- Offline by default: master phone builds have no `INTERNET` permission
+- Dual-license honesty in the About UI (Apache-2.0 + TrueCrypt 3.0)
+- You build from source; you sign production binaries (`VC_PORT_RELEASE_STORE_FILE` or your Apple ID)
+
+High-threat defaults: [THREAT-MODEL.md](THREAT-MODEL.md). How the repos stay public: [PUBLIC.md](PUBLIC.md).
+
+## Android — production FOSS flavor
 
 ```bash
 cd android
-./gradlew :app:assembleFdroidRelease
+./gradlew :app:assembleFossRelease
 ```
 
-That flavor has:
+That flavor has no `INTERNET`, no Play libraries, and backups disabled. Updates are a new APK you rebuild from this git tree, not a download inside the app.
 
-- no `INTERNET` permission (updates come from F-Droid)
-- no Google Play / Firebase / Crashlytics / ads
-- AndroidX + Kotlin + NDK only
-- backups disabled
-- Gradle Wrapper 8.7 with a published SHA-256
-- High-threat defaults documented in [THREAT-MODEL.md](THREAT-MODEL.md) (no Play Integrity, no obfuscation)
-- Fastlane text under `android/fastlane/metadata/android/`
+Looks APKs (`assembleStyledRelease`, `assembleLooksgithubRelease`) add Desktop plus Cyberpunk / Matrix / MAGI / Signal. Same `applicationId` (`dev.shivampingale.vcport`). Installing Looks replaces the Desktop-only APK.
 
-Recipe to copy into [fdroiddata](https://gitlab.com/fdroid/fdroiddata): `fdroiddata/metadata/dev.shivampingale.vcport.yml`.
-
-### Still required before an inclusion merge request
-
-1. **Public git repo.** TrueCrypt License 3.0 and F-Droid both require publicly available source. This tree is [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). The `fdroiddata` recipe clones that repo with `subdir: ports/android`. The mobile-only [VCPort](https://github.com/ShivamPingaleDev/VCPort) mirror is public and is not the F-Droid source.
-2. **Git tag** matching `versionName`, e.g. `v0.3.0`, on the commit F-Droid should build.
-3. **Screenshots** in `android/fastlane/metadata/android/en-US/images/phoneScreenshots/`. Do not fake device photos. That folder stays empty until a **physical phone** capture exists (`FLAG_SECURE` makes `adb screencap` black). GitHub README shots are real emulator Compose captures in [docs/screenshots/](docs/screenshots/).
-4. **VeraCrypt `src` as an F-Droid srclib** (`fdroiddata/srclibs/VeraCryptPort.yml`), because this repo does not vendor the whole VeraCrypt tree.
-5. **License review.** VeraCrypt is dual-licensed Apache-2.0 / TrueCrypt 3.0. TrueCrypt 3.0 is **not** OSI/FSF/Debian-free. F-Droid defers to those lists. They may accept Apache-2.0 for VeraCrypt-authored files, or they may refuse the inherited TrueCrypt files. If the main repo refuses, host your own F-Droid repo with `fdroidserver` or ask [IzzyOnDroid](https://apt.izzysoft.de/fdroid/) — still FOSS, not Google Play.
-
-Do not add a second signing key later if you want reproducible builds; decide that on the first published APK. GitHub Actions APKs are **debug-signed previews**. F-Droid (or `VC_PORT_RELEASE_STORE_FILE`) must sign production builds.
-
-GitHub also builds **Looks** APKs (`assembleStyledRelease`, `assembleLooksgithubRelease`) with Desktop plus Cyberpunk / Matrix / MAGI / Signal. Same `applicationId` as the store app (`dev.shivampingale.vcport`) — not a separate package. Both Looks flavors are offline on master. F-Droid must keep assembling the `fdroid` flavor only.
+GitHub Actions APKs are **debug-signed previews**. Sign anything called production yourself.
 
 Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com. See [SECURITY.md](../SECURITY.md).
 
 **Footnote:** A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
 
-## iPhone — there is no F-Droid equivalent
+## iPhone — build from source
 
-Apple does not allow a third-party store like F-Droid on iOS outside the EU DMA marketplaces. “FOSS on iPhone” in practice means:
+The Free Software Foundation’s position is that an iOS app cannot be fully free software because the kernel, SDK, and distribution terms are non-free. That does not stop you from publishing **source-available, no-tracker** iOS builds.
 
 | Channel | What it is | FOSS fit |
 | --- | --- | --- |
 | **Build from source** | Xcode / `xcodegen` + `ios/build-native.sh` | Best. You compile the IPA yourself. |
-| **AltStore / SideStore** | Sideload an IPA you built. Refresh the 7-day developer cert (or use AltStore PAL in the EU). | Closest to F-Droid. Source JSON: `ios/altstore/source.json`. |
-| **EU alternative marketplace** | DMA store, still Apple-notarized rules | Possible later; not F-Droid. |
+| **AltStore / SideStore** | Sideload an IPA you built. Refresh the 7-day developer cert (or use AltStore PAL in the EU). | Closest to a user-signed store. Source JSON: `ios/altstore/source.json`. |
+| **EU alternative marketplace** | DMA store, still Apple-notarized rules | Possible later. |
 | **App Store** | Apple review, Apple signing, yearly encryption declaration | Allowed for Apache-2.0 UI code. Not “free” in the FSF sense (non-free OS/SDK, Apple terms). |
 
-The Free Software Foundation’s position is that an iOS app cannot be fully free software because the kernel, SDK, and distribution terms are non-free. That does not stop you from publishing **source-available, no-tracker** iOS builds. It does mean you should not call the iPhone app “F-Droid ready.”
-
 ### Apple requirements this tree already matches
-
-These are the iPhone standards that actually apply:
 
 1. **Privacy Manifest** (`ios/VCPort/PrivacyInfo.xcprivacy`) — required since May 2024 for App Store and expected by current AltStore/SideStore. Declares no tracking.
 2. **Face ID usage string** (`NSFaceIDUsageDescription`) — not used on master. Fingerprint / Face ID unlock lives on `experimental-biometrics`.
@@ -100,7 +97,7 @@ Signing & Capabilities → Automatically manage signing → your Team → Run on
 
 Do **not** put the unsigned IPA in AltStore `downloadURL`. That field stays empty until a signed IPA exists. See [PUBLIC.md](PUBLIC.md).
 
-Default Info.plist has `VCPortEnableUpdateCheck=false`, so the iPhone app does not use the network. AltStore is how updates arrive after you sign a build.
+Default Info.plist has `VCPortEnableUpdateCheck=false`, so the iPhone app does not use the network. A rebuild you sign is how a new IPA arrives.
 
 ### App Store extras (only if you submit there)
 

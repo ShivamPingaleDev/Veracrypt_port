@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- F-Droid / FOSS build: no network. Updates come from the store. -->
+    <!-- FOSS production build: no network. Updates are a rebuild from source. -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
 </manifest>

@@ -58,7 +58,7 @@ fi
 echo "device ABI: $("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
 echo "device nproc: $("$ADB" shell nproc 2>/dev/null | tr -d '\r' || echo '?')"
 cd "$ANDROID"
-./gradlew :app:connectedFdroidDebugAndroidTest --no-daemon
+./gradlew :app:connectedFossDebugAndroidTest --no-daemon
 ./gradlew :app:connectedStyledDebugAndroidTest --no-daemon \
 	-Pandroid.testInstrumentationRunnerArguments.class=dev.shivampingale.vcport.MainActivityUiTest
 ./gradlew :app:connectedLooksgithubDebugAndroidTest --no-daemon \

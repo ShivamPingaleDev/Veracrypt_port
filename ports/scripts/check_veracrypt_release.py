@@ -10,7 +10,7 @@ git for you. The pin is hardcoded in ports/version.json:
   upstream_commit    40-char git sha of that tag
 
 When they publish, a maintainer runs scripts/sync-upstream.sh, then rebuilds
-VC Port. F-Droid builds never call this (no INTERNET).
+VC Port. Master phone builds never call this (no INTERNET).
 
   python3 ports/scripts/check_veracrypt_release.py --pin-only
   python3 ports/scripts/check_veracrypt_release.py          # HTTPS, exit 2 if newer

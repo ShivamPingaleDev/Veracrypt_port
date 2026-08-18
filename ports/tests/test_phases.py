@@ -35,10 +35,10 @@ class Phase1HonestyFreezeTests(unittest.TestCase):
         cite = read("CITATION.cff")
         self.assertIn("email: shivampingaledev@proton.me", cite)
         self.assertIn("email: shivampingaledev@gmail.com", cite)
-        fdroid = read("ports/fdroiddata/metadata/dev.shivampingale.vcport.yml")
-        self.assertIn("AuthorName: Shivam Mangesh Pingale", fdroid)
-        self.assertIn("shivampingaledev@proton.me", fdroid)
-        self.assertIn("shivampingaledev@gmail.com", fdroid)
+        foss = read("ports/FOSS.md")
+        self.assertIn("Shivam Mangesh Pingale", foss)
+        self.assertIn("shivampingaledev@proton.me", foss)
+        self.assertIn("shivampingaledev@gmail.com", foss)
 
     def test_no_github_release_apk_job(self) -> None:
         wf = read(".github/workflows/vcport.yml")
@@ -264,7 +264,7 @@ class Phase8CiTests(unittest.TestCase):
         self.assertIn("macos-latest", wf)
         self.assertIn("ports/tests/run-all.sh", wf)
         self.assertIn("apt-get install -y g++ python3 cmake", wf)
-        self.assertIn("assembleFdroidRelease", wf)
+        self.assertIn("assembleFossRelease", wf)
         self.assertIn("assembleGithubRelease", wf)
         self.assertIn("assembleStyledRelease", wf)
         self.assertIn("assembleLooksgithubRelease", wf)
@@ -324,7 +324,6 @@ class Phase9LegalVersionTests(unittest.TestCase):
             read("ports/FOSS.md"),
             read("ports/android/fastlane/metadata/android/en-US/full_description.txt"),
             read("ports/ios/altstore/source.json"),
-            read("ports/fdroiddata/metadata/dev.shivampingale.vcport.yml"),
             read("ports/PUBLIC.md"),
         ]
         if FULL_TREE:
@@ -340,7 +339,7 @@ class Phase9LegalVersionTests(unittest.TestCase):
             self.assertIn(footnote, blob)
             self.assertIn("Open to suggestions and advice", blob)
 
-    def test_no_fake_fdroid_screenshots(self) -> None:
+    def test_no_fake_store_screenshots(self) -> None:
         shots = resolve("ports/android/fastlane/metadata/android/en-US/images/phoneScreenshots")
         if shots.is_dir():
             files = [p for p in shots.iterdir() if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}]
@@ -375,10 +374,10 @@ class Phase10RelaunchTests(unittest.TestCase):
     def test_foss_says_public(self) -> None:
         foss = read("ports/FOSS.md")
         self.assertIn("https://github.com/ShivamPingaleDev/Veracrypt_port", foss)
-        self.assertIn("v0.3.0", foss)
         self.assertIn("https://github.com/ShivamPingaleDev/VCPort", foss)
+        self.assertIn("assembleFossRelease", foss)
+        self.assertNotIn("fdroiddata", foss)
         self.assertNotIn("may still be private", foss)
-        self.assertIn("subdir: ports/android", foss)
         self.assertNotIn("this repository is currently private", foss.lower())
 
     def test_hash_release_refuses_debug_apk_name(self) -> None:

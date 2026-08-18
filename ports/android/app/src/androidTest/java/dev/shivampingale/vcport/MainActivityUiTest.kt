@@ -48,7 +48,7 @@ class MainActivityUiTest {
         )
 
         rule.onNodeWithText("VC Port").assertIsDisplayed()
-        rule.onNodeWithText("Stay offline. F-Droid: no network.").assertIsDisplayed()
+        rule.onNodeWithText("Stay offline. This build has no network.").assertIsDisplayed()
         rule.onNodeWithText("Panic wipe").assertIsDisplayed()
         rule.onNodeWithText("Share encrypted").assertIsDisplayed()
         rule.onNodeWithText("Working…").assertDoesNotExist()

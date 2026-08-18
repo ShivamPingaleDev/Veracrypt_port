@@ -11,8 +11,8 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 | Network MITM (user CA / captive portal) | Fake TLS | No INTERNET on master phone builds; desktop update check uses system CAs only, no cleartext, no redirects, host allowlist | A compromised system CA store |
 | Malware with root / MDM | Read RAM, keylog, screenshots | Dismount open volume on background; no dumps (`PR_SET_DUMPABLE`); mlock wrap keys | Rooted implant while unlocked; Create wizard (including nested password) stays in RAM until Dismount/Panic so Copy once → Notes can finish |
 | Forensic leftovers | Cache, clipboard, URI grants | Wipe session files; 30s clipboard; no persistable SAF grants; 0600 wrap files | Unmount delay; other apps you shared *to* |
-| Store / update supply chain | Trojan APK | F-Droid from source; no GMS; no obfuscation (reviewable) | A malicious F-Droid mirror you did not verify |
-| Nation-state APT / intel service | Implant, compiler/OS compromise, 0-days, compelled password, TEMPEST, supply chain | No key escrow; no LEA/intel backdoor; F-Droid has no INTERNET; public source | **They still win.** Unit 8200, TAO, Office 121 / Lazarus, GRU/SVR, MSS, CIA/FBI with a warrant or implant — this app does not stop them |
+| Store / update supply chain | Trojan APK | Rebuild from public source; no GMS; no obfuscation (reviewable) | A malicious mirror or a debug-signed preview you treated as production |
+| Nation-state APT / intel service | Implant, compiler/OS compromise, 0-days, compelled password, TEMPEST, supply chain | No key escrow; no LEA/intel backdoor; no INTERNET on master phone builds; public source | **They still win.** Unit 8200, TAO, Office 121 / Lazarus, GRU/SVR, MSS, CIA/FBI with a warrant or implant — this app does not stop them |
 
 ## Nation-state (out of scope)
 
@@ -31,21 +31,21 @@ What still wins against those groups, every time:
 - RAM while a volume is open
 - A 0-day in Android, iOS, or the VeraCrypt core we did not write
 
-Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and the F-Droid flavor. That raises the cost of a *casual* seizure. It does not make you invisible to a determined service.
+Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and a self-built FOSS APK. That raises the cost of a *casual* seizure. It does not make you invisible to a determined service.
 
 ## FOSS-compatible high-threat profile (do this)
 
-1. Build and install the **F-Droid flavor** (`assembleFdroidRelease`) — no `INTERNET`.
+1. Build and install the **FOSS flavor** (`assembleFossRelease`) — no `INTERNET`.
 2. Run it on **GrapheneOS** (or equivalent) with a locked bootloader, no Google services, and a strong OS passphrase.
 3. Keep the **volume password in your head**. Put the keyfile on a *different* token, not on the phone.
 4. Keep volume passwords in your head. Put keyfiles on a *different* token, not on the phone. Master has no fingerprint / Face ID unlock (`experimental-biometrics` does). Volume-path history never hits `History.xml`.
 5. A **VeraCrypt hidden / nested volume** can be created here or on a computer. This client **opens whichever password you type** — there is no open-time “hidden” checkbox. Filling the outer volume overwrites the nested one.
-6. Prefer **F-Droid** or a self-built APK over GitHub debug-signed previews.
+6. Prefer a **self-built** APK over GitHub debug-signed previews.
 7. Make the git repo **public** before you distribute binaries (TrueCrypt License 3.0).
 
 ## Deliberately not added (anti-FOSS or fake security)
 
-- Google Play Integrity / SafetyNet / SafetyNet-like root detection (breaks GrapheneOS and F-Droid)
+- Google Play Integrity / SafetyNet / SafetyNet-like root detection (breaks GrapheneOS and user-built FOSS)
 - Code obfuscation or packed native libs (unverifiable)
 - “Unbreakable” / “foolproof against Unit 8200 / CIA / Lazarus” marketing
 - An open-time hidden-volume checkbox (deniability leak; opening already follows the password you type)
@@ -59,4 +59,4 @@ Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and the 
 - **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only, no incoming sockets, no background traffic. Master phone builds have no INTERNET. Live Check for updates (≤20s HTTPS window to three hardcoded hosts) is on `experimental-biometrics`. Desktop Help → Check for updates still honors StayOffline. Fetched JSON is never executed. This does not detect unknown bugs in VeraCrypt itself.
 - **OWASP MASVS-PRIVACY**: no telemetry, no crash reporters, StayOffline default
 - **NIST SP 800-63**: biometrics are not a knowledge factor
-- **F-Droid Inclusion Policy**: no GMS, no trackers, Gradle wrapper with published SHA-256
+- **FOSS hygiene**: no GMS, no trackers, Gradle wrapper with published SHA-256

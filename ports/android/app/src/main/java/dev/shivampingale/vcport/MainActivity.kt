@@ -500,7 +500,7 @@ class MainActivity : AppCompatActivity() {
                                             if (NativeBridge.isOpen(handle))
                                                 "Mounted in this app"
                                             else
-                                                "Stay offline. F-Droid: no network.",
+                                                "Stay offline. This build has no network.",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = colors.onPrimary.copy(alpha = 0.85f),
                                             maxLines = 1,
@@ -1548,7 +1548,7 @@ class MainActivity : AppCompatActivity() {
                                     }
                                     else -> {
                                         VcCard {
-                                            Text("VeraCrypt-compatible. F-Droid: no network.")
+                                            Text("VeraCrypt-compatible. This build has no network.")
                                             VcHint("Stay offline by default. A compelled password still wins — prefer a long password and a keyfile. This is not unbreakable.")
                                             Button(
                                                 onClick = {

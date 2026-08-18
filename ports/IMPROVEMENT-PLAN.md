@@ -2,7 +2,7 @@
 
 Two days. Unused Cursor usage does not roll over. Day 1 is this tree; Day 2 waits for hardware or a layout choice.
 
-Do **not**: fake F-Droid screenshots, claim an F-Droid listing, commit `experimental/`, attach debug CI APKs to GitHub Releases, fill `android_apk_sha256` from those APKs, rename the app VeraCrypt, add Play Integrity / obfuscation / an open-time hidden-volume checkbox, or force FUSE-T `backend=smb`.
+Do **not**: fake store screenshots, commit `experimental/`, attach debug CI APKs to GitHub Releases, fill `android_apk_sha256` from those APKs, rename the app VeraCrypt, add Play Integrity / obfuscation / an open-time hidden-volume checkbox, or force FUSE-T `backend=smb`.
 
 ## Day 1 (this change)
 
@@ -19,7 +19,7 @@ Do **not**: fake F-Droid screenshots, claim an F-Droid listing, commit `experime
 
 ## Day 2 (started locally; push only when asked)
 
-1. Done: F-Droid recipe clones `Veracrypt_port` with `subdir: ports/android` (same-tree `src/`, no srclib)
+1. Done: production Android flavor is `foss` (`assembleFossRelease`); no F-Droid store recipe
 2. Still needs a real phone: Fastlane `phoneScreenshots/`
 3. Done: `ports/scripts/hash_release.py` (refuses debug CI APKs; `--write` updates `version.json`)
 4. Done: `vc_list_dir_from` + Load more on Android/iOS
@@ -30,7 +30,6 @@ Do **not** burn leftover Cursor/Other-model quota on random [official VeraCrypt]
 
 ## Honest leftovers that stay leftovers until hardware exists
 
-- F-Droid inclusion MR
 - AltStore `downloadURL` / IPA size
 - Production signing key (pick one before a real APK)
 - macOS GUI build in this clone (no wxWidgets here)

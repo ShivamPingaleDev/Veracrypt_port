@@ -5,6 +5,6 @@
     <string name="about_license">VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). This app is not named VeraCrypt.</string>
     <string name="about_contact">Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com</string>
     <string name="about_footnote">Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.</string>
-    <string name="about_privacy">No accounts, ads, analytics, or crash reporters. Volume passwords stay on device. The F-Droid build has no INTERNET permission.</string>
-    <string name="foss_updates_fdroid">Install updates from F-Droid. This build does not contact the network.</string>
+    <string name="about_privacy">No accounts, ads, analytics, or crash reporters. Volume passwords stay on device. This build has no INTERNET permission.</string>
+    <string name="foss_updates">Rebuild from public source. This build does not contact the network.</string>
 </resources>

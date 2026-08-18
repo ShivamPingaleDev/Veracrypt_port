@@ -81,14 +81,14 @@ Native core: `ports/shared` (VeraCrypt `Volume` + Crypto via NDK)
 
 One APK ships four ABIs: `armeabi-v7a` (32-bit ARM), `arm64-v8a` (ARM64), `x86` (32-bit Intel emulators), `x86_64`. Crypto extras follow the slice (ARMv8 AES, x64 AVX2, x86 SSE2). There is no 32-bit iOS.
 
-F-Droid / FOSS (no `INTERNET` permission, no Play libraries):
+FOSS production flavor (no `INTERNET` permission, no Play libraries):
 
 ```bash
 cd ports/android
-./gradlew :app:assembleFdroidRelease
+./gradlew :app:assembleFossRelease
 ```
 
-Biometric unlock uses Android Keystore + `BiometricPrompt` (strong biometrics, StrongBox when present). High-threat defaults: [ports/THREAT-MODEL.md](ports/THREAT-MODEL.md). There is no DocumentsProvider export (that was a seizure/SAF leak). Browse FAT from the in-app list only.
+High-threat defaults: [ports/THREAT-MODEL.md](ports/THREAT-MODEL.md). There is no DocumentsProvider export (that was a seizure/SAF leak). Browse FAT from the in-app list only.
 
 The in-app file list has a **Share decrypted** action that extracts the file from a FAT volume and opens the system share sheet. **Share encrypted file** sends `.hc` / `.tc` / `.vera` as-is (no unlock). **Wrap a single file** password-encrypts one file into a `.vcpw` blob (Argon2id + AES-256-CTR + HMAC-SHA256). The password generator stays in memory, is never logged, and clipboard copies expire. Other apps can also send files into VC Port (`ACTION_SEND` / `VIEW`).
 
@@ -96,7 +96,7 @@ Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](port
 
 ## iOS
 
-There is no F-Droid for iPhone. `ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Each Apple user **signs their own** IPA with their Apple ID (AltStore / SideStore or Xcode Team). The GitHub IPA is unsigned on purpose. See [ports/FOSS.md](ports/FOSS.md), [ports/PUBLIC.md](ports/PUBLIC.md), and `ports/ios/README.md`.
+`ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Each Apple user **signs their own** IPA with their Apple ID (AltStore / SideStore or Xcode Team). The GitHub IPA is unsigned on purpose. See [ports/FOSS.md](ports/FOSS.md), [ports/PUBLIC.md](ports/PUBLIC.md), and `ports/ios/README.md`.
 
 The SwiftUI app uses the same `vc_mobile` C API and Keychain + Face ID / Touch ID. Unlock factors can be combined: biometric password (a Keychain-held keyfile), optional text password, more keyfiles, and PIM.
 
@@ -108,10 +108,10 @@ The apps **do not** contact the network on launch or in the background.
 
 | Action | Network |
 | --- | --- |
-| Mount, encrypt, browse, biometrics | None |
+| Mount, encrypt, browse | None |
 | Settings → Stay offline (default on) | Help/website links ask first |
-| Help → Check for updates | One HTTPS GET of `ports/version.json`, then disconnect |
-| Download page (only if you agree) | Browser, then offline again |
+| Desktop Help → Check for updates | One HTTPS GET of `ports/version.json`, then disconnect (honors StayOffline) |
+| Phone Check for updates | Not on master. Lives on `experimental-biometrics`. |
 
 When VeraCrypt itself ships a new source tree, developers run:
 

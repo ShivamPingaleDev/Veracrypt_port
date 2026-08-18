@@ -69,12 +69,12 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Build production and Looks APKs
         working-directory: ports/android
-        run: ./gradlew :app:assembleFdroidRelease :app:assembleGithubRelease :app:assembleStyledRelease :app:assembleLooksgithubRelease --no-daemon
+        run: ./gradlew :app:assembleFossRelease :app:assembleGithubRelease :app:assembleStyledRelease :app:assembleLooksgithubRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: vcport-apks
           path: |
-            ports/android/app/build/outputs/apk/fdroid/release/*.apk
+            ports/android/app/build/outputs/apk/foss/release/*.apk
             ports/android/app/build/outputs/apk/github/release/*.apk
           if-no-files-found: error
       - uses: actions/upload-artifact@v4

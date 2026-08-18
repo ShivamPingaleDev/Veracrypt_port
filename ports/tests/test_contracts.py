@@ -2,7 +2,7 @@
 """Device-version and high-threat contract tests.
 
 Run without Android SDK, Xcode, or FUSE-T. These assert that every VC Port
-surface (Android F-Droid, Android GitHub, iOS, macOS overlay, shared native)
+surface (Android FOSS, Android GitHub, iOS, macOS overlay, shared native)
 stays on the same version pin and keeps the FOSS / high-threat defaults.
 """
 
@@ -213,23 +213,11 @@ class VersionMatrixTests(unittest.TestCase):
         )
         self.assertEqual(rc.returncode, 0, rc.stderr)
 
-    def test_fdroiddata_current(self) -> None:
-        yml = read("ports/fdroiddata/metadata/dev.shivampingale.vcport.yml")
-        self.assertIn(f"CurrentVersion: {self.port}", yml)
-        self.assertIn(f"CurrentVersionCode: {self.code}", yml)
-        self.assertIn(f"versionName: {self.port}", yml)
-        self.assertIn(f"versionCode: {int(self.code)}", yml)
-        self.assertIn("Name: VC Port", yml)
-        self.assertIn("truecrypt.org", yml.lower())
-        self.assertIn("TrueCrypt License 3.0", yml)
-        self.assertIn("not OSI", yml)
-        self.assertNotIn("Name: VeraCrypt", yml)
-        self.assertIn("Veracrypt_port.git", yml)
-        self.assertIn("subdir: ports/android", yml)
-        self.assertNotIn("VCPort.git", yml)
-        self.assertNotIn("styled", yml)
-        self.assertNotIn("looksgithub", yml)
-        self.assertNotIn(".looks", yml)
+    def test_foss_flavor_is_production(self) -> None:
+        gradle = read("ports/android/app/build.gradle")
+        self.assertIn("foss {", gradle)
+        self.assertNotIn("fdroid {", gradle)
+        self.assertIn(":app:assembleFossRelease", read("ports/android/README.md"))
 
     def test_changelog_mentions_current(self) -> None:
         log = read("ports/CHANGELOG.md")
@@ -333,7 +321,7 @@ class NamingAndAttributionTests(unittest.TestCase):
         for rel in (
             "ports/android/app/src/main/res/values/strings.xml",
             "ports/ios/VCPort/Info.plist",
-            "ports/fdroiddata/metadata/dev.shivampingale.vcport.yml",
+            "ports/FOSS.md",
         ):
             text = read(rel)
             self.assertNotRegex(
@@ -364,10 +352,10 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("backup_rules", manifest)
         self.assertIn("data_extraction_rules", manifest)
 
-    def test_fdroid_removes_internet(self) -> None:
-        fdroid = read("ports/android/app/src/fdroid/AndroidManifest.xml")
-        self.assertIn("android.permission.INTERNET", fdroid)
-        self.assertIn('tools:node="remove"', fdroid)
+    def test_foss_removes_internet(self) -> None:
+        foss = read("ports/android/app/src/foss/AndroidManifest.xml")
+        self.assertIn("android.permission.INTERNET", foss)
+        self.assertIn('tools:node="remove"', foss)
 
     def test_styled_looks_package_has_no_internet(self) -> None:
         styled = read("ports/android/app/src/styled/AndroidManifest.xml")

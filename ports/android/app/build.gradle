@@ -42,7 +42,7 @@ android {
 
     flavorDimensions += 'distribution'
     productFlavors {
-        fdroid {
+        foss {
             dimension 'distribution'
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
             buildConfigField 'boolean', 'ENABLE_SKINS', 'false'
@@ -72,7 +72,7 @@ android {
             minifyEnabled false
             shrinkResources false
             // CI / GitHub preview: debug-signed until a release keystore is set.
-            // F-Droid rebuilds from source and signs with the F-Droid key.
+            // Sign production yourself with VC_PORT_RELEASE_STORE_FILE.
             signingConfig signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }

@@ -10,20 +10,14 @@ Kotlin / Jetpack Compose client with:
 - Incoming share / open: other apps can send a file into VC Port
 - In-app FAT browser only (no DocumentsProvider; that was a seizure leak). Copy/move uses the system file picker.
 
-F-Droid / FOSS flavor (no `INTERNET` permission, no Play libraries):
+FOSS production flavor (no `INTERNET` permission, no Play libraries):
 
 ```bash
 cd android
-./gradlew :app:assembleFdroidRelease
+./gradlew :app:assembleFossRelease
 ```
 
-GitHub preview flavor (also no `INTERNET` on master; live Check for updates is on `experimental-biometrics`):
-
-```bash
-./gradlew :app:assembleGithubRelease
-```
-
-Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installing it replaces the Desktop-only APK. GitHub Release asset, not F-Droid. Two flavors, both offline on master:
+Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installing it replaces the Desktop-only APK. GitHub Release asset. Two flavors, both offline on master:
 
 ```bash
 ./gradlew :app:assembleStyledRelease
@@ -32,6 +26,6 @@ Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), D
 
 Open `android/` in Android Studio if you prefer. The native library is `libvcport.so`, built from `shared/CMakeLists.txt`.
 
-Release signing: do **not** commit a keystore. CI and GitHub APKs stay **debug-signed previews**. For a local production APK, set `VC_PORT_RELEASE_STORE_FILE`, `VC_PORT_RELEASE_STORE_PASSWORD`, `VC_PORT_RELEASE_KEY_ALIAS`, and `VC_PORT_RELEASE_KEY_PASSWORD`. F-Droid rebuilds from source and signs with the F-Droid key.
+Release signing: do **not** commit a keystore. CI and GitHub APKs stay **debug-signed previews**. For a local production APK, set `VC_PORT_RELEASE_STORE_FILE`, `VC_PORT_RELEASE_STORE_PASSWORD`, `VC_PORT_RELEASE_KEY_ALIAS`, and `VC_PORT_RELEASE_KEY_PASSWORD`. You sign production yourself.
 
 Store metadata lives in `android/fastlane/metadata/android/`. Inclusion notes: [FOSS.md](../FOSS.md).
