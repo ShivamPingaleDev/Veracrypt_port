@@ -424,6 +424,23 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn('path="share/"', paths)
         self.assertNotIn('path="."', paths)
         self.assertNotIn("external-path", paths)
+        share = read("ports/android/app/src/main/java/dev/shivampingale/vcport/ShareHelper.kt")
+        self.assertIn("stageInShareDir", share)
+        self.assertIn("sanitizeKeyfileName", share)
+
+    def test_keyfiles_are_multiple_and_biometrics_are_plain(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        for blob in (main, view):
+            self.assertIn("Generate keyfile and add", blob)
+            self.assertIn("Save extra keyfile for a computer", blob)
+            self.assertIn("How it works:", blob)
+            self.assertNotIn("Extra keyfile. Can be compelled.", blob)
+            self.assertNotIn("Export keyfile", blob)
+            self.assertNotIn("Create phone-unlock keyfile", blob)
+        self.assertIn("Fingerprint or face only unlocks", main)
+        self.assertIn("Face ID / Touch ID only unlocks", view)
+        self.assertIn("copyOwned", read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"))
 
     def test_backup_excludes_everything(self) -> None:
         backup = read("ports/android/app/src/main/res/xml/backup_rules.xml")

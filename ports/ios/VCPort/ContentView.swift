@@ -14,6 +14,8 @@ struct ContentView: View {
     @State private var rememberConfirmText = ""
     @State private var biometricKey: Data?
     @State private var keyfileURLs: [URL] = []
+    @State private var keyfileGenName = "keyfile.bin"
+    @State private var keyfileGenCount = "1"
     @State private var keyfileImporterPresented = false
     @State private var importBioPresented = false
     @State private var status = "Offline. Choose a VeraCrypt container, or share an encrypted file as-is."
@@ -339,6 +341,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private var keyfileRows: some View {
+        Text("Pick several files. Any extension. VeraCrypt mixes the first 1 MiB of each.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
         ForEach(keyfileURLs, id: \.self) { url in
             HStack {
                 Text(url.lastPathComponent)
@@ -352,6 +357,10 @@ struct ContentView: View {
             holdLock = true
             keyfileImporterPresented = true
         }
+        TextField("Keyfile name (any extension)", text: $keyfileGenName)
+        TextField("How many (1–8)", text: $keyfileGenCount)
+            .keyboardType(.numberPad)
+        Button("Generate keyfile and add") { generateKeyfile(nested: false) }
     }
 
     @ViewBuilder
@@ -532,29 +541,25 @@ struct ContentView: View {
                     .keyboardType(.numberPad)
                 keyfileRows
                 if BiometricStore.isAvailable {
-                    Toggle("Face ID, Touch ID, or passcode", isOn: Binding(
+                    Text("How it works: the typed password still opens the volume. Face ID / Touch ID only unlocks an extra keyfile on this phone. A compelled finger can use that extra. Leave it off if you are unsure.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Toggle(useBiometric ? "On — extra keyfile used when opening" : "Off", isOn: Binding(
                         get: { useBiometric },
                         set: { on in
                             useBiometric = on
                             if on { useTextPassword = true }
+                            if !on { biometricKey = nil }
                         }
                     ))
-                    Text("Extra keyfile. Can be compelled.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let biometricKey {
-                        let keyBytes = biometricKey.count
-                        Text("Biometric password ready (\(keyBytes) bytes).")
-                            .font(.caption)
-                    } else if let path = containerURL?.path, BiometricStore.hasFactors(for: path) {
-                        Text("A saved factor set exists. Unlock with biometrics to load it.")
-                            .font(.caption)
+                    Button("Unlock with Face ID / Touch ID") { loadBiometricFactors() }
+                    if useBiometric && biometricKey == nil {
+                        Button("Import extra keyfile…") { importBioPresented = true }
                     }
-                    Button("Create phone-unlock keyfile") { createBiometricPassword() }
-                    Button("Import keyfile as biometric password…") { importBioPresented = true }
-                    Button("Export biometric keyfile") { exportBiometricKeyfile() }
-                    Button("Unlock with Face ID, Touch ID, or passcode") { loadBiometricFactors() }
-                    Toggle("Remember this combination", isOn: Binding(
+                    if biometricKey != nil {
+                        Button("Save extra keyfile for a computer") { exportBiometricKeyfile() }
+                    }
+                    Toggle("Remember on this phone", isOn: Binding(
                         get: { rememberBiometrics },
                         set: { on in
                             if on {
@@ -565,9 +570,15 @@ struct ContentView: View {
                             }
                         }
                     ))
-                    Text("Off by default. Type REMEMBER to store this session.")
+                    Text("Off by default. Type REMEMBER. A compelled finger can then fill this form.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let path = containerURL?.path, BiometricStore.hasFactors(for: path) {
+                        Button("Forget saved extra") {
+                            BiometricStore.delete(path: path)
+                            status = "Forgot the saved extra for this container."
+                        }
+                    }
                 }
                 Button("Open volume") { openVolume() }
             }
@@ -770,19 +781,25 @@ struct ContentView: View {
                         holdLock = true
                         hiddenKeyfileImporterPresented = true
                     }
+                    Button("Generate nested keyfile and add") { generateKeyfile(nested: true) }
                 }
                 if BiometricStore.isAvailable {
-                    Toggle("Face ID, Touch ID, or passcode", isOn: $useBiometric)
-                    Text("Extra keyfile. Can be compelled.")
+                    Text("How it works: the typed password still opens the volume. Face ID / Touch ID only unlocks an extra keyfile on this phone. A compelled finger can use that extra. Leave it off if you are unsure.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if let biometricKey {
-                        let keyBytes = biometricKey.count
-                        Text("Phone-unlock keyfile ready (\(keyBytes) bytes).")
-                            .font(.caption)
+                    Toggle(useBiometric ? "On — extra keyfile mixed into this volume" : "Off (safer)", isOn: Binding(
+                        get: { useBiometric },
+                        set: { on in
+                            useBiometric = on
+                            if on && (biometricKey == nil || biometricKey?.isEmpty == true) {
+                                biometricKey = FactorCodec.randomBiometricKey()
+                            }
+                            if !on { biometricKey = nil }
+                        }
+                    ))
+                    if useBiometric {
+                        Button("Save extra keyfile for a computer") { exportBiometricKeyfile() }
                     }
-                    Button("Import keyfile as biometric password…") { importBioPresented = true }
-                    Button("Export biometric keyfile") { exportBiometricKeyfile() }
                 }
                 Button("Create volume") { createVolume() }
                     .disabled(entropyPercent < 100)
@@ -811,7 +828,10 @@ struct ContentView: View {
                 Button("Restore volume header") { restoreHeaderPresented = true }
                 Button("Restore from embedded backup header") { restoreEmbeddedHeader() }
                 Button("Volume properties") { showVolumeProperties() }
-                Button("Keyfile generator") { generateKeyfile() }
+                TextField("Keyfile name (any extension)", text: $keyfileGenName)
+                TextField("How many (1–8)", text: $keyfileGenCount)
+                    .keyboardType(.numberPad)
+                Button("Keyfile generator") { generateKeyfile(nested: false) }
                 Button("Benchmark") { runBenchmark() }
                 Button("Test vectors") { runTestVectors() }
                 Button("Wipe cached passwords") {
@@ -1166,7 +1186,7 @@ struct ContentView: View {
                     msg += " Nested volume is inside; open it with the nested password. Do not fill the outer volume."
                 }
                 if hasBio && remember {
-                    msg += " Export the phone-unlock keyfile for those other devices."
+                    msg += " Save the extra keyfile for a computer if you need this volume elsewhere."
                     _ = BiometricStore.store(
                         path: dest.path,
                         bundle: FactorBundle(
@@ -1212,7 +1232,7 @@ struct ContentView: View {
                 startOpenVolume()
                 return
             }
-            status = "Create or import a biometric password, or unlock with Face ID, Touch ID, or passcode to load a saved one."
+            status = "Turn the extra on, then Unlock with Face ID / Touch ID, or Import extra keyfile."
             return
         }
         if useBiometric {
@@ -1307,28 +1327,6 @@ struct ContentView: View {
         }
     }
 
-    private func createBiometricPassword() {
-        let secret = FactorCodec.randomBiometricKey()
-        biometricKey = secret
-        useBiometric = true
-        guard rememberBiometrics, let path = containerURL?.path else {
-            status = "Created a 64-byte phone-unlock keyfile in memory. It is not stored unless you type REMEMBER."
-            return
-        }
-        let ok = BiometricStore.store(
-            path: path,
-            bundle: FactorBundle(
-                pim: Int(pim) ?? 0,
-                password: useTextPassword ? password : "",
-                biometricKey: secret,
-                keyfilePaths: keyfileURLs.map(\.path)
-            )
-        )
-        status = ok
-            ? "Created a 64-byte biometric password. Export it and add that file as a keyfile when you create the volume."
-            : "Could not save the biometric password."
-    }
-
     private func importBiometricKeyfile(_ url: URL) {
         guard let data = try? Data(contentsOf: url), !data.isEmpty, data.count <= 1_048_576 else {
             status = "Could not import keyfile (empty or larger than 1 MiB)."
@@ -1336,21 +1334,21 @@ struct ContentView: View {
         }
         biometricKey = data
         useBiometric = true
-        status = "Imported \(data.count) bytes as the biometric password (VeraCrypt keyfile)."
+        status = "Imported extra keyfile (\(data.count) bytes)."
     }
 
     private func exportBiometricKeyfile() {
         guard let biometricKey else {
-            status = "Create or import a biometric password first."
+            status = "Turn the extra on first."
             return
         }
         let dest = FileManager.default.temporaryDirectory.appendingPathComponent("vcport-biometric.key")
         do {
             try biometricKey.write(to: dest, options: .completeFileProtection)
-            status = "Share this keyfile into VeraCrypt on a computer (Add keyfile)."
+            status = "Save this extra keyfile. On a computer, Add keyfiles with that file. Face ID will not work on the computer."
             SystemShare.present(items: [dest])
         } catch {
-            status = "Could not export the biometric keyfile."
+            status = "Could not save the extra keyfile."
         }
     }
 
@@ -1369,7 +1367,7 @@ struct ContentView: View {
         useBiometric = stored.hasBiometric
         biometricKey = stored.biometricKey
         keyfileURLs = stored.keyfilePaths.map { URL(fileURLWithPath: $0) }
-        status = "Loaded factors with biometrics. Add or remove anything, then Open volume."
+        status = "Filled from Face ID. Then tap Open volume."
         return true
     }
 
@@ -2185,15 +2183,38 @@ struct ContentView: View {
         status = VcMobileBridge.volumeInfo(handle) ?? "Could not read volume properties."
     }
 
-    private func generateKeyfile() {
-        let dest = FileManager.default.temporaryDirectory.appendingPathComponent("random.key")
-        let rc = VcMobileBridge.generateKeyfile(path: dest.path)
-        guard rc == 0 else {
-            status = "Keyfile generator failed."
-            return
+    private func generateKeyfile(nested: Bool) {
+        let n = min(max(Int(keyfileGenCount.filter(\.isNumber)) ?? 1, 1), 8)
+        let base = keyfileGenName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = base.isEmpty ? "keyfile.bin" : base
+        var urls: [URL] = []
+        for i in 1...n {
+            let name: String
+            if n == 1 {
+                name = pattern
+            } else {
+                let dot = pattern.lastIndex(of: ".")
+                let stem = dot.map { String(pattern[..<$0]) } ?? pattern
+                let ext = dot.map { String(pattern[$0...]) } ?? ""
+                name = "\(stem)-\(i)\(ext)"
+            }
+            let dest = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+            let rc = VcMobileBridge.generateKeyfile(path: dest.path)
+            guard rc == 0 else {
+                status = "Keyfile generator failed."
+                return
+            }
+            urls.append(dest)
         }
-        status = "Generated a 128-byte keyfile. Save a copy, then Add keyfiles."
-        SystemShare.present(items: [dest])
+        if nested {
+            hiddenKeyfileURLs.append(contentsOf: urls)
+        } else {
+            keyfileURLs.append(contentsOf: urls)
+        }
+        status = n == 1
+            ? "Generated and added \(urls[0].lastPathComponent). Save a copy. Any extension is fine."
+            : "Generated \(n) keyfiles and added them. Save copies. Any extension is fine."
+        SystemShare.present(items: urls)
     }
 
     private func runBenchmark() {

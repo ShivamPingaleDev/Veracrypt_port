@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -103,6 +104,8 @@ class MainActivity : AppCompatActivity() {
     private val basketUrisState = mutableStateOf(listOf<Uri>())
     private val basketHashesState = mutableStateOf(mapOf<String, String>())
     private val hiddenKeyfileUrisState = mutableStateOf(listOf<Uri>())
+    private val keyfileGenNameState = mutableStateOf("keyfile.bin")
+    private val keyfileGenCountState = mutableStateOf("1")
     private val containerLabelState = mutableStateOf("")
     private val handleState = mutableStateOf(0L)
     private val entriesState = mutableStateOf(listOf<VaultEntry>())
@@ -130,6 +133,9 @@ class MainActivity : AppCompatActivity() {
     private var suppressLock = false
     private var wrapHold = ""
     private var containerPfd: ParcelFileDescriptor? = null
+    private val bioHowItWorks =
+        "How it works: the typed password still opens the volume. Fingerprint or face only unlocks an extra keyfile on this phone. A compelled finger can use that extra. Leave it off if you are unsure."
+
 
     /** File pickers stop this activity. Do not wipe the wrap password in that gap. */
     private fun holdLockForPicker() {
@@ -181,6 +187,8 @@ class MainActivity : AppCompatActivity() {
                 var basketUris by basketUrisState
                 var basketHashes by basketHashesState
                 var hiddenKeyfileUris by hiddenKeyfileUrisState
+                var keyfileGenName by keyfileGenNameState
+                var keyfileGenCount by keyfileGenCountState
                 var containerLabel by containerLabelState
                 var useTextPassword by remember { mutableStateOf(true) }
                 var useBiometric by useBiometricState
@@ -302,11 +310,12 @@ class MainActivity : AppCompatActivity() {
                     var failed: String? = null
                     for (uri in uris) {
                         ShareHelper.persistRead(this@MainActivity, uri)
-                        val copied = KeyfileIo.copyUri(this@MainActivity, uri)
+                        val copied = KeyfileIo.copyOwned(this@MainActivity, uri)
                         if (copied == null) {
                             failed = ShareHelper.displayName(this@MainActivity, uri) ?: "keyfile"
                         } else {
-                            if (uri !in kept) kept += uri
+                            val owned = Uri.fromFile(copied)
+                            if (owned !in kept) kept += owned
                         }
                     }
                     keyfileUris = kept
@@ -322,11 +331,12 @@ class MainActivity : AppCompatActivity() {
                     var failed: String? = null
                     for (uri in uris) {
                         ShareHelper.persistRead(this@MainActivity, uri)
-                        val copied = KeyfileIo.copyUri(this@MainActivity, uri)
+                        val copied = KeyfileIo.copyOwned(this@MainActivity, uri)
                         if (copied == null) {
                             failed = ShareHelper.displayName(this@MainActivity, uri) ?: "keyfile"
-                        } else if (uri !in kept) {
-                            kept += uri
+                        } else {
+                            val owned = Uri.fromFile(copied)
+                            if (owned !in kept) kept += owned
                         }
                     }
                     hiddenKeyfileUris = kept
@@ -374,7 +384,7 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             bioSecret = bytes
                             useBiometric = true
-                            status = "Imported ${bytes.size} bytes as the biometric password (VeraCrypt keyfile)."
+                            status = "Imported extra keyfile (${bytes.size} bytes)."
                         }
                     }
                 }
@@ -957,6 +967,10 @@ class MainActivity : AppCompatActivity() {
                                                 ) { Text("Forget password") }
                                             }
                                             Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
+                                            VcHint("Pick several in Files (long-press). Any extension. VeraCrypt mixes the first 1 MiB of each. Generate more below.")
+                                            if (keyfileUris.isEmpty()) {
+                                                Text("No keyfiles in this session.", style = MaterialTheme.typography.bodySmall)
+                                            }
                                             keyfileUris.forEach { uri ->
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Text(
@@ -977,6 +991,47 @@ class MainActivity : AppCompatActivity() {
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Add keyfiles") }
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                OutlinedTextField(
+                                                    keyfileGenName,
+                                                    { keyfileGenName = it.take(120) },
+                                                    label = { Text("Keyfile name (any extension)") },
+                                                    modifier = Modifier.weight(1f).testTag("create_keyfile_name"),
+                                                    enabled = !busy,
+                                                    singleLine = true
+                                                )
+                                                OutlinedTextField(
+                                                    keyfileGenCount,
+                                                    { keyfileGenCount = it.filter { ch -> ch.isDigit() }.take(1) },
+                                                    label = { Text("How many") },
+                                                    modifier = Modifier.width(96.dp).testTag("create_keyfile_count"),
+                                                    enabled = !busy,
+                                                    singleLine = true,
+                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                                )
+                                            }
+                                            OutlinedButton(
+                                                onClick = {
+                                                    val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = false)
+                                                    if (files.isEmpty()) {
+                                                        status = "Keyfile generator failed."
+                                                    } else {
+                                                        offerGeneratedKeyfileCopies(files, { status = it }) { name ->
+                                                            pendingExportFile = files.first()
+                                                            holdLockForPicker()
+                                                            window.decorView.post {
+                                                                holdLockForPicker()
+                                                                toolSaver.launch(name)
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth().testTag("create_generate_keyfile")
+                                            ) { Text("Generate keyfile and add") }
                                             EntropyPad(
                                                 percent = entropyPercent,
                                                 enabled = !busy,
@@ -1097,8 +1152,29 @@ class MainActivity : AppCompatActivity() {
                                                     enabled = !busy,
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) { Text("Add nested keyfiles") }
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = true)
+                                                        if (files.isEmpty()) {
+                                                            status = "Nested keyfile generator failed."
+                                                        } else {
+                                                            offerGeneratedKeyfileCopies(files, { status = it }) { name ->
+                                                                pendingExportFile = files.first()
+                                                                holdLockForPicker()
+                                                                window.decorView.post {
+                                                                    holdLockForPicker()
+                                                                    toolSaver.launch(name)
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    enabled = !busy,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) { Text("Generate nested keyfile and add") }
                                             }
                                             if (vault.isAvailable()) {
+                                                Text("Fingerprint / face", style = MaterialTheme.typography.titleSmall)
+                                                VcHint(bioHowItWorks)
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Checkbox(useBiometric, {
                                                         useBiometric = it
@@ -1107,37 +1183,28 @@ class MainActivity : AppCompatActivity() {
                                                         }
                                                         if (!it) bioSecret = null
                                                     }, enabled = !busy)
-                                                    Text("Fingerprint, face, or screen lock")
+                                                    Text(if (useBiometric) "On — extra keyfile mixed into this volume" else "Off (safer)")
                                                 }
-                                                VcHint("Extra keyfile. Can be compelled.")
-                                                Text(
-                                                    bioSecret?.let { "Phone-unlock keyfile ready (${it.size} bytes)." }
-                                                        ?: "Check the box to create a random keyfile, or import one you already use on a computer.",
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        holdLockForPicker()
-                                                        importBioPicker.launch(arrayOf("*/*"))
-                                                    },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Import keyfile") }
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        val secret = bioSecret
-                                                        if (secret == null) {
-                                                            status = "Create or import a biometric password first."
-                                                        } else {
-                                                            val file = KeyfileIo.writeSecret(this@MainActivity, secret)
-                                                            beginShare()
-                                                            ShareHelper.shareFiles(this@MainActivity, listOf(file), "Export biometric keyfile")
-                                                            status = "Share this keyfile into VeraCrypt on a computer (Add keyfile). Delete it after."
-                                                        }
-                                                    },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Export keyfile") }
+                                                if (useBiometric) {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            val secret = bioSecret
+                                                            if (secret == null) {
+                                                                status = "Turn the extra on first."
+                                                            } else {
+                                                                pendingExportFile = KeyfileIo.writeSecret(this@MainActivity, secret)
+                                                                holdLockForPicker()
+                                                                window.decorView.post {
+                                                                    holdLockForPicker()
+                                                                    toolSaver.launch("phone-unlock.key")
+                                                                }
+                                                                status = "Save this extra keyfile. On a computer, Add keyfiles with that file. Fingerprint will not work on the computer."
+                                                            }
+                                                        },
+                                                        enabled = !busy,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) { Text("Save extra keyfile for a computer") }
+                                                }
                                             } else {
                                                 Text(
                                                     "Fingerprint, face, or screen lock: set a lock in Android settings.",
@@ -1432,27 +1499,44 @@ class MainActivity : AppCompatActivity() {
                                         }
                                         VcCard {
                                             Text("Keyfile generator", style = MaterialTheme.typography.titleMedium)
+                                            VcHint("Any extension. Generate several, then Add keyfiles if they are not already in this session.")
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                OutlinedTextField(
+                                                    keyfileGenName,
+                                                    { keyfileGenName = it.take(120) },
+                                                    label = { Text("Keyfile name (any extension)") },
+                                                    modifier = Modifier.weight(1f),
+                                                    enabled = !busy,
+                                                    singleLine = true
+                                                )
+                                                OutlinedTextField(
+                                                    keyfileGenCount,
+                                                    { keyfileGenCount = it.filter { ch -> ch.isDigit() }.take(1) },
+                                                    label = { Text("How many") },
+                                                    modifier = Modifier.width(96.dp),
+                                                    enabled = !busy,
+                                                    singleLine = true,
+                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                                )
+                                            }
                                             Button(
                                                 onClick = {
-                                                    val dest = File(cacheDir, "random.key")
-                                                    beginWork("Generating keyfile…")
-                                                    Thread {
-                                                        val rc = NativeBridge.generateKeyfile(dest.absolutePath, 128)
-                                                        runOnUiThread {
-                                                            endWork()
-                                                            if (rc != 0) {
-                                                                status = "Keyfile generator failed."
-                                                            } else {
-                                                                pendingExportFile = dest
-                                                                status = "Generated a 128-byte keyfile. Save a copy, then Add keyfiles."
+                                                    val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = false)
+                                                    if (files.isEmpty()) {
+                                                        status = "Keyfile generator failed."
+                                                    } else {
+                                                        offerGeneratedKeyfileCopies(files, { status = it }) { name ->
+                                                            pendingExportFile = files.first()
+                                                            holdLockForPicker()
+                                                            window.decorView.post {
                                                                 holdLockForPicker()
-                                                                window.decorView.post {
-                                                                    holdLockForPicker()
-                                                                    toolSaver.launch("random.key")
-                                                                }
+                                                                toolSaver.launch(name)
                                                             }
                                                         }
-                                                    }.start()
+                                                    }
                                                 },
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
@@ -1713,6 +1797,7 @@ class MainActivity : AppCompatActivity() {
                                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                                 )
                                                 Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
+                                                VcHint("Pick several in Files (long-press). Any extension. First 1 MiB of each.")
                                                 keyfileUris.forEach { uri ->
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Text(
@@ -1733,71 +1818,16 @@ class MainActivity : AppCompatActivity() {
                                                     modifier = Modifier.fillMaxWidth()
                                                 ) { Text("Add keyfiles") }
                                                 if (vault.isAvailable()) {
+                                                    Text("Fingerprint / face", style = MaterialTheme.typography.titleSmall)
+                                                    VcHint(bioHowItWorks)
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Checkbox(useBiometric, {
                                                             useBiometric = it
                                                             if (it) useTextPassword = true
                                                             if (!it) bioSecret = null
                                                         }, enabled = !busy)
-                                                        Text("Fingerprint, face, or screen lock")
+                                                        Text(if (useBiometric) "On — extra keyfile used when opening" else "Off")
                                                     }
-                                                    VcHint("Extra keyfile. Can be compelled.")
-                                                    Text(
-                                                        bioSecret?.let { "Biometric password ready (${it.size} bytes)." }
-                                                            ?: if (path.isNotEmpty() && vault.hasFactors(path))
-                                                                "A saved factor set exists. Unlock with biometrics to load it."
-                                                            else
-                                                                "Create a random biometric password, or import a keyfile you already use.",
-                                                        style = MaterialTheme.typography.bodySmall
-                                                    )
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            val secret = FactorCodec.randomBiometricKey()
-                                                            bioSecret = secret
-                                                            useBiometric = true
-                                                            if (path.isEmpty() || !rememberBio) {
-                                                                status = "Created a 64-byte phone-unlock keyfile in memory. It is not stored unless you type REMEMBER."
-                                                            } else {
-                                                                vault.store(
-                                                                    this@MainActivity,
-                                                                    path,
-                                                                    FactorBundle(
-                                                                        pim = pim.toIntOrNull() ?: 0,
-                                                                        password = if (useTextPassword) password else "",
-                                                                        biometricKey = secret,
-                                                                        keyfileUris = keyfileUris.map { it.toString() }
-                                                                    )
-                                                                ) { ok ->
-                                                                    status = if (ok)
-                                                                        "Created a 64-byte biometric password. Export it and add that file as a keyfile when you create the volume."
-                                                                    else
-                                                                        "Could not save the biometric password."
-                                                                }
-                                                            }
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("Create phone-unlock keyfile") }
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            holdLockForPicker()
-                                                            importBioPicker.launch(arrayOf("*/*"))
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("Import keyfile") }
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            val secret = bioSecret
-                                                            if (secret == null) {
-                                                                status = "Create or import a biometric password first."
-                                                            } else {
-                                                                val file = KeyfileIo.writeSecret(this@MainActivity, secret)
-                                                                beginShare()
-                                                                ShareHelper.shareFiles(this@MainActivity, listOf(file), "Export biometric keyfile")
-                                                                status = "Share this keyfile into VeraCrypt on a computer (Add keyfile). Delete it after."
-                                                            }
-                                                        },
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("Export keyfile") }
                                                     OutlinedButton(
                                                         onClick = {
                                                             if (path.isEmpty()) {
@@ -1805,7 +1835,7 @@ class MainActivity : AppCompatActivity() {
                                                             } else {
                                                                 vault.load(this@MainActivity, path) { stored ->
                                                                     if (stored == null) {
-                                                                        status = "Biometric unlock cancelled."
+                                                                        status = "Fingerprint cancelled, or nothing was saved with REMEMBER."
                                                                     } else {
                                                                         password = stored.password
                                                                         pim = stored.pim.toString()
@@ -1813,13 +1843,36 @@ class MainActivity : AppCompatActivity() {
                                                                         useBiometric = stored.hasBiometric()
                                                                         bioSecret = stored.biometricKey
                                                                         keyfileUris = stored.keyfileUris.mapNotNull { Uri.parse(it) }
-                                                                        status = "Loaded factors with biometrics. Add or remove anything, then Open volume."
+                                                                        status = "Filled from fingerprint. Then tap Open volume."
                                                                     }
                                                                 }
                                                             }
                                                         },
                                                         modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("Unlock with fingerprint, face, or screen lock") }
+                                                    ) { Text("Unlock with fingerprint / face") }
+                                                    if (useBiometric && bioSecret == null) {
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                holdLockForPicker()
+                                                                importBioPicker.launch(arrayOf("*/*"))
+                                                            },
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) { Text("Import extra keyfile") }
+                                                    }
+                                                    if (bioSecret != null) {
+                                                        OutlinedButton(
+                                                            onClick = {
+                                                                pendingExportFile = KeyfileIo.writeSecret(this@MainActivity, bioSecret!!)
+                                                                holdLockForPicker()
+                                                                window.decorView.post {
+                                                                    holdLockForPicker()
+                                                                    toolSaver.launch("phone-unlock.key")
+                                                                }
+                                                                status = "Save this extra keyfile. On a computer, Add keyfiles with that file."
+                                                            },
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        ) { Text("Save extra keyfile for a computer") }
+                                                    }
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         Checkbox(
                                                             rememberBio,
@@ -1833,17 +1886,17 @@ class MainActivity : AppCompatActivity() {
                                                             },
                                                             enabled = !busy
                                                         )
-                                                        Text("Remember this combination")
+                                                        Text("Remember on this phone")
                                                     }
-                                                    VcHint("Off by default. Type REMEMBER to store this session.")
+                                                    VcHint("Off by default. Type REMEMBER. A compelled finger can then fill this form.")
                                                     if (path.isNotEmpty() && vault.hasFactors(path)) {
                                                         OutlinedButton(
                                                             onClick = {
                                                                 vault.clear(path)
-                                                                status = "Forgot saved factors for this container."
+                                                                status = "Forgot the saved extra for this container."
                                                             },
                                                             modifier = Modifier.fillMaxWidth()
-                                                        ) { Text("Forget saved factors") }
+                                                        ) { Text("Forget saved extra") }
                                                     }
                                                 }
                                             }
@@ -2240,7 +2293,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (useBiometric && (bioSecret == null || bioSecret.isEmpty())) {
-            onStatus("Create or import a biometric password, or tap Unlock with biometrics to load a saved one.")
+            onStatus("Turn Fingerprint / face on, then Save extra keyfile, or tap Unlock with fingerprint / face.")
             return
         }
         if (entropyPercent < 100) {
@@ -2441,7 +2494,7 @@ class MainActivity : AppCompatActivity() {
                             msg += " Nested volume is inside; open it with the nested password. Do not fill the outer volume."
                         }
                         if (hasBio) {
-                            msg += " Export the phone-unlock keyfile for those other devices."
+                            msg += " Save the extra keyfile for a computer if you need this volume elsewhere."
                         }
                         fun finishCreate() {
                             onStatus(msg)
@@ -2495,6 +2548,47 @@ class MainActivity : AppCompatActivity() {
             -6 -> "That KDF is not available in this build."
             -5 -> "Not enough memory."
             else -> "Header operation failed (code $rc)."
+        }
+    }
+
+    private fun generateSessionKeyfiles(countText: String, pattern: String, nested: Boolean): List<File> {
+        val n = (countText.toIntOrNull() ?: 1).coerceIn(1, 8)
+        val name = ShareHelper.sanitizeKeyfileName(pattern)
+        val dir = KeyfileIo.keyfileDir(this)
+        val files = mutableListOf<File>()
+        for (i in 1..n) {
+            val dest = KeyfileIo.uniqueNamed(dir, KeyfileIo.numberedName(name, i, n))
+            if (NativeBridge.generateKeyfile(dest.absolutePath, 128) != 0) {
+                files.forEach { KeyfileIo.wipe(it) }
+                return emptyList()
+            }
+            files += dest
+        }
+        val uris = files.map { Uri.fromFile(it) }
+        if (nested) {
+            hiddenKeyfileUrisState.value = hiddenKeyfileUrisState.value + uris
+        } else {
+            keyfileUrisState.value = keyfileUrisState.value + uris
+        }
+        return files
+    }
+
+    private fun offerGeneratedKeyfileCopies(
+        files: List<File>,
+        onStatus: (String) -> Unit,
+        saveOne: (String) -> Unit
+    ) {
+        if (files.size == 1) {
+            onStatus(
+                "Generated and added ${files[0].name}. Save a copy. Change the name and generate again for another. Any extension is fine."
+            )
+            saveOne(files[0].name)
+        } else {
+            onStatus(
+                "Generated ${files.size} keyfiles and added them. Save copies. Any extension is fine (.jpg, .bin, .key, …)."
+            )
+            beginShare()
+            ShareHelper.shareFiles(this, files, "Save generated keyfiles")
         }
     }
 
@@ -2871,11 +2965,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 return
             }
-            onStatus("Create or import a biometric password, or tap Unlock with fingerprint, face, or screen lock.")
+            onStatus("Turn the extra on, then Unlock with fingerprint / face, or Import extra keyfile.")
             return
         }
         if (useBiometric && (bioSecret == null || bioSecret.isEmpty())) {
-            onStatus("Create or import a biometric password, or tap Unlock with fingerprint, face, or screen lock.")
+            onStatus("Turn the extra on, then Unlock with fingerprint / face, or Import extra keyfile.")
             return
         }
         if (useBiometric && !phoneUnlockConfirmed) {

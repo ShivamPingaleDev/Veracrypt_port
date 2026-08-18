@@ -386,6 +386,7 @@ class FunctionalTests(unittest.TestCase):
             self.assertIn("Add keyfiles", blob)
             self.assertIn("Add files to basket", blob)
             self.assertIn("Keyfile generator", blob)
+            self.assertIn("Generate keyfile and add", blob)
 
     def test_progress_is_in_front_of_the_user(self) -> None:
         theme = read(
