@@ -36,7 +36,7 @@ A compelled password still wins. Prefer a long password and a keyfile.
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.6). Those are test files, not store files. Installing one Android copy replaces the others.
+**0.3.6 is a stable alpha.** Copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.6). GitHub APKs stay debug-signed; the iPhone IPA is unsigned. Not store files. Installing one Android copy replaces the others.
 
 **Volume** — pick a locked file and type the password.
 

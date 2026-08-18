@@ -24,7 +24,7 @@
           "version": "0.3.6",
           "buildVersion": "11",
           "date": "2026-08-19T00:00:00-00:00",
-          "localizedDescription": "Draft listing. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
+          "localizedDescription": "Stable alpha. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
           "downloadURL": "",
           "size": 0,
           "minOSVersion": "16.0"

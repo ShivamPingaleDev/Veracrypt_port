@@ -9,7 +9,7 @@
   "upstream_commit": "b48e31f5b47da7d41025e3f0e02751675e15005a",
   "source_repo": "https://github.com/ShivamPingaleDev/Veracrypt_port",
   "update_manifest": "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json",
-  "notes": "VC Port 0.3.6: Open a saved container after Home or closing the app without hitting a dead Files descriptor. GitHub APKs remain debug-signed previews. Not unbreakable.",
+  "notes": "VC Port 0.3.6 stable alpha: Open a saved container after Home or closing the app without hitting a dead Files descriptor. GitHub APKs remain debug-signed previews. Not unbreakable.",
   "download_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
   "macos_url": "",
   "android_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",

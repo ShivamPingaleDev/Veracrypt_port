@@ -20,6 +20,7 @@ The app is **VC Port**. It is a derived work. It is **not named VeraCrypt**. It 
 Say:
 
 - “VC Port opens VeraCrypt-compatible file containers on Android and iPhone.”
+- “VC Port 0.3.6 is a stable alpha.”
 - “Offline by default. This build has no INTERNET. iPhone users sign the unsigned IPA themselves.”
 
 Do not say:
@@ -27,6 +28,7 @@ Do not say:
 - that the app is VeraCrypt, or “VeraCrypt for Android/iPhone”
 - “unbreakable”, “military grade”, “no one can open this”, “blocks Unit 8200”
 - that GitHub APKs are production-signed (they are **debug-signed previews**)
+- that a **stable alpha** is 1.0 or a store build
 - that the unsigned IPA installs without the user’s Apple ID
 
 ## Where the files live
@@ -34,8 +36,8 @@ Do not say:
 | What | Where |
 | --- | --- |
 | Source | Both public repos above |
-| Android preview | GitHub Release `v0.3.6` — one debug-signed FOSS APK (`VCPort-0.3.6.apk`) |
-| iPhone preview | GitHub Release `v0.3.6` unsigned IPA (`VCPort-0.3.6-unsigned-preview.ipa`). Sign it yourself (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)). |
+| Android (stable alpha) | GitHub Release `v0.3.6` — one debug-signed FOSS APK (`VCPort-0.3.6.apk`) |
+| iPhone (stable alpha) | GitHub Release `v0.3.6` unsigned IPA (`VCPort-0.3.6-unsigned-preview.ipa`). Sign it yourself (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)). |
 | AltStore JSON | `ios/altstore/source.json` — `downloadURL` stays **empty** until a signed IPA exists |
 | UI shots | [docs/screenshots/](docs/screenshots/) (real emulator UI; FLAG_SECURE still blocks `adb screencap`) |
 

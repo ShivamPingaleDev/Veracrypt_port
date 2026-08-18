@@ -4,10 +4,10 @@
 
 ## 0.3.6
 
-Phone release: Open a saved container after Home or closing the app.
+Stable alpha: Open a saved container after Home or closing the app.
 
 - After Home or closing the app, Open copies the chosen container into app cache when the Files descriptor is gone, instead of failing with “Could not read the container file.”
-- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.6.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.6-unsigned-preview.ipa`). Same `applicationId` as 0.3.5; it replaces the old install.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.6.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.6-unsigned-preview.ipa`). Same `applicationId` as 0.3.5; it replaces the old install. Still alpha (not 1.0, not a store build).
 
 ## 0.3.5
 
