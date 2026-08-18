@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Looks GitHub flavor only: user-tapped update check. No background network. -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <application android:networkSecurityConfig="@xml/network_security_config" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Looks GitHub preview: no network on master. Live Check for updates is on experimental-biometrics. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
 </manifest>

@@ -6,11 +6,11 @@ package dev.shivampingale.vcport
  * A newer app is a new build from git. This APK never downloads or installs
  * VeraCrypt source, never patches itself, and never installs an update.
  *
- * Official VeraCrypt (hardcoded):
+ * Official VeraCrypt (hardcoded, not fetched by this APK):
  *   BuildConfig.UPSTREAM_GIT
- *   BuildConfig.UPSTREAM_RELEASES  — GitHub latest release, GitHub flavor only
+ *   BuildConfig.UPSTREAM_RELEASES
  *
- * See ports/UPSTREAM.md.
+ * See ports/UPSTREAM.md. Live Check for updates is on experimental-biometrics.
  */
 object SourcePin {
     val repo: String get() = BuildConfig.SOURCE_REPO
@@ -21,20 +21,6 @@ object SourcePin {
     val upstreamGit: String get() = BuildConfig.UPSTREAM_GIT
     val upstreamReleases: String get() = BuildConfig.UPSTREAM_RELEASES
     val upstreamTag: String get() = BuildConfig.UPSTREAM_TAG
-
-    data class CheckResult(
-        val newer: Boolean,
-        val remoteVersion: String,
-        val notes: String,
-        val downloadUrl: String,
-        val apkSha256: String = "",
-        val remoteUpstreamCommit: String = "",
-        val sourceMoved: Boolean = false,
-        val officialNewer: Boolean = false,
-        val officialVersion: String = "",
-        val sourceDegraded: Boolean = false,
-        val sourceWarning: String = ""
-    )
 
     fun compare(a: String, b: String): Int {
         val pa = a.split('.', '-').mapNotNull { it.toIntOrNull() }

@@ -93,13 +93,17 @@ class TableDrivenTests(unittest.TestCase):
 
 class AirgapTests(unittest.TestCase):
     def test_trusted_hosts_only(self) -> None:
-        net = read("ports/android/app/src/main/java/dev/shivampingale/vcport/TrustedNet.kt")
-        swift = read("ports/ios/VCPort/SourcePin.swift")
-        for blob in (net, swift):
-            self.assertIn("raw.githubusercontent.com", blob)
-            self.assertIn("api.github.com", blob)
-            self.assertIn("www.githubstatus.com", blob)
-            self.assertIn("/repos/veracrypt/VeraCrypt/releases/latest", blob)
+        checker = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UpdateChecker.kt")
+        swift = read("ports/ios/VCPort/UpdateChecker.swift")
+        pin = read("ports/ios/VCPort/SourcePin.swift")
+        self.assertFalse(
+            resolve("ports/android/app/src/main/java/dev/shivampingale/vcport/TrustedNet.kt").exists()
+        )
+        self.assertNotIn("HttpURLConnection", checker)
+        self.assertNotIn("URLSession", swift)
+        self.assertNotIn("TrustedNet", pin)
+        self.assertIn("has no network", checker)
+        self.assertIn("has no network", swift)
 
     def test_allow_table(self) -> None:
         def allow(raw: str) -> bool:
@@ -153,17 +157,17 @@ class AirgapTests(unittest.TestCase):
 
 class WhiteBoxTests(unittest.TestCase):
     def test_fdroid_check_is_a_hard_error_path(self) -> None:
-        fdroid = read(
-            "ports/android/app/src/fdroid/java/dev/shivampingale/vcport/UpdateChecker.kt"
+        checker = read(
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/UpdateChecker.kt"
         )
-        self.assertIn('error("F-Droid build has no network")', fdroid)
+        self.assertIn('error("This build has no network")', checker)
 
-    def test_github_official_release_failure_is_swallowed(self) -> None:
-        github = read(
-            "ports/android/app/src/github/java/dev/shivampingale/vcport/UpdateChecker.kt"
+    def test_github_flavor_has_no_live_checker(self) -> None:
+        self.assertFalse(
+            resolve(
+                "ports/android/app/src/github/java/dev/shivampingale/vcport/UpdateChecker.kt"
+            ).exists()
         )
-        self.assertIn("catch (_: Exception)", github)
-        self.assertIn("Official VeraCrypt GitHub was unreachable", github)
 
     def test_wrap_rejects_tamper_and_wrong_password(self) -> None:
         wrap = read("ports/shared/test_wrap_main.cpp")
@@ -469,7 +473,7 @@ class SecurityTamperTests(unittest.TestCase):
         manifest = read("ports/android/app/src/main/AndroidManifest.xml")
         fdroid_manifest = read("ports/android/app/src/fdroid/AndroidManifest.xml")
         fdroid = read(
-            "ports/android/app/src/fdroid/java/dev/shivampingale/vcport/UpdateChecker.kt"
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/UpdateChecker.kt"
         )
         self.assertNotIn("android.permission.INTERNET", manifest)
         self.assertIn('tools:node="remove"', fdroid_manifest)

@@ -499,8 +499,6 @@ class MainActivity : AppCompatActivity() {
                                         Text(
                                             if (NativeBridge.isOpen(handle))
                                                 "Mounted in this app"
-                                            else if (BuildConfig.ENABLE_UPDATE_CHECK)
-                                                "Stay offline until you check for updates."
                                             else
                                                 "Stay offline. F-Droid: no network.",
                                             style = MaterialTheme.typography.labelSmall,
@@ -1545,39 +1543,13 @@ class MainActivity : AppCompatActivity() {
                                             VcHint("Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
                                             VcHint("Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.")
                                             VcHint(SourcePin.describeBuild())
-                                            VcHint(
-                                                if (BuildConfig.ENABLE_UPDATE_CHECK)
-                                                    "No ads, analytics, or crash reporters. Passwords stay on this device. GitHub flavor may make one HTTPS request if you tap Check for updates. The app does not install itself. Merge with scripts/sync-upstream.sh and rebuild."
-                                                else
-                                                    "No ads, analytics, crash reporters, or INTERNET permission. Passwords stay on this device. Updates come from F-Droid. The app does not install itself."
-                                            )
+                                            VcHint("No ads, analytics, crash reporters, or INTERNET permission. Passwords stay on this device. Updates come from a rebuild of this source. The app does not install itself. Merge with scripts/sync-upstream.sh and rebuild.")
                                         }
                                     }
                                     else -> {
                                         VcCard {
-                                            Text(
-                                                if (BuildConfig.ENABLE_UPDATE_CHECK)
-                                                    "VeraCrypt-compatible. Offline until you check for updates."
-                                                else
-                                                    "VeraCrypt-compatible. F-Droid: no network."
-                                            )
+                                            Text("VeraCrypt-compatible. F-Droid: no network.")
                                             VcHint("Stay offline by default. A compelled password still wins — prefer a long password and a keyfile. This is not unbreakable.")
-                                            if (BuildConfig.ENABLE_UPDATE_CHECK) {
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        status = "Checking for updates (≤20s HTTPS window)..."
-                                                        Thread {
-                                                            try {
-                                                                val result = UpdateChecker.check()
-                                                                runOnUiThread { status = formatUpdateStatus(result) }
-                                                            } catch (e: Exception) {
-                                                                runOnUiThread { status = "Update check failed: ${e.message}. Offline again." }
-                                                            }
-                                                        }.start()
-                                                    },
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Check for updates") }
-                                            }
                                             Button(
                                                 onClick = {
                                                     holdLockForPicker()
@@ -3372,30 +3344,6 @@ class MainActivity : AppCompatActivity() {
                 temps.forEach { KeyfileIo.wipe(it) }
             }
         }.start()
-    }
-
-    private fun formatUpdateStatus(result: SourcePin.CheckResult): String {
-        val bits = mutableListOf(
-            when {
-                result.newer ->
-                    "Update ${result.remoteVersion} available from source. ${result.notes}"
-                result.sourceMoved ->
-                    "Same VC Port ${SourcePin.localVersion}, VeraCrypt pin moved to ${result.remoteUpstreamCommit.take(12)}. Rebuild from source."
-                else ->
-                    "Already up to date (${SourcePin.localVersion})."
-            }
-        )
-        if (result.officialNewer && result.officialVersion.isNotEmpty()) {
-            bits.add(
-                "Official VeraCrypt ${result.officialVersion} is published. This build still compiles ${SourcePin.upstreamVersion}. Merge with scripts/sync-upstream.sh and rebuild. This app does not fetch their source."
-            )
-        }
-        if (result.sourceDegraded && result.sourceWarning.isNotEmpty()) bits.add(result.sourceWarning)
-        if (result.downloadUrl.isNotEmpty()) bits.add(result.downloadUrl)
-        if (result.apkSha256.isNotEmpty()) bits.add("SHA-256 ${result.apkSha256}")
-        else if (result.newer) bits.add("No APK hash in the manifest yet; GitHub APKs are debug-signed previews.")
-        bits.add("This app does not install itself. Offline again.")
-        return bits.joinToString(" ")
     }
 
     private fun parseEntry(line: String): VaultEntry? {

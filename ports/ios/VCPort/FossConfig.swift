@@ -1,8 +1,7 @@
 import Foundation
 
 enum FossConfig {
-    /// Sideload / AltStore / source builds stay offline. App Store or GitHub
-    /// builds can set VCPortEnableUpdateCheck=true in Info.plist.
+    /// Master builds stay offline. Live Check for updates is on experimental-biometrics.
     static var enableUpdateCheck: Bool {
         Bundle.main.object(forInfoDictionaryKey: "VCPortEnableUpdateCheck") as? Bool ?? false
     }

@@ -121,47 +121,34 @@ class VersionMatrixTests(unittest.TestCase):
 
     def test_android_update_checkers(self) -> None:
         pin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/SourcePin.kt")
-        fdroid = read("ports/android/app/src/fdroid/java/dev/shivampingale/vcport/UpdateChecker.kt")
-        github = read("ports/android/app/src/github/java/dev/shivampingale/vcport/UpdateChecker.kt")
-        styled = read("ports/android/app/src/styled/java/dev/shivampingale/vcport/UpdateChecker.kt")
-        looksgithub = read(
-            "ports/android/app/src/looksgithub/java/dev/shivampingale/vcport/UpdateChecker.kt"
-        )
+        checker = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UpdateChecker.kt")
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         self.assertIn("BuildConfig.PORT_VERSION", pin)
         self.assertIn("BuildConfig.SOURCE_MANIFEST", pin)
         self.assertIn("never downloads or installs", pin)
-        self.assertIn("SourcePin.localVersion", fdroid)
-        self.assertIn("SourcePin.localVersion", github)
-        self.assertIn("SourcePin.manifest", github)
-        self.assertIn("SourcePin.manifest", looksgithub)
-        self.assertIn('error("F-Droid build has no network")', fdroid)
-        self.assertIn('error("Looks build has no network")', styled)
-        self.assertNotIn("INTERNET", styled)
-        self.assertIn("android_apk_sha256", github)
-        self.assertIn("android_apk_sha256", looksgithub)
-        self.assertIn("upstream_commit", github)
-        self.assertIn("upstreamReleases", github)
-        self.assertIn("upstreamReleases", looksgithub)
-        self.assertIn("officialNewer", github)
-        self.assertIn("sourceMoved", github)
-        self.assertIn("sourceDegraded", github)
-        self.assertIn("instanceFollowRedirects = false", github)
-        self.assertIn("instanceFollowRedirects = false", looksgithub)
-        self.assertIn("TrustedNet.allow", github)
-        self.assertIn("TrustedNet.allow", looksgithub)
-        self.assertIn("WINDOW_MS", github)
+        self.assertIn("SourcePin.localVersion", checker)
+        self.assertIn('error("This build has no network")', checker)
+        self.assertNotIn("HttpURLConnection", checker)
+        self.assertNotIn("TrustedNet", checker)
+        self.assertNotIn("Check for updates", main)
         self.assertIn("does not install itself", main)
         self.assertIn("sync-upstream.sh", main)
         self.assertIn("SourcePin.describeBuild", main)
-        self.assertNotIn("INTERNET", fdroid)
-        net = read("ports/android/app/src/main/java/dev/shivampingale/vcport/TrustedNet.kt")
-        self.assertIn("www.githubstatus.com", net)
-        self.assertIn("api.github.com", net)
-        self.assertIn("raw.githubusercontent.com", net)
+        self.assertFalse(
+            resolve("ports/android/app/src/main/java/dev/shivampingale/vcport/TrustedNet.kt").exists()
+        )
+        self.assertFalse(
+            resolve(
+                "ports/android/app/src/github/java/dev/shivampingale/vcport/UpdateChecker.kt"
+            ).exists()
+        )
+        self.assertFalse(
+            resolve(
+                "ports/android/app/src/looksgithub/java/dev/shivampingale/vcport/UpdateChecker.kt"
+            ).exists()
+        )
         self.assertNotIn("ServerSocket", main)
-        self.assertNotIn("ServerSocket", github)
-        self.assertNotIn("ServerSocket", looksgithub)
+        self.assertNotIn("ServerSocket", checker)
 
     def test_ios_plist_and_xcodegen(self) -> None:
         plist = read("ports/ios/VCPort/Info.plist")
@@ -194,14 +181,10 @@ class VersionMatrixTests(unittest.TestCase):
         pin = read("ports/ios/VCPort/SourcePin.swift")
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("SourcePin.localVersion", swift)
-        self.assertIn("SourcePin.manifestURL", swift)
-        self.assertIn("sourceMoved", swift)
-        self.assertIn("officialNewer", swift)
-        self.assertIn("sourceDegraded", swift)
-        self.assertIn("TrustedNet", pin)
-        self.assertIn("NoRedirect", swift)
-        self.assertIn("completionHandler(nil)", swift)
-        self.assertIn("upstreamReleases", swift)
+        self.assertIn("This build has no network", swift)
+        self.assertNotIn("URLSession", swift)
+        self.assertNotIn("TrustedNet", pin)
+        self.assertNotIn("Check for updates", view)
         self.assertIn("never downloads or installs", pin)
         self.assertIn("SourcePin.describeBuild", view)
         self.assertIn("does not install itself", view)
@@ -394,19 +377,19 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertNotIn("applicationIdSuffix", gradle)
         self.assertIn("buildConfigField 'boolean', 'ENABLE_SKINS', 'true'", gradle)
 
-    def test_looksgithub_flavor_has_opt_in_internet_and_skins(self) -> None:
+    def test_looksgithub_flavor_has_skins_and_no_internet(self) -> None:
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("looksgithub {", gradle)
-        self.assertIn("buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'true'", gradle)
+        self.assertNotIn("buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'true'", gradle)
+        self.assertIn("buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'", gradle)
         manifest = read("ports/android/app/src/looksgithub/AndroidManifest.xml")
         self.assertIn("android.permission.INTERNET", manifest)
-        self.assertNotIn('tools:node="remove"', manifest)
-        self.assertIn("user-tapped update check", manifest.lower())
+        self.assertIn('tools:node="remove"', manifest)
 
-    def test_github_flavor_has_opt_in_internet_only(self) -> None:
+    def test_github_flavor_has_no_internet(self) -> None:
         github = read("ports/android/app/src/github/AndroidManifest.xml")
         self.assertIn("android.permission.INTERNET", github)
-        self.assertIn("user-tapped update check", github.lower())
+        self.assertIn('tools:node="remove"', github)
 
     def test_network_security_system_cas_only(self) -> None:
         for rel in (

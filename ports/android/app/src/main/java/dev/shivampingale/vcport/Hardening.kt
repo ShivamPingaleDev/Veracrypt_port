@@ -15,8 +15,8 @@ import java.security.KeyStore
  * of a casual seizure and of forensic leftovers.
  *
  * No backdoor: this object never opens a socket, never listens, and never
- * phones home. Network exists only in the GitHub flavor UpdateChecker, on a
- * user tap, for ≤20s, to hardcoded hosts.
+ * phones home. Master builds have no INTERNET permission. Live Check for
+ * updates is on experimental-biometrics.
  */
 object Hardening {
     fun protectWindow(activity: Activity) {

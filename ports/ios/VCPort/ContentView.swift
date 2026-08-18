@@ -462,9 +462,6 @@ struct ContentView: View {
                 Text("Stay offline by default. A compelled password still wins — prefer a long password and a keyfile. This is not unbreakable.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if FossConfig.enableUpdateCheck {
-                    Button("Check for updates") { checkForUpdates() }
-                }
                 Button("Choose container") {
                     holdLock = true
                     importerPresented = true
@@ -798,7 +795,7 @@ struct ContentView: View {
                 Text(SourcePin.describeBuild())
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Tap Check for updates only if this build allows it; that reads ports/version.json from the public source. The app does not install itself. AltStore or a rebuild from that source is how a new IPA arrives.")
+                Text("This IPA has no in-app update check. The app does not install itself. Merge with scripts/sync-upstream.sh and rebuild. AltStore or a rebuild from that source is how a new IPA arrives.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text("Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
@@ -810,24 +807,6 @@ struct ContentView: View {
                 Text("No ads, analytics, or crash reporters. Volume passwords stay on this device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func checkForUpdates() {
-        beginWork("Checking for updates (≤20s HTTPS window)...")
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let result = try UpdateChecker.check()
-                DispatchQueue.main.async {
-                    endWork()
-                    status = Self.formatUpdateStatus(result)
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    endWork()
-                    status = "Update check failed. Offline again."
-                }
             }
         }
     }
@@ -1660,32 +1639,6 @@ struct ContentView: View {
         case -1: return "Could not copy \(name) into the volume."
         default: return "Could not copy \(name) (code \(rc))."
         }
-    }
-
-    private static func formatUpdateStatus(_ result: SourcePin.CheckResult) -> String {
-        var bits: [String] = [
-            result.newer
-                ? "Update \(result.remoteVersion) available from source. \(result.notes)"
-                : result.sourceMoved
-                    ? "Same VC Port \(SourcePin.localVersion), VeraCrypt pin moved to \(result.remoteUpstreamCommit.prefix(12)). Rebuild from source."
-                    : "Already up to date (\(SourcePin.localVersion))."
-        ]
-        if result.officialNewer && !result.officialVersion.isEmpty {
-            bits.append(
-                "Official VeraCrypt \(result.officialVersion) is published. This build still compiles \(SourcePin.upstreamVersion). Merge with scripts/sync-upstream.sh and rebuild. This app does not fetch their source."
-            )
-        }
-        if result.sourceDegraded && !result.sourceWarning.isEmpty {
-            bits.append(result.sourceWarning)
-        }
-        if !result.downloadURL.isEmpty { bits.append(result.downloadURL) }
-        if !result.apkSha256.isEmpty {
-            bits.append("SHA-256 \(result.apkSha256)")
-        } else if result.newer {
-            bits.append("No APK hash in the manifest yet; GitHub APKs are debug-signed previews.")
-        }
-        bits.append("This app does not install itself. Offline again.")
-        return bits.joined(separator: " ")
     }
 
     private func headerErrorMessage(_ rc: Int32) -> String {

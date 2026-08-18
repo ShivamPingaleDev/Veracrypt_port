@@ -100,9 +100,9 @@ that the nested checkbox, both passwords, PIM, KDF, filename, and basket
 size are still there. Home keeping the Create wizard is intentional;
 Dismount / Panic wipe still clear it.
 Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`, no INTERNET)
-and a `looksgithub` APK (`connectedLooksgithubDebugAndroidTest`, tap-to-check; tests
-must not tap Check for updates) with the same `applicationId` as production;
-the F-Droid/GitHub packages stay Desktop-only.
+and a `looksgithub` APK (`connectedLooksgithubDebugAndroidTest`, also no INTERNET on master)
+with the same `applicationId` as production;
+the F-Droid/GitHub packages stay Desktop-only. Tests must not tap Panic wipe.
 
 ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-O3 -march=armv8-a+crypto`.
 `vc_runtime_start()` calls `DetectArmFeatures()` (getauxval HWCAP_AES on Android, always-on on Apple arm64) before any volume work so XTS uses the AES crypto extension instead of table AES. Debug NDK builds still use `-O2` on that slice so AES/SHA detection and

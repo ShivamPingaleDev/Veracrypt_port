@@ -17,17 +17,17 @@ cd android
 ./gradlew :app:assembleFdroidRelease
 ```
 
-Optional GitHub flavor (user-tapped update check only):
+GitHub preview flavor (also no `INTERNET` on master; live Check for updates is on `experimental-biometrics`):
 
 ```bash
 ./gradlew :app:assembleGithubRelease
 ```
 
-Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installing it replaces the Desktop-only APK. GitHub Release asset, not F-Droid. Two flavors:
+Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installing it replaces the Desktop-only APK. GitHub Release asset, not F-Droid. Two flavors, both offline on master:
 
 ```bash
-./gradlew :app:assembleStyledRelease         # no INTERNET; updates are a new APK
-./gradlew :app:assembleLooksgithubRelease    # tap Check for updates (same window as GitHub Desktop)
+./gradlew :app:assembleStyledRelease
+./gradlew :app:assembleLooksgithubRelease
 ```
 
 Open `android/` in Android Studio if you prefer. The native library is `libvcport.so`, built from `shared/CMakeLists.txt`.

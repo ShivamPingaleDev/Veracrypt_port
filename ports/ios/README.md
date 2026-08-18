@@ -23,7 +23,7 @@ open VCPort.xcodeproj
    - A signature you create will not install on someone else’s phone. AltStore `downloadURL` stays empty until a signed IPA exists.
 5. The target already includes `PrivacyInfo.xcprivacy`, Keychain entitlements, and `ITSAppUsesNonExemptEncryption=true`. Fingerprint / Face ID unlock is on `experimental-biometrics`, not master.
 
-`VCPortEnableUpdateCheck` in `Info.plist` is **false**. The app does not use the network. Set it to true only for a GitHub/App Store build that should offer a manual update check.
+`VCPortEnableUpdateCheck` in `Info.plist` is **false**. The app does not use the network. Live Check for updates is on `experimental-biometrics`.
 
 ## AltStore / SideStore
 

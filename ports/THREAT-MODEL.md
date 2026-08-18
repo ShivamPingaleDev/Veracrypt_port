@@ -8,7 +8,7 @@ Nothing in this tree is **unbreakable**. A state that can compel a password, pla
 | --- | --- | --- | --- |
 | Border / police seizure (device off or locked) | Image flash, cloud backup, recents screenshots | No backups, FLAG_SECURE (Recents is a blank card, not a screenshot), panic wipe, no SAF export | Compelled password; hardware implants |
 | Compelled biometrics | Finger on the sensor | Biometrics optional; warned; not the default “Remember” | A remembered factor set still opens if they get the finger |
-| Network MITM (user CA / captive portal) | Fake TLS | System CAs only, no cleartext, no redirects, host allowlist, F-Droid flavor has no INTERNET | A compromised system CA store |
+| Network MITM (user CA / captive portal) | Fake TLS | No INTERNET on master phone builds; desktop update check uses system CAs only, no cleartext, no redirects, host allowlist | A compromised system CA store |
 | Malware with root / MDM | Read RAM, keylog, screenshots | Dismount open volume on background; no dumps (`PR_SET_DUMPABLE`); mlock wrap keys | Rooted implant while unlocked; Create wizard (including nested password) stays in RAM until Dismount/Panic so Copy once → Notes can finish |
 | Forensic leftovers | Cache, clipboard, URI grants | Wipe session files; 30s clipboard; no persistable SAF grants; 0600 wrap files | Unmount delay; other apps you shared *to* |
 | Store / update supply chain | Trojan APK | F-Droid from source; no GMS; no obfuscation (reviewable) | A malicious F-Droid mirror you did not verify |
@@ -56,7 +56,7 @@ Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and the 
 
 - **OWASP MASVS-STORAGE**: no backups, wipe session files, Keystore/StrongBox, no exported DocumentsProvider
 - **OWASP MASVS-CRYPTO**: Argon2id wrap KDF 32 MiB, AES-256, HMAC-SHA256, constant-time MAC compare, CSPRNG passwords
-- **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only, no incoming sockets, no background traffic. GitHub flavor: user tap opens a ≤20s HTTPS window to three hardcoded hosts (our version.json, official VeraCrypt latest release, GitHub status), no redirects, 64 KiB cap, then disconnect. F-Droid has no INTERNET. Fetched JSON is never executed. This does not detect unknown bugs in VeraCrypt itself.
+- **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only, no incoming sockets, no background traffic. Master phone builds have no INTERNET. Live Check for updates (≤20s HTTPS window to three hardcoded hosts) is on `experimental-biometrics`. Desktop Help → Check for updates still honors StayOffline. Fetched JSON is never executed. This does not detect unknown bugs in VeraCrypt itself.
 - **OWASP MASVS-PRIVACY**: no telemetry, no crash reporters, StayOffline default
 - **NIST SP 800-63**: biometrics are not a knowledge factor
 - **F-Droid Inclusion Policy**: no GMS, no trackers, Gradle wrapper with published SHA-256

@@ -169,9 +169,8 @@ class Phase4AndroidTests(unittest.TestCase):
         self.assertIn("NativeBridge.mkdir", mkdir)
         self.assertIn("Not enough memory to open the volume.", main)
         self.assertIn("Missing path or password argument.", main)
-        self.assertIn("formatUpdateStatus", main)
-        self.assertIn("SHA-256", main)
-        self.assertIn("debug-signed previews", main)
+        self.assertIn("does not install itself", main)
+        self.assertIn("sync-upstream.sh", main)
 
 
 class Phase5IosTests(unittest.TestCase):
@@ -202,7 +201,8 @@ class Phase5IosTests(unittest.TestCase):
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("Not enough memory to open the volume.", view)
         self.assertIn("Missing path or password argument.", view)
-        self.assertIn("formatUpdateStatus", view)
+        self.assertIn("does not install itself", view)
+        self.assertIn("sync-upstream.sh", view)
 
 
 class Phase6DesktopTests(unittest.TestCase):
@@ -244,12 +244,12 @@ class Phase7ManifestTests(unittest.TestCase):
                 self.assertTrue(url.startswith("https://"), key)
 
     def test_github_checker_rejects_bad_hex_and_http(self) -> None:
-        github = read("ports/android/app/src/github/java/dev/shivampingale/vcport/UpdateChecker.kt")
-        self.assertIn("SHA256", github)
-        self.assertIn("bad manifest", github)
-        self.assertIn('startsWith("https://")', github)
+        checker = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UpdateChecker.kt")
+        self.assertIn("has no network", checker)
+        self.assertNotIn("HttpURLConnection", checker)
         ios = read("ports/ios/VCPort/UpdateChecker.swift")
-        self.assertIn("android_apk_sha256", ios)
+        self.assertIn("has no network", ios)
+        self.assertNotIn("URLSession", ios)
         desktop = read("src/Main/OfflineUpdate.cpp")
         self.assertIn("android_apk_sha256", desktop)
         self.assertIn("tag_name", desktop)

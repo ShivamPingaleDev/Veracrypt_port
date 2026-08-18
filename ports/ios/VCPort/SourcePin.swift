@@ -2,7 +2,8 @@ import Foundation
 
 /// Baked-in public source pin from Info.plist (ports/version.json via
 /// sync_source_pin.py). This IPA never downloads or installs VeraCrypt source.
-/// Official git and GitHub latest-release URL are hardcoded. See ports/UPSTREAM.md.
+/// Official git and GitHub latest-release URL are hardcoded, not fetched.
+/// Live Check for updates is on experimental-biometrics. See ports/UPSTREAM.md.
 enum SourcePin {
     static let repo = (Bundle.main.object(forInfoDictionaryKey: "VCPortSourceRepo") as? String)
         ?? "https://github.com/ShivamPingaleDev/Veracrypt_port"
@@ -31,45 +32,6 @@ enum SourcePin {
     }
     static var upstreamTag: String {
         (Bundle.main.object(forInfoDictionaryKey: "VCPortUpstreamTag") as? String) ?? ""
-    }
-
-    struct CheckResult {
-        var newer: Bool
-        var remoteVersion: String
-        var notes: String
-        var downloadURL: String
-        var apkSha256: String
-        var remoteUpstreamCommit: String
-        var sourceMoved: Bool
-        var officialNewer: Bool
-        var officialVersion: String
-        var sourceDegraded: Bool
-        var sourceWarning: String
-    }
-
-    enum TrustedNet {
-        static let windowSeconds: TimeInterval = 20
-        static let maxBody = 64 * 1024
-        static let githubStatus = URL(string: "https://www.githubstatus.com/api/v2/status.json")!
-
-        static func allow(_ raw: String) -> Bool {
-            guard let u = URL(string: raw), u.scheme == "https" else { return false }
-            if u.user != nil || u.password != nil { return false }
-            if let port = u.port, port != 443 { return false }
-            let host = (u.host ?? "").lowercased()
-            let path = u.path
-            switch host {
-            case "raw.githubusercontent.com":
-                return path.hasPrefix("/ShivamPingaleDev/Veracrypt_port/") &&
-                    path.hasSuffix("/ports/version.json")
-            case "api.github.com":
-                return path == "/repos/veracrypt/VeraCrypt/releases/latest"
-            case "www.githubstatus.com":
-                return path == "/api/v2/status.json"
-            default:
-                return false
-            }
-        }
     }
 
     static func compare(_ a: String, _ b: String) -> Int {

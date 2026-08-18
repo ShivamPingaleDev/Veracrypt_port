@@ -26,13 +26,14 @@ Pin today: VeraCrypt 1.26.29 / `b48e31f5…` (see `ports/UPSTREAM_COMMIT`).
 
 ## What the apps do
 
-| Build | Network | What “Check for updates” does |
+| Build | Network | Updates |
 | --- | --- | --- |
-| Android F-Droid | none | Refuses. Updates come from F-Droid rebuilding this source. |
-| Android Looks (offline) | none | Refuses. Ship a new Looks APK. |
-| Android GitHub / Looks GitHub / iOS (opt-in) / desktop (StayOffline off) | one or two HTTPS GETs you tap for | Reads **our** `version.json`, then the **official** GitHub latest release. Shows versions and SHA-256. **Does not install.** |
+| Android (all flavors on master) | none | Refuses. A newer app is a new APK (F-Droid or git rebuild). |
+| iOS (master) | none | Refuses. A newer IPA is a rebuild you sign. |
+| Desktop (StayOffline off) | one or two HTTPS GETs from Help → Check for updates | Reads **our** `version.json`, then the **official** GitHub latest release. Shows versions and SHA-256. **Does not install.** |
+| `experimental-biometrics` (Android GitHub / Looks GitHub / iOS opt-in) | one or two HTTPS GETs you tap for | Same live Check for updates as before: `version.json` + official latest. **Does not install.** |
 
-If official VeraCrypt is newer than the baked-in pin, the UI says so and tells you to rebuild from source after `scripts/sync-upstream.sh`. The APK cannot rewrite `src/`.
+If official VeraCrypt is newer than the baked-in pin, rebuild from source after `scripts/sync-upstream.sh`. The APK cannot rewrite `src/`. Live phone Check for updates is not on master.
 
 Weekly CI (`upstream-overlay.yml`) runs `ports/scripts/check_veracrypt_release.py`. Exit 2 means they published; merge, do not hot-patch a binary.
 

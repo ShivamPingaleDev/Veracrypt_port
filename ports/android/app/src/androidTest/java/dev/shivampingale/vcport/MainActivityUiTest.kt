@@ -138,11 +138,7 @@ class MainActivityUiTest {
         )
         rule.onNodeWithTag("tab_volume").performClick()
         rule.waitForIdle()
-        if (BuildConfig.ENABLE_UPDATE_CHECK) {
-            rule.onNodeWithText("Check for updates").performScrollTo().assertIsDisplayed()
-        } else {
-            rule.onNodeWithText("Check for updates").assertDoesNotExist()
-        }
+        rule.onNodeWithText("Check for updates").assertDoesNotExist()
     }
 
     @Test
