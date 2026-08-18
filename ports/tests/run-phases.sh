@@ -45,7 +45,7 @@ run "phases 3-8 python" sh -c "cd \"$PORTS/tests\" && python3 -m unittest \
 	test_phases.Phase3FatFolderTests \
 	test_phases.Phase4AndroidTests \
 	test_phases.Phase5IosTests \
-	test_phases.Phase6DesktopTests \
+	test_phases.Phase6ArchiveTests \
 	test_phases.Phase7ManifestTests \
 	test_phases.Phase8CiTests -v"
 

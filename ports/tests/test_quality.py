@@ -363,11 +363,13 @@ class IntegrationTests(unittest.TestCase):
         self.assertIn(v["upstream_git"], plist)
 
     def test_kotlin_and_swift_share_vcf2_module(self) -> None:
-        kotlin = Path("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
-        swift = Path("ports/ios/VCPort/UnlockFactors.swift")
-        self.assertTrue(kotlin.exists())
+        kotlin = resolve(
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"
+        )
+        swift = resolve("ports/ios/VCPort/UnlockFactors.swift")
+        self.assertTrue(kotlin.is_file())
         self.assertFalse(swift.exists())
-        blob = read(str(kotlin))
+        blob = kotlin.read_text(encoding="utf-8")
         self.assertNotIn("VCF2", blob)
         self.assertIn("copyOwned", blob)
 

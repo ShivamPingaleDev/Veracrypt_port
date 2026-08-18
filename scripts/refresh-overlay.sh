@@ -88,9 +88,10 @@ fi
 	echo "# Crypto/Volume units present in VeraCrypt but not compiled by VC Port."
 	echo "# After a VeraCrypt merge, new files show up as extras in check-upstream-layout.sh"
 	echo "# until you add them to cmake or refresh this skip list on purpose."
-	grep -E '\$\{VC_SRC\}/' "$CMAKE" | sed 's/.*\${VC_SRC}\///; s/).*//; s/[[:space:]]*$//' | sort -u > "$tmp/listed"
-	find src/Crypto src/Volume -type f \( -name '*.c' -o -name '*.cpp' \) ! -path '*/Argon2/src/test*' \
-		| sed 's|^src/||' | sort -u | while IFS= read -r rel; do
+	grep -E '\$\{VC_SRC\}/' "$CMAKE" | sed 's/.*\${VC_SRC}\///; s/).*//; s/[[:space:]]*$//' | LC_ALL=C sort -u > "$tmp/listed"
+	# git ls-files only: find(1) on macOS CI can list extra junk and fail --check.
+	git ls-files src/Crypto src/Volume | grep -E '\.(c|cpp)$' | grep -v '/Argon2/src/test' \
+		| sed 's|^src/||' | LC_ALL=C sort -u | while IFS= read -r rel; do
 			grep -Fxq "$rel" "$tmp/listed" && continue
 			printf '%s\n' "$rel"
 		done
