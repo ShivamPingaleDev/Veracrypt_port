@@ -185,6 +185,8 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("import FROMDEV.TXT", vol)
         self.assertIn("wipe free space", vol)
         self.assertIn("restore volume header", vol)
+        self.assertIn("restore from embedded backup header", vol)
+        self.assertIn("HMAC-SHA-256", vol)
 
     def test_lifecycle_host_harness_create_store_close_reopen(self) -> None:
         life = read("ports/shared/test_lifecycle_main.cpp")
@@ -221,6 +223,13 @@ class BlackBoxTests(unittest.TestCase):
         script = read("ports/android/run_device_sim.sh")
         self.assertIn("createStoreEncryptDecryptReopen", sim)
         self.assertIn("hiddenVolumeWriteProtection", sim)
+        self.assertIn("phoneSessionFlows", sim)
+        self.assertIn("BASKET.sha256", sim)
+        self.assertIn("restoreHeaders", sim)
+        self.assertIn("HMAC-SHA-256", sim)
+        self.assertIn("corruptPrimaryHeader", sim)
+        self.assertIn("FactorCodec.randomBiometricKey", sim)
+        self.assertIn("SensitiveClipboard.copyOnce", sim)
         self.assertIn("NativeBridge.createVolume", sim)
         self.assertIn("NativeBridge.wrapFile", sim)
         self.assertIn("NativeBridge.unwrapFile", sim)
@@ -237,6 +246,8 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("Stay offline. F-Droid: no network.", ui)
         self.assertIn("Decrypt wrap", ui)
         self.assertIn("tab_create", ui)
+        self.assertIn("generateCopyBackgroundPasteContinue", ui)
+        self.assertIn("copy_once", ui)
         self.assertIn("Check for updates", ui)
         self.assertIn("Working…", ui)
         self.assertIn("BuildConfig.ENABLE_SKINS", ui)
@@ -265,6 +276,7 @@ class BlackBoxTests(unittest.TestCase):
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("jni_live_handle", jni)
         self.assertIn("vc_runtime_start", jni)
+        self.assertIn("DetectArmFeatures", read("ports/shared/vc_mobile.cpp"))
         self.assertIn("startRuntime", jni)
         native = read(
             "ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt"

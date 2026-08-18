@@ -64,7 +64,7 @@ if(_vc_arm64)
 	set_source_files_properties(
 		${VC_SRC}/Crypto/Aes_hw_armv8.c
 		${VC_SRC}/Crypto/sha256_armv8.c
-		PROPERTIES COMPILE_FLAGS "-march=armv8-a+crypto -mbranch-protection=standard"
+		PROPERTIES COMPILE_FLAGS "-O3 -march=armv8-a+crypto -mbranch-protection=standard"
 	)
 elseif(_vc_x64 OR _vc_x86)
 	# ref.c calls fill_segment_avx2 whenever CRYPTOPP_BOOL_X86/X64 is set,

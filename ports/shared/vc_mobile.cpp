@@ -24,6 +24,7 @@
 #include "Platform/StringConverter.h"
 #include "Platform/Mutex.h"
 #include "Crypto/Sha2.h"
+#include "Crypto/cpu.h"
 #include "Common/Volumes.h"
 
 #include <chrono>
@@ -52,6 +53,14 @@ struct VcVolume
 
 void vc_runtime_start (void)
 {
+	/* Probe AES/SHA crypto extensions before any volume work. CipherAES
+	 * caches HasAESNI() on first use; without this, arm64 stays on table AES
+	 * even though Aes_hw_armv8.c is linked. HMAC-SHA-512 is unchanged. */
+#if CRYPTOPP_BOOL_ARMV8
+	DetectArmFeatures ();
+#elif defined (CRYPTOPP_CPUID_AVAILABLE)
+	DetectX86Features ();
+#endif
 	try
 	{
 		if (!EncryptionThreadPool::IsRunning ())

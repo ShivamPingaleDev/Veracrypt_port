@@ -255,9 +255,13 @@ struct ContentView: View {
             }
             .onChange(of: scenePhase) { phase in
                 if phase == .background && !holdingForPicker && !busy {
-                    lockSession()
+                    dismountOnLeave()
                 }
             }
+            .onChange(of: basketURLs) { _ in syncCreateSizeFromBasket() }
+            .onChange(of: createHidden) { _ in syncCreateSizeFromBasket() }
+            .onChange(of: createHiddenSizeAmount) { _ in syncCreateSizeFromBasket() }
+            .onChange(of: createHiddenSizeUnit) { _ in syncCreateSizeFromBasket() }
             .onOpenURL { url in
                 _ = url.startAccessingSecurityScopedResource()
                 incomingFile = url
@@ -632,13 +636,15 @@ struct ContentView: View {
                 Text("The name is only a disguise — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                HStack {
+                HStack(alignment: .center, spacing: 8) {
                     TextField("Size", text: $createSizeAmount)
-                        .keyboardType(.decimalPad)
+                        .keyboardType(.numberPad)
                     Picker("Unit", selection: $createSizeUnit) {
                         ForEach(SizeUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                     .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 72)
                 }
                 Text("2 MiB–64 GiB.")
                     .font(.caption)
@@ -724,13 +730,15 @@ struct ContentView: View {
                     }
                     TextField("Nested PIM (0 = default)", text: $createHiddenPim)
                         .keyboardType(.numberPad)
-                    HStack {
+                    HStack(alignment: .center, spacing: 8) {
                         TextField("Nested size", text: $createHiddenSizeAmount)
                             .keyboardType(.numberPad)
                         Picker("Unit", selection: $createHiddenSizeUnit) {
                             ForEach(SizeUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                         }
                         .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(width: 72)
                     }
                     if hiddenKeyfileURLs.isEmpty {
                         Text("No nested keyfiles.")
@@ -1403,6 +1411,23 @@ struct ContentView: View {
         selectedNames = []
     }
 
+    /// Home / app switcher: close a mounted volume. Keep the Create form
+    /// (generated password, basket, phone-unlock keyfile) so Copy once can
+    /// be pasted into Notes and the wizard can continue. Dismount / Panic
+    /// still call lockSession().
+    private func dismountOnLeave() {
+        let wasOpen = volumeHandle != nil
+        closeVolume()
+        password = ""
+        hiddenProtectPassword = ""
+        pim = "0"
+        hiddenProtectPim = "0"
+        lastPlain = []
+        if wasOpen && !status.hasPrefix("Panic") {
+            status = "Dismounted. Create form kept. Dismount or Panic wipe also clears the generated password."
+        }
+    }
+
     private func isTemporaryContainer(_ url: URL) -> Bool {
         let path = url.path
         return path.contains("/tmp/") ||
@@ -1419,6 +1444,20 @@ struct ContentView: View {
         let digits = amount.filter(\.isNumber)
         guard let n = UInt64(digits), n > 0 else { return nil }
         return SizeUnit.toBytes(amount: n, unit: unit)
+    }
+
+    private func syncCreateSizeFromBasket() {
+        guard !basketURLs.isEmpty else { return }
+        let hidden: UInt64
+        if createHidden, let n = parseSizeBytes(amount: createHiddenSizeAmount, unit: createHiddenSizeUnit) {
+            hidden = n
+        } else {
+            hidden = 0
+        }
+        let need = volumeBytesForBasket(asked: SizeUnit.minVolume, urls: basketURLs, hiddenBytes: hidden)
+        let (n, unit) = SizeUnit.fit(need)
+        createSizeAmount = String(n)
+        createSizeUnit = unit
     }
 
     private func volumeBytesForBasket(asked: UInt64, urls: [URL], hiddenBytes: UInt64) -> UInt64 {
@@ -1569,7 +1608,6 @@ struct ContentView: View {
         useBiometric = false
         rememberBiometrics = false
         wipeSessionFiles()
-        SensitivePaste.forget()
         endWork()
         if !status.hasPrefix("Panic") {
             status = "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays. Panic wipe also destroys Keychain leftovers."
@@ -1930,6 +1968,12 @@ struct ContentView: View {
             status = "Removing all keyfiles needs a text password, or the volume cannot be opened."
             return
         }
+        let nextPim: Int32 = {
+            if newPassword.isEmpty && (newPim.isEmpty || newPim == "0") {
+                return Int32(pim) ?? 0
+            }
+            return Int32(newPim) ?? 0
+        }()
         closeVolume()
         beginWork("Rewriting volume header…")
         DispatchQueue.global(qos: .userInitiated).async {
@@ -1940,7 +1984,7 @@ struct ContentView: View {
                 keyfiles: unlock.keyfiles,
                 backup: useBackupHeader,
                 newPassword: newPassword,
-                newPim: Int32(newPim) ?? 0,
+                newPim: nextPim,
                 newKdf: newKdf,
                 newKeyfiles: keepKeyfiles ? unlock.keyfiles : []
             )

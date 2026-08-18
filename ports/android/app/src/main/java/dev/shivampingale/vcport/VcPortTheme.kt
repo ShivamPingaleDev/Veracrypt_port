@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -243,7 +245,7 @@ private fun schemeFor(skin: VcSkin) = when (skin) {
 
 fun skinHeaderBrush(skin: VcSkin): Brush = when (skin) {
     VcSkin.Desktop -> Brush.verticalGradient(
-        listOf(Color(0xFF3B9AE8), VcDesktopBlue, Color(0xFF0756A4))
+        listOf(Color(0xFF6FA8D6), Color(0xFF3D7EB8), Color(0xFF2E6A9E))
     )
     VcSkin.Cyberpunk -> Brush.linearGradient(listOf(CpYellow, CpMagenta, CpCyan))
     VcSkin.Matrix -> Brush.linearGradient(listOf(Color(0xFF003B14), MxGreen, Color(0xFF001A08)))
@@ -261,11 +263,11 @@ private fun typeFor(skin: VcSkin): Typography {
     }
     val ink = schemeFor(skin).onBackground
     val tracking = when (skin) {
-        VcSkin.Cyberpunk -> 1.6.sp
-        VcSkin.Evangelion -> 1.4.sp
-        VcSkin.Matrix -> 0.6.sp
-        VcSkin.Desktop -> 0.15.sp
-        else -> 0.2.sp
+        VcSkin.Cyberpunk -> 0.45.sp
+        VcSkin.Evangelion -> 0.4.sp
+        VcSkin.Matrix -> 0.25.sp
+        VcSkin.Desktop -> 0.08.sp
+        else -> 0.15.sp
     }
     val bodySize = if (skin == VcSkin.Matrix) 18.sp else 16.sp
     return Typography(
@@ -460,8 +462,8 @@ private fun DrawScope.drawSkinFrame(skin: VcSkin) {
     val h = size.height
     val c = 14f
     fun corner(x: Float, y: Float, sx: Float, sy: Float, color: Color) {
-        drawLine(color, Offset(x, y), Offset(x + c * sx, y), 3.2f)
-        drawLine(color, Offset(x, y), Offset(x, y + c * sy), 3.2f)
+        drawLine(color, Offset(x, y), Offset(x + c * sx, y), 1.6f)
+        drawLine(color, Offset(x, y), Offset(x, y + c * sy), 1.6f)
     }
     when (skin) {
         VcSkin.Evangelion -> {
@@ -525,15 +527,15 @@ private fun SkinCardCap() {
         VcSkin.Desktop -> Box(
             Modifier
                 .fillMaxWidth()
-                .height(3.dp)
-                .background(skinHeaderBrush(VcSkin.Desktop))
+                .height(2.dp)
+                .background(VcDesktopBlue.copy(alpha = 0.55f))
         )
         VcSkin.Evangelion -> Column {
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
-                    .background(EvaOrange)
+                    .height(2.dp)
+                    .background(EvaOrange.copy(alpha = 0.55f))
             )
             Row(
                 Modifier
@@ -551,13 +553,13 @@ private fun SkinCardCap() {
                 }
             }
         }
-        VcSkin.Cyberpunk -> Row(Modifier.fillMaxWidth().height(8.dp)) {
+        VcSkin.Cyberpunk -> Row(Modifier.fillMaxWidth().height(3.dp)) {
             repeat(18) { i ->
                 Box(
                     Modifier
                         .weight(1f)
-                        .height(8.dp)
-                        .background(if (i % 2 == 0) CpYellow else Color(0xFF0A0812))
+                        .height(3.dp)
+                        .background(if (i % 2 == 0) CpYellow.copy(alpha = 0.55f) else Color(0xFF0A0812))
                 )
             }
         }
@@ -624,6 +626,24 @@ private fun SkinChrome(skin: VcSkin) {
             drawRect(skinBackdropBrush(skin, t, size))
             val w = size.width
             val h = size.height
+            // Signal keeps its own voice. Desktop + the other Looks stay quieter.
+            val veiled = skin != VcSkin.Signal
+            if (veiled) {
+                val veil = when (skin) {
+                    VcSkin.Desktop -> 120
+                    VcSkin.Matrix -> 100
+                    VcSkin.Cyberpunk -> 92
+                    VcSkin.Evangelion -> 72
+                    else -> 255
+                }
+                drawContext.canvas.nativeCanvas.saveLayer(
+                    0f,
+                    0f,
+                    w,
+                    h,
+                    android.graphics.Paint().apply { alpha = veil }
+                )
+            }
             when (skin) {
                 VcSkin.Cyberpunk -> {
                     val scanY = (t * (h + 80f)) % (h + 80f) - 40f
@@ -1003,6 +1023,9 @@ private fun SkinChrome(skin: VcSkin) {
                     )
                 }
             }
+            if (veiled) {
+                drawContext.canvas.nativeCanvas.restore()
+            }
     }
 }
 
@@ -1178,9 +1201,9 @@ fun WorkOverlay(
         else -> RoundedCornerShape(2.dp)
     }
     val panelBorder = when (skin) {
-        VcSkin.Cyberpunk -> BorderStroke(1.5.dp, CpTerm)
-        VcSkin.Evangelion -> BorderStroke(2.dp, EvaOrange)
-        VcSkin.Matrix -> BorderStroke(1.dp, MxGreen)
+            VcSkin.Cyberpunk -> BorderStroke(1.dp, CpTerm.copy(alpha = 0.45f))
+            VcSkin.Evangelion -> BorderStroke(1.dp, EvaOrange.copy(alpha = 0.45f))
+            VcSkin.Matrix -> BorderStroke(1.dp, MxGreen.copy(alpha = 0.4f))
         VcSkin.Signal -> BorderStroke(0.dp, Color.Transparent)
         VcSkin.Desktop -> BorderStroke(1.dp, colors.outline.copy(alpha = 0.55f))
     }
@@ -1399,10 +1422,10 @@ fun VcCard(
         color = colors.surface,
         shadowElevation = if (skin == VcSkin.Desktop || skin == VcSkin.Signal) 2.dp else 0.dp,
         border = when (skin) {
-            VcSkin.Desktop -> BorderStroke(1.dp, colors.outline.copy(alpha = 0.55f))
-            VcSkin.Evangelion -> BorderStroke(1.5.dp, EvaOrange)
-            VcSkin.Cyberpunk -> BorderStroke(1.2.dp, CpCyan)
-            VcSkin.Matrix -> BorderStroke(1.dp, MxGreen)
+            VcSkin.Desktop -> BorderStroke(1.dp, colors.outline.copy(alpha = 0.35f))
+            VcSkin.Evangelion -> BorderStroke(1.dp, EvaOrange.copy(alpha = 0.4f))
+            VcSkin.Cyberpunk -> BorderStroke(1.dp, CpCyan.copy(alpha = 0.35f))
+            VcSkin.Matrix -> BorderStroke(1.dp, MxGreen.copy(alpha = 0.35f))
             VcSkin.Signal -> BorderStroke(0.dp, Color.Transparent)
         }
     ) {
@@ -1597,6 +1620,42 @@ fun OptionDropdown(
 }
 
 @Composable
+fun SizeUnitPicker(
+    selected: SizeUnit,
+    onSelect: (SizeUnit) -> Unit,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(
+        modifier = modifier
+            .width(84.dp)
+            .height(52.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        OutlinedButton(
+            onClick = { if (enabled) expanded = true },
+            enabled = enabled,
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Text(selected.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            SizeUnit.entries.forEach { unit ->
+                DropdownMenuItem(
+                    text = { Text(unit.label) },
+                    onClick = {
+                        onSelect(unit)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun InFrontShareBar(
     label: String,
     canShareEncrypted: Boolean,
@@ -1611,9 +1670,9 @@ fun InFrontShareBar(
         color = colors.surface,
         shadowElevation = if (skin == VcSkin.Desktop || skin == VcSkin.Signal) 8.dp else 0.dp,
         border = when (skin) {
-            VcSkin.Evangelion -> BorderStroke(1.5.dp, EvaOrange)
-            VcSkin.Cyberpunk -> BorderStroke(1.dp, CpTerm)
-            VcSkin.Matrix -> BorderStroke(1.dp, MxGreen)
+            VcSkin.Evangelion -> BorderStroke(1.dp, EvaOrange.copy(alpha = 0.4f))
+            VcSkin.Cyberpunk -> BorderStroke(1.dp, CpTerm.copy(alpha = 0.4f))
+            VcSkin.Matrix -> BorderStroke(1.dp, MxGreen.copy(alpha = 0.35f))
             else -> BorderStroke(0.dp, Color.Transparent)
         },
         modifier = Modifier.drawBehind { drawSkinFrame(skin) }

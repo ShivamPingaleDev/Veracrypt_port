@@ -368,6 +368,9 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn('android:allowBackup="false"', manifest)
         self.assertIn('android:usesCleartextTraffic="false"', manifest)
         self.assertIn('android:excludeFromRecents="true"', manifest)
+        self.assertNotIn("finishAndRemoveTask", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
+        self.assertIn("fun fit(", read("ports/android/app/src/main/java/dev/shivampingale/vcport/SizeUnits.kt"))
+        self.assertIn("SizeUnitPicker", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
         self.assertIn('android:launchMode="singleTask"', manifest)
         self.assertIn('android:exported="false"', manifest)
         self.assertIn("${applicationId}.share", manifest)
@@ -655,6 +658,14 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("Copy once", main)
         self.assertIn("generatePassword(64)", main)
         self.assertIn("64-character password", main)
+        lock = main.split("private fun lockSession()")[1].split("private fun panicWipe()")[0]
+        self.assertNotIn("SensitiveClipboard.forget", lock)
+        onstop = main.split("override fun onStop()")[1].split("private fun wipeBytes")[0]
+        self.assertIn("dismountOnLeave()", onstop)
+        self.assertNotIn("lockSession()", onstop)
+        self.assertIn("Create form kept", main)
+        self.assertIn('testTag("copy_once")', main)
+        self.assertIn('testTag("create_password")', main)
 
     def test_wrap_panic_share_stay_offline_on_ios(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")
@@ -665,6 +676,10 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("compelled", view.lower())
         self.assertIn("Copy once", view)
         self.assertIn("64-character password", view)
+        lock = view.split("private func lockSession()")[1].split("private func panicWipe()")[0]
+        self.assertNotIn("SensitivePaste.forget()", lock)
+        self.assertIn("dismountOnLeave()", view)
+        self.assertIn("Create form kept", view)
         self.assertIn("generatePassword(length: Int32 = 64)", read("ports/ios/VCPort/VcMobileBridge.swift"))
         self.assertIn("VC_ENTROPY_NEED = 8192", read("ports/shared/vc_mobile.cpp"))
 
@@ -685,6 +700,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
             self.assertIn("Volume properties", blob)
             self.assertIn("Set header key derivation algorithm", blob)
             self.assertIn("Remove all keyfiles from volume", blob)
+        self.assertIn("nextPim", main)
+        self.assertIn("nextPim", view)
         self.assertIn("cannot encrypt the phone", main.lower())
         self.assertIn("cannot encrypt the iphone", view.lower())
         self.assertIn("changeHeader", native)
@@ -796,7 +813,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("opt_avx2.c", cmake)
         self.assertIn("opt_sse2.c", cmake)
         self.assertIn("Aes_hw_armv8.c", cmake)
-        self.assertIn("-march=armv8-a+crypto", cmake)
+        self.assertIn("-O3 -march=armv8-a+crypto", cmake)
         self.assertIn("-mbranch-protection=standard", cmake)
         lists = read("ports/shared/CMakeLists.txt")
         self.assertIn("CRYPTOPP_DISABLE_AESNI", lists)
@@ -810,6 +827,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("armv8-a+crypto", lists)
         self.assertIn("mfpu=neon", lists)
         self.assertIn("-ftree-vectorize", lists)
+        self.assertIn("DetectArmFeatures", read("ports/shared/vc_mobile.cpp"))
+        self.assertIn("Aescrypt.c", lists)
         wrap = read("ports/shared/run_wrap_test.sh")
         self.assertIn("vc_progress.cpp", wrap)
         self.assertIn("arm64|aarch64", wrap)

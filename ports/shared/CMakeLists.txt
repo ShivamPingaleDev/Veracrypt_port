@@ -98,17 +98,38 @@ if(ANDROID AND ANDROID_ABI STREQUAL "arm64-v8a")
 	if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
 		target_compile_options(vc_mobile PRIVATE -O2)
 	endif()
+	set_source_files_properties(
+		${VC_SRC}/Crypto/Aescrypt.c
+		${VC_SRC}/Crypto/Aeskey.c
+		${VC_SRC}/Crypto/Aestab.c
+		PROPERTIES COMPILE_FLAGS "-O3 -ftree-vectorize")
 elseif(ANDROID AND ANDROID_ABI STREQUAL "armeabi-v7a")
 	target_compile_options(vc_mobile PRIVATE -ftree-vectorize -mfpu=neon)
 	if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Debug")
 		target_compile_options(vc_mobile PRIVATE -O2)
 	endif()
+	# No AES crypto-extension on ARMv7. Table AES + NEON vectorize/unroll.
+	set_source_files_properties(
+		${VC_SRC}/Crypto/Aescrypt.c
+		${VC_SRC}/Crypto/Aeskey.c
+		${VC_SRC}/Crypto/Aestab.c
+		PROPERTIES COMPILE_FLAGS "-O3 -mfpu=neon -ftree-vectorize -funroll-loops")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
 		target_compile_options(vc_mobile PRIVATE -O2 -ftree-vectorize -march=armv8-a+crypto)
+		set_source_files_properties(
+			${VC_SRC}/Crypto/Aescrypt.c
+			${VC_SRC}/Crypto/Aeskey.c
+			${VC_SRC}/Crypto/Aestab.c
+			PROPERTIES COMPILE_FLAGS "-O3 -ftree-vectorize")
 	endif()
 elseif(APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
 	target_compile_options(vc_mobile PRIVATE -ftree-vectorize -march=armv8-a+crypto)
+	set_source_files_properties(
+		${VC_SRC}/Crypto/Aescrypt.c
+		${VC_SRC}/Crypto/Aeskey.c
+		${VC_SRC}/Crypto/Aestab.c
+		PROPERTIES COMPILE_FLAGS "-O3 -ftree-vectorize")
 endif()
 
 if(NOT APPLE)

@@ -24,7 +24,7 @@ python3 ports/tests/test_quality.py
 | **Security / tamper** | Ciphertext and leftovers | Wrap HMAC; FLAG_SECURE; no F-Droid INTERNET |
 | **Negative / boundary** | Bad input | Generator length 8/65; import FAT 4 GiB-1; keyfile 1 MiB |
 | **Compatibility** | Same volume on a computer | AES(Twofish(Serpent)) / HMAC-SHA-512; FAT or exFAT |
-| **Recovery** | Header tools | Backup/restore in the volume fixture |
+| **Recovery** | Header tools | Backup/restore, corrupt primary then restore from `.bak` and embedded backup in the volume fixture |
 | **Acceptance** | Ship checklist | Phase 10 public repo + version tag |
 | **Static** | Read source without executing crypto | File greps |
 | **Exploratory / device** | Human on a phone | Listed below — not faked |
@@ -76,9 +76,15 @@ never calls `UpdateChecker.check()`. `DeviceSimulationTest` is a person-session
 on NativeBridge: wrap/unwrap (wrong password and a flipped byte fail), create,
 open, FAT mkdir/import/list/export/copy-to-folder/rename/delete, wipe free
 space, dismount/reopen, read-only, backup header, change password, PIM 0
-rejected, hidden-volume write protection, benchmark. Compose UI coverage is
+rejected, hidden-volume write protection, benchmark. A second method
+(`phoneSessionFlows`) creates several volumes (FAT + exFAT), packs a file
+basket with `BASKET.sha256`, corrupts the primary header and restores from
+an external `.bak` and from the embedded backup, uses a 64-byte phone-unlock
+keyfile, changes the header KDF, adds then removes all keyfiles, changes
+the password, and checks Copy once. Compose UI coverage is
 `MainActivityUiTest` (FLAG_SECURE, tabs Volume/Create/Tools, Panic wipe
-visible, Stay offline, Decrypt wrap leftover, Generate strong password;
+visible, Stay offline, Decrypt wrap leftover, Generate strong password,
+Copy once then Home then resume so the Create form continues;
 does not tap Panic wipe or Check for updates; writes GitHub shots under
 app files for `run_device_sim.sh` to pull into `ports/docs/screenshots/`).
 Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`, no INTERNET)
@@ -86,10 +92,10 @@ and a `looksgithub` APK (`connectedLooksgithubDebugAndroidTest`, tap-to-check; t
 must not tap Check for updates) with the same `applicationId` as production;
 the F-Droid/GitHub packages stay Desktop-only.
 
-ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-march=armv8-a+crypto`.
-Debug NDK builds still use `-O2` on that slice so AES/SHA detection and
-Twofish/Serpent/SHA-512 are not stuck at `-O0`. armeabi-v7a uses NEON.
-`vc_runtime_start()` warms VeraCrypt's EncryptionThreadPool at JNI load (and
+ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-O3 -march=armv8-a+crypto`.
+`vc_runtime_start()` calls `DetectArmFeatures()` (getauxval HWCAP_AES on Android, always-on on Apple arm64) before any volume work so XTS uses the AES crypto extension instead of table AES. Debug NDK builds still use `-O2` on that slice so AES/SHA detection and
+Twofish/Serpent/SHA-512 are not stuck at `-O0`. armeabi-v7a has no AES crypto-extension; table AES is built `-O3 -mfpu=neon`.
+`vc_runtime_start()` also warms VeraCrypt's EncryptionThreadPool at JNI load (and
 on iOS before open/create) so XTS uses every core. HMAC-SHA-512 PBKDF2 stays
 sequential per password.
 

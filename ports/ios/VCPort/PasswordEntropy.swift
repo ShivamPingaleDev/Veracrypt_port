@@ -74,4 +74,20 @@ enum SizeUnit: String, CaseIterable, Identifiable {
         let k = (bytes + 1023) / 1024
         return "\(k) KiB"
     }
+
+    /// Whole number + unit for the Create size field. Rounds up to fit.
+    static func fit(_ bytes: UInt64) -> (UInt64, SizeUnit) {
+        let n = min(max(bytes, minVolume), maxVolume)
+        if n >= gib.factor && n % gib.factor == 0 {
+            return (n / gib.factor, .gib)
+        }
+        if n >= mib.factor {
+            let m = (n + mib.factor - 1) / mib.factor
+            if m >= 1024 && m % 1024 == 0 {
+                return (m / 1024, .gib)
+            }
+            return (m, .mib)
+        }
+        return ((n + 1023) / 1024, .kib)
+    }
 }

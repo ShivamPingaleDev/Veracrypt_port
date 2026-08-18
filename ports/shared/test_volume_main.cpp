@@ -16,6 +16,7 @@
 #include "Volume/VolumePassword.h"
 #include "Platform/File.h"
 
+#include <fcntl.h>
 #include <cstdio>
 #include <cstring>
 #include <strings.h>
@@ -450,6 +451,54 @@ int main ()
 	expect (vc_backup_headers (tools, bak, kPassword, strlen (kPassword), kPim, nullptr, 0) == VC_OK,
 		"backup volume header");
 
+	{
+		int cfd = open (tools, O_RDWR);
+		expect (cfd >= 0, "open volume to corrupt primary header");
+		if (cfd >= 0)
+		{
+			unsigned char junk[64 * 1024];
+			memset (junk, 0xFF, sizeof (junk));
+			expect (write (cfd, junk, sizeof (junk)) == (ssize_t) sizeof (junk),
+				"overwrite primary header");
+			close (cfd);
+		}
+		err = 0;
+		VcOpenOptions dead = opt;
+		dead.path = tools;
+		expect (vc_open (&dead, &err) == nullptr, "primary header corruption rejects open");
+		dead.use_backup_header = 1;
+		err = 0;
+		VcVolume *fromBak = vc_open (&dead, &err);
+		expect (fromBak != nullptr && err == VC_OK, "open with backup header after corruption");
+		if (fromBak)
+			vc_close (fromBak);
+		expect (vc_restore_headers (tools, bak, kPassword, strlen (kPassword), kPim, nullptr, 0) == VC_OK,
+			"restore after primary corruption");
+		err = 0;
+		dead.use_backup_header = 0;
+		VcVolume *healed = vc_open (&dead, &err);
+		expect (healed != nullptr && err == VC_OK, "open after restoring .bak");
+		if (healed)
+			vc_close (healed);
+		cfd = open (tools, O_RDWR);
+		expect (cfd >= 0, "reopen volume to corrupt primary header");
+		if (cfd >= 0)
+		{
+			unsigned char junk[64 * 1024];
+			memset (junk, 0xFF, sizeof (junk));
+			expect (write (cfd, junk, sizeof (junk)) == (ssize_t) sizeof (junk),
+				"overwrite primary header again");
+			close (cfd);
+		}
+		expect (vc_restore_headers (tools, "", kPassword, strlen (kPassword), kPim, nullptr, 0) == VC_OK,
+			"restore from embedded backup header");
+		err = 0;
+		healed = vc_open (&dead, &err);
+		expect (healed != nullptr && err == VC_OK, "open after embedded restore");
+		if (healed)
+			vc_close (healed);
+	}
+
 	static const char *kNew = "vcport-test-volume-2";
 	VcChangeHeaderOptions ch = {};
 	ch.path = tools;
@@ -499,6 +548,62 @@ int main ()
 	expect (vc_generate_keyfile (kf, 128) == VC_OK, "keyfile generator");
 	struct stat st;
 	expect (stat (kf, &st) == 0 && st.st_size == 128, "generated keyfile is 128 bytes");
+
+	{
+		VcChangeHeaderOptions kdfch = {};
+		kdfch.path = tools;
+		kdfch.password = kPassword;
+		kdfch.password_len = strlen (kPassword);
+		kdfch.pim = kPim;
+		kdfch.new_pim = kPim;
+		kdfch.new_kdf = "HMAC-SHA-256";
+		expect (vc_change_header (&kdfch) == VC_OK, "set header key derivation algorithm");
+		err = 0;
+		VcOpenOptions kdfOpt = opt;
+		kdfOpt.path = tools;
+		VcVolume *kdfVol = vc_open (&kdfOpt, &err);
+		expect (kdfVol != nullptr && err == VC_OK, "open after KDF change");
+		if (kdfVol)
+		{
+			char info[256];
+			expect (vc_volume_info (kdfVol, info, sizeof (info)) == VC_OK, "volume properties after KDF");
+			expect (strstr (info, "HMAC-SHA-256") != nullptr, "info names HMAC-SHA-256");
+			vc_close (kdfVol);
+		}
+		const char *added[] = { kf };
+		VcChangeHeaderOptions addkf = {};
+		addkf.path = tools;
+		addkf.password = kPassword;
+		addkf.password_len = strlen (kPassword);
+		addkf.pim = kPim;
+		addkf.new_pim = kPim;
+		addkf.new_keyfiles = added;
+		addkf.new_keyfile_count = 1;
+		expect (vc_change_header (&addkf) == VC_OK, "add keyfile to volume");
+		err = 0;
+		expect (vc_open (&kdfOpt, &err) == nullptr, "keyfile volume rejects password-only open");
+		kdfOpt.keyfiles = added;
+		kdfOpt.keyfile_count = 1;
+		err = 0;
+		VcVolume *withKf = vc_open (&kdfOpt, &err);
+		expect (withKf != nullptr && err == VC_OK, "open with added keyfile");
+		if (withKf)
+			vc_close (withKf);
+		VcChangeHeaderOptions dropkf = addkf;
+		dropkf.keyfiles = added;
+		dropkf.keyfile_count = 1;
+		dropkf.new_keyfiles = nullptr;
+		dropkf.new_keyfile_count = 0;
+		expect (vc_change_header (&dropkf) == VC_OK, "remove all keyfiles from volume");
+		kdfOpt.keyfiles = nullptr;
+		kdfOpt.keyfile_count = 0;
+		err = 0;
+		VcVolume *noKf = vc_open (&kdfOpt, &err);
+		expect (noKf != nullptr && err == VC_OK, "open after removing all keyfiles");
+		if (noKf)
+			vc_close (noKf);
+	}
+
 	expect (vc_test_vectors () == VC_OK, "test vectors");
 	unlink (tools);
 	unlink (bak);

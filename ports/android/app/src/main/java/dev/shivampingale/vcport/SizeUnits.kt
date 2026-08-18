@@ -35,4 +35,22 @@ object SizeUnits {
         val k = (bytes + 1023) / 1024
         return "$k KiB"
     }
+
+    /** Whole number + unit for the Create size field. Rounds up to fit. */
+    fun fit(bytes: Long): Pair<Long, SizeUnit> {
+        val n = bytes.coerceIn(MIN_VOLUME, MAX_VOLUME)
+        val gib = SizeUnit.GiB.factor
+        val mib = SizeUnit.MiB.factor
+        if (n >= gib && n % gib == 0L) {
+            return (n / gib) to SizeUnit.GiB
+        }
+        if (n >= mib) {
+            val m = (n + mib - 1) / mib
+            if (m >= 1024L && m % 1024L == 0L) {
+                return (m / 1024L) to SizeUnit.GiB
+            }
+            return m to SizeUnit.MiB
+        }
+        return ((n + 1023) / 1024) to SizeUnit.KiB
+    }
 }

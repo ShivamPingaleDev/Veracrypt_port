@@ -185,6 +185,18 @@ class MainActivity : AppCompatActivity() {
                 var createHiddenPassword by createHiddenPasswordState
                 var createHiddenPim by createHiddenPimState
                 var createFileName by remember { mutableStateOf("volume.hc") }
+                LaunchedEffect(basketUris, createHidden, createHiddenSizeAmount, createHiddenSizeUnit) {
+                    if (basketUris.isEmpty()) return@LaunchedEffect
+                    val hidden = if (createHidden) {
+                        SizeUnits.toBytes(createHiddenSizeAmount.toLongOrNull() ?: 0L, createHiddenSizeUnit)
+                    } else {
+                        0L
+                    }
+                    val need = volumeBytesForBasket(SizeUnits.MIN_VOLUME, basketUris, hidden)
+                    val (n, unit) = SizeUnits.fit(need)
+                    createSizeAmount = n.toString()
+                    createSizeUnit = unit
+                }
                 var entropyPercent by remember { mutableIntStateOf(0) }
                 var newPassword by newPasswordState
                 var newPim by newPimState
@@ -831,23 +843,23 @@ class MainActivity : AppCompatActivity() {
                                                 singleLine = true
                                             )
                                             VcHint("The name is only a disguise — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora.")
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
                                                 OutlinedTextField(
                                                     createSizeAmount,
-                                                    { createSizeAmount = it.filter { ch -> ch.isDigit() }.take(7) },
+                                                    { createSizeAmount = it.filter { ch -> ch.isDigit() }.take(6) },
                                                     label = { Text("Size") },
                                                     modifier = Modifier.weight(1f),
                                                     enabled = !busy,
                                                     singleLine = true,
                                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                                 )
-                                                OptionDropdown(
-                                                    "Unit",
-                                                    SizeUnit.labels,
-                                                    createSizeUnit.label,
-                                                    { createSizeUnit = SizeUnit.fromLabel(it) },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.weight(0.85f)
+                                                SizeUnitPicker(
+                                                    createSizeUnit,
+                                                    { createSizeUnit = it },
+                                                    enabled = !busy
                                                 )
                                             }
                                             VcHint("2 MiB–64 GiB.")
@@ -855,6 +867,7 @@ class MainActivity : AppCompatActivity() {
                                                 createPassword,
                                                 { createPassword = it },
                                                 "Volume password (never stored)",
+                                                modifier = Modifier.testTag("create_password"),
                                                 enabled = !busy
                                             )
                                             Text(PasswordEntropy.label(createPassword), style = MaterialTheme.typography.bodySmall)
@@ -886,7 +899,7 @@ class MainActivity : AppCompatActivity() {
                                                             status = "Copied once. Clipboard clears in 30 seconds. No history is kept."
                                                         }
                                                     },
-                                                    modifier = Modifier.weight(1f)
+                                                    modifier = Modifier.weight(1f).testTag("copy_once")
                                                 ) { Text("Copy once") }
                                                 OutlinedButton(
                                                     onClick = {
@@ -963,23 +976,23 @@ class MainActivity : AppCompatActivity() {
                                                     singleLine = true,
                                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                                 )
-                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
                                                     OutlinedTextField(
                                                         createHiddenSizeAmount,
-                                                        { createHiddenSizeAmount = it.filter { ch -> ch.isDigit() }.take(7) },
+                                                        { createHiddenSizeAmount = it.filter { ch -> ch.isDigit() }.take(6) },
                                                         label = { Text("Nested size") },
                                                         modifier = Modifier.weight(1f),
                                                         enabled = !busy,
                                                         singleLine = true,
                                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                                     )
-                                                    OptionDropdown(
-                                                        "Unit",
-                                                        SizeUnit.labels,
-                                                        createHiddenSizeUnit.label,
-                                                        { createHiddenSizeUnit = SizeUnit.fromLabel(it) },
-                                                        enabled = !busy,
-                                                        modifier = Modifier.weight(0.85f)
+                                                    SizeUnitPicker(
+                                                        createHiddenSizeUnit,
+                                                        { createHiddenSizeUnit = it },
+                                                        enabled = !busy
                                                     )
                                                 }
                                                 Text("Nested keyfiles", style = MaterialTheme.typography.titleSmall)
@@ -1866,10 +1879,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (suppressLock) {
+        if (suppressLock || busyState.value) {
             return
         }
-        lockSession()
+        dismountOnLeave()
     }
 
     private fun wipeBytes(value: ByteArray?) {
@@ -1883,6 +1896,27 @@ class MainActivity : AppCompatActivity() {
         entriesState.value = emptyList()
         dirPathState.value = ""
         listTruncatedState.value = false
+    }
+
+    /**
+     * Home / Recents: close a mounted volume so plaintext is not sitting in RAM.
+     * Keep the Create form (generated password, basket, phone-unlock keyfile)
+     * so Copy once can be pasted into Notes and the wizard can continue.
+     * Dismount and Panic wipe still call [lockSession].
+     */
+    private fun dismountOnLeave() {
+        val wasOpen = NativeBridge.isOpen(handleState.value)
+        closeMountedVolume()
+        lastPlainFilesState.value.forEach { Hardening.wipeFile(it) }
+        lastPlainFilesState.value = emptyList()
+        passwordState.value = ""
+        hiddenProtectPasswordState.value = ""
+        pimState.value = "0"
+        hiddenProtectPimState.value = "0"
+        if (wasOpen && !statusState.value.startsWith("Panic")) {
+            statusState.value =
+                "Dismounted. Create form kept. Dismount or Panic wipe also clears the generated password."
+        }
     }
 
     private fun wipeRamSecrets() {
@@ -1913,7 +1947,6 @@ class MainActivity : AppCompatActivity() {
         wipeRamSecrets()
         endWork()
         Hardening.wipeSessionFiles(this)
-        SensitiveClipboard.forget(this)
         if (!statusState.value.startsWith("Panic")) {
             statusState.value =
                 "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays. Panic wipe also destroys Keystore copies."
@@ -2408,6 +2441,11 @@ class MainActivity : AppCompatActivity() {
             onStatus("Removing all keyfiles needs a text password, or the volume cannot be opened.")
             return
         }
+        val nextPim = if (newPassword.isEmpty() && (newPimText.isBlank() || newPimText == "0")) {
+            pimText.toIntOrNull() ?: 0
+        } else {
+            newPimText.toIntOrNull() ?: 0
+        }
         beginWork("Rewriting volume header…")
         Thread {
             val temps = mutableListOf<File>()
@@ -2430,7 +2468,7 @@ class MainActivity : AppCompatActivity() {
                     temps.map { it.absolutePath }.toTypedArray(),
                     useBackupHeader,
                     newPassword,
-                    newPimText.toIntOrNull() ?: 0,
+                    nextPim,
                     newKdf,
                     newKeys
                 )

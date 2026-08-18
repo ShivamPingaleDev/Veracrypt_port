@@ -17,7 +17,7 @@ object SensitiveClipboard {
 
     fun copyOnce(context: Context, secret: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("", secret)
+        val clip = ClipData.newPlainText("VC Port", secret)
         val extras = PersistableBundle()
         extras.putBoolean("android.content.extra.IS_SENSITIVE", true)
         clip.description.extras = extras

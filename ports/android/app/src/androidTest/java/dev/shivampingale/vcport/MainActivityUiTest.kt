@@ -20,6 +20,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -76,8 +77,8 @@ class MainActivityUiTest {
         rule.onNodeWithText("compelled", substring = true).performScrollTo().assertIsDisplayed()
 
         rule.onNodeWithTag("tab_create").performClick()
-        rule.onNodeWithText("Generate strong password").assertIsEnabled()
-        rule.onAllNodesWithText("Generate strong password").onFirst().performClick()
+        rule.onNodeWithText("Generate strong password").performScrollTo().assertIsEnabled()
+        rule.onAllNodesWithText("Generate strong password").onFirst().performScrollTo().performClick()
         rule.waitForIdle()
         rule.onNodeWithText("It is not saved", substring = true).assertIsDisplayed()
 
@@ -142,6 +143,56 @@ class MainActivityUiTest {
         } else {
             rule.onNodeWithText("Check for updates").assertDoesNotExist()
         }
+    }
+
+    @Test
+    fun generateCopyBackgroundPasteContinue() {
+        if (BuildConfig.ENABLE_SKINS) return
+        rule.onNodeWithTag("tab_create").performClick()
+        rule.onNodeWithText("Generate strong password").performScrollTo().assertIsEnabled()
+        rule.onAllNodesWithText("Generate strong password").onFirst().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("It is not saved", substring = true).assertIsDisplayed()
+        rule.onNodeWithTag("copy_once").performScrollTo().performClick()
+        rule.waitForIdle()
+
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val clip = ctx.getSystemService(android.content.ClipboardManager::class.java)
+        val secret = clip.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()
+        assertNotNull("Copy once must put the generated password on the clipboard", secret)
+        assertEquals(64, secret!!.length)
+        val notes = File(ctx.filesDir, "notes-paste.txt")
+        notes.writeText(secret)
+        assertEquals("simulated Notes paste", secret, notes.readText())
+
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("input keyevent 3")
+            .close()
+        Thread.sleep(2500)
+
+        val intent = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName)
+        assertNotNull(intent)
+        intent!!.addFlags(
+            android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+        )
+        ctx.startActivity(intent)
+        rule.waitForIdle()
+        rule.onNodeWithTag("tab_create").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText(
+            "Dismounted. Passwords, keyfiles in memory",
+            substring = true
+        ).assertDoesNotExist()
+        rule.onNodeWithTag("copy_once").performScrollTo().performClick()
+        rule.waitForIdle()
+        val again = clip.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()
+        assertEquals(
+            "Create password must survive background so the wizard can continue",
+            secret,
+            again
+        )
+        assertEquals(secret, notes.readText())
     }
 
     private fun captureShot(name: String, folder: String = "vcport-github-shots") {

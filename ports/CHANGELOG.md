@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Looks skins except Signal are quieter. Desktop chrome is calmer. The app stays in the background; Recents does not keep a screenshot. Home dismounts an open volume but keeps the Create form (generated password, basket, phone-unlock keyfile) so you can paste Copy once into Notes and continue. Dismount and Panic wipe still clear those secrets. Copy once stays on the clipboard for 30 seconds; Panic wipe still clears it.
+- Create size follows the file basket. KiB / MiB / GiB is a compact menu.
+- Set header KDF / add or remove keyfiles keep the current PIM when New PIM is left at 0. Change password still treats 0 as VeraCrypt default.
+- ARM64 AES uses the CPU crypto extension (NEON `vaeseq`) after `DetectArmFeatures()`. ARMv7 stays table AES with NEON. HMAC-SHA-512 is unchanged.
 - Wrap tab removed; leftover `.vcpw` decrypt stays on Tools. Create leads with the file basket. Size is KiB / MiB / GiB (2 MiB–64 GiB). Nested volumes get password, PIM, keyfiles, and generate. Session SHA-256 of basket files; `BASKET.sha256` is written inside the volume.
 - Create volumes as FAT or exFAT. exFAT if a file is over 4 GiB. USB/OTG opens a container file on the stick, not the whole disk.
 - Unlock: text password is primary. Fingerprint / Face ID is an extra keyfile.
@@ -12,7 +16,7 @@
 - Looks APKs share `applicationId` with production: offline `assembleStyledRelease` (`VCPort-0.3.1-looks-preview.apk`, no INTERNET) and tap-to-check `assembleLooksgithubRelease` (`VCPort-0.3.1-looks-github-preview.apk`, same ≤20s HTTPS window as the Desktop GitHub flavor). Installing either replaces the other Desktop/Looks APK. Not F-Droid.
 - Wrap, PIM, keyfile, and container-name fixes: wrap copies then Save-as; Lock clears PIM; custom disguise names stay; any file can be a keyfile (first 1 MiB); container label is the Files name, not `/proc/self/fd`.
 - Wrap keeps the password while Files is open (the picker used to look like leaving the app, which wiped the secret).
-- Create / Choose container / keyfiles also keep the session while Files is open. The selected file is the one you picked or saved (name shown, not `/proc/self/fd` or a cache copy). Switching away still locks: passwords wiped, ciphertext stays.
+- Create / Choose container / keyfiles also keep the session while Files is open. The selected file is the one you picked or saved (name shown, not `/proc/self/fd` or a cache copy). Home dismounts an open volume; the Create form stays so you can paste Copy once into Notes and continue.
 - Create volume Basket: pick several files, then Create volume copies them into the new container. Volume size grows to fit (max 64 GiB). Originals stay on the phone.
 - Create/Open with phone unlock selected shows the system PIN / fingerprint / face prompt. Dismount wipes passwords, RAM keyfiles, and decrypted copies; remembered Keystore/Keychain factors stay until Panic wipe.
 - Phone UI: same skins and honest copy, less essay. Volume / Create / Tools first; About and desktop leftovers live under Tools. Mounted folders keep Copy/Move on two rows.
