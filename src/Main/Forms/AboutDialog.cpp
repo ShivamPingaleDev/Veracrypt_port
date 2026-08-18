@@ -12,7 +12,6 @@
 
 #include "System.h"
 #include "Volume/Version.h"
-#include "Main/PortVersion.h"
 #include "Main/Application.h"
 #include "Main/GraphicUserInterface.h"
 #include "Main/Resources.h"
@@ -32,7 +31,6 @@ namespace VeraCrypt
 #ifdef VC_MACOSX_FUSET
 		versionStr += L" (FUSE-T build)";
 #endif
-		versionStr += L"  |  VC Port " + StringConverter::ToWide (VC_PORT_VERSION);
 		VersionStaticText->SetLabel (Application::GetName() + L" " + versionStr);
 		CopyrightStaticText->SetLabel (TC_STR_RELEASED_BY);
 		WebsiteHyperlink->SetLabel (L"amcrypto.jp");
@@ -80,12 +78,6 @@ namespace VeraCrypt
 			L"Copyright \xA9 2026 AM Crypto. All rights reserved.\n\n"
 
 			L"This software uses wxWidgets library, which is copyright \xA9 1998-2011 Julian Smart, Robert Roebling et al.\n\n"
-
-			L"Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/\n\n"
-
-			L"Stay Offline is on by default. Tools menu: wrap/unwrap a single file, share ciphertext as-is, panic wipe. Touch ID can be compelled — prefer a long password and a keyfile not stored on this Mac. This is not unbreakable.\n\n"
-
-			L"VC Port contact: Shivam Mangesh Pingale <shivampingaledev@proton.me> / <shivampingaledev@gmail.com>\n\n"
 
 			L"An AM Crypto Release");
 	}

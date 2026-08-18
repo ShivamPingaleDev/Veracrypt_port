@@ -763,6 +763,22 @@ static void test_hidden_protect (void)
 	expect (vc_create_volume (&create) == VC_OK, "createVolume with nested volume");
 
 	int err = 0;
+	char secretPath[128] = "";
+	expect (make_temp (secretPath, sizeof (secretPath), "/tmp/vcport-life-secret-XXXXXX") == 0, "temp hidden payload");
+	expect (write_all (secretPath, "inner-secret-ok\n", 16) == 0, "write hidden payload");
+	VcOpenOptions hid = {};
+	hid.path = vol;
+	hid.password = kHidden;
+	hid.password_len = strlen (kHidden);
+	hid.pim = 1;
+	VcVolume *inner = vc_open (&hid, &err);
+	expect (inner != nullptr && err == VC_OK, "open hidden volume to store a secret");
+	if (inner)
+	{
+		expect (vc_import_file (inner, "/", secretPath, "SECRET.TXT") == VC_OK, "import SECRET.TXT into hidden volume");
+		vc_close (inner);
+	}
+
 	VcOpenOptions bad = {};
 	bad.path = vol;
 	bad.password = kOuter;
@@ -791,6 +807,7 @@ static void test_hidden_protect (void)
 	expect (outer != nullptr && err == VC_OK, "open outer with hidden volume protection");
 	if (!outer)
 	{
+		unlink (secretPath);
 		unlink (vol);
 		return;
 	}
@@ -813,6 +830,26 @@ static void test_hidden_protect (void)
 	expect (vc_volume_info (outer, info, sizeof (info)) == VC_OK
 		&& strstr (info, "damage prevented") != nullptr, "Hidden Volume Protected: Yes (damage prevented!)");
 	vc_close (outer);
+
+	err = 0;
+	inner = vc_open (&hid, &err);
+	expect (inner != nullptr && err == VC_OK, "hidden volume still opens after refused outer write");
+	if (inner)
+	{
+		char staging[128] = "";
+		expect (make_temp (staging, sizeof (staging), "/tmp/vcport-life-hid-out-XXXXXX") == 0, "temp hidden export");
+		expect (vc_export_file (inner, "SECRET.TXT", staging) == VC_OK, "export hidden SECRET.TXT");
+		FILE *sf = fopen (staging, "rb");
+		char got[32];
+		size_t n = sf ? fread (got, 1, sizeof (got), sf) : 0;
+		if (sf)
+			fclose (sf);
+		expect (n == 16 && memcmp (got, "inner-secret-ok\n", 16) == 0,
+			"hidden file bytes intact after outer write attempt");
+		vc_close (inner);
+		unlink (staging);
+	}
+	unlink (secretPath);
 	unlink (vol);
 }
 

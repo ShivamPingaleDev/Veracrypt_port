@@ -20,27 +20,20 @@ This app is **not** called VeraCrypt. We are not allowed to use that name. It is
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.1). Those are test files, not store files. Installing one Android copy replaces the others.
+Try-out copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.2). Those are test files, not store files. Installing one Android copy replaces the others.
 
-The full computer source lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the phone apps.
+The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the phone apps.
 
 ![Volume](docs/screenshots/01-volume.png)
 ![Create](docs/screenshots/02-wrap.png)
 ![Create](docs/screenshots/03-create.png)
 ![Tools](docs/screenshots/04-tools.png)
 
-## Mac (extra)
+## Appearance (least important)
 
-Mac computer extras (Apple chip, Touch ID) live in the full tree, not here. Not the main thing.
+Original is the VeraCrypt-like look. Dark mode is a dark theme. Not required. Not the point of the app.
 
-## Looks (least important)
-
-Same phone app. Optional paint: Cyberpunk, Matrix, MAGI, Signal. Not required. Not the point of the app.
-
-![Cyberpunk](docs/screenshots/05-skin-cyberpunk.png)
-![Matrix](docs/screenshots/06-skin-matrix.png)
-![MAGI](docs/screenshots/07-skin-eva.png)
-![Signal](docs/screenshots/08-skin-signal.png)
+![Dark mode](docs/screenshots/08-skin-signal.png)
 
 **Contact:** Shivam Mangesh Pingale — [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me) · [shivampingaledev@gmail.com](mailto:shivampingaledev@gmail.com)
 

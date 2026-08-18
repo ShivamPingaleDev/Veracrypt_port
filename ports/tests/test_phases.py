@@ -140,6 +140,16 @@ class Phase3FatFolderTests(unittest.TestCase):
         self.assertIn("!truncated!", ios)
         self.assertIn("Load more", ios)
         self.assertIn("FAT and exFAT folders are browsable", ios)
+        self.assertIn("Open another container", android)
+        self.assertIn("Open another container", ios)
+        self.assertIn("Copy to volume", android)
+        self.assertIn("Copy to volume", ios)
+        self.assertIn("Move to volume", android)
+        self.assertIn("Move to volume", ios)
+        self.assertIn("This session already has 8 volumes mounted", android)
+        self.assertIn("This session already has 8 volumes mounted", ios)
+        self.assertIn("already mounted", android)
+        self.assertIn("already mounted", ios)
         self.assertNotIn("VolumeDocumentsProvider", read("ports/android/app/src/main/AndroidManifest.xml"))
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("VC_LIST_UI_MAX", jni)
@@ -205,30 +215,16 @@ class Phase5IosTests(unittest.TestCase):
         self.assertIn("sync-upstream.sh", view)
 
 
-class Phase6DesktopTests(unittest.TestCase):
-    def test_stay_offline_gates_help_updates(self) -> None:
-        frame = read("src/Main/Forms/MainFrame.cpp")
-        self.assertIn("GetPreferences().StayOffline", frame)
-        self.assertIn("OnCheckForUpdatesMenuItemSelected", frame)
-        prefs = read("src/Main/UserPreferences.h")
-        self.assertIn("StayOffline (true)", prefs)
-        self.assertIn("SaveHistory (false)", prefs)
-
-    def test_panic_reports_dismount_failure(self) -> None:
-        frame = read("src/Main/Forms/MainFrame.cpp")
-        self.assertIn("PANIC_WIPE_DISMOUNT_FAILED", frame)
-        lang = read("src/Common/Language.xml")
-        self.assertIn('key="PANIC_WIPE_DISMOUNT_FAILED"', lang)
-
-    def test_offline_update_user_agent_uses_port_version(self) -> None:
-        update = read("src/Main/OfflineUpdate.cpp")
-        self.assertIn("VCPort-OfflineUpdate/", update)
-        self.assertIn("VC_PORT_VERSION", update)
-        self.assertNotIn("VCPort-OfflineUpdate/0.1", update)
-        self.assertIn("--max-redirs", update)
-        self.assertIn("--max-filesize", update)
-        self.assertIn("UrlAllowed", update)
-        self.assertNotIn("-fsSL", update)
+class Phase6ArchiveTests(unittest.TestCase):
+    def test_desktop_extras_live_in_archive(self) -> None:
+        if not FULL_TREE:
+            self.skipTest("archive/ lives in Veracrypt_port")
+        self.assertTrue(resolve("archive/desktop/src/Main/OfflineUpdate.cpp").is_file())
+        self.assertFalse(resolve("src/Main/OfflineUpdate.cpp").exists())
+        archived = read("archive/desktop/src/Main/OfflineUpdate.cpp")
+        self.assertIn("VCPort-OfflineUpdate/", archived)
+        self.assertIn("VC_PORT_VERSION", archived)
+        self.assertNotIn("VCPort-OfflineUpdate/0.1", archived)
 
 
 class Phase7ManifestTests(unittest.TestCase):
@@ -250,10 +246,8 @@ class Phase7ManifestTests(unittest.TestCase):
         ios = read("ports/ios/VCPort/UpdateChecker.swift")
         self.assertIn("has no network", ios)
         self.assertNotIn("URLSession", ios)
-        desktop = read("src/Main/OfflineUpdate.cpp")
-        self.assertIn("android_apk_sha256", desktop)
-        self.assertIn("tag_name", desktop)
-        self.assertIn("VersionFromVeraCryptTag", desktop)
+        self.assertIn("android_apk_sha256", read("ports/version.json"))
+        self.assertIn("tag_name", read("ports/scripts/check_veracrypt_release.py"))
 
 
 class Phase8CiTests(unittest.TestCase):
@@ -266,9 +260,9 @@ class Phase8CiTests(unittest.TestCase):
         self.assertIn("apt-get install -y g++ python3 cmake", wf)
         self.assertIn("assembleFossRelease", wf)
         self.assertIn("assembleGithubRelease", wf)
-        self.assertIn("assembleStyledRelease", wf)
-        self.assertIn("assembleLooksgithubRelease", wf)
-        self.assertIn("vcport-looks-apk", wf)
+        self.assertNotIn("assembleStyledRelease", wf)
+        self.assertNotIn("assembleLooksgithubRelease", wf)
+        self.assertNotIn("vcport-looks-apk", wf)
         self.assertIn("ios-native:", wf)
         self.assertIn("iphonesimulator", wf)
         self.assertNotIn("release-apks:", wf)
@@ -288,22 +282,22 @@ class Phase8CiTests(unittest.TestCase):
 
 
 class Phase9LegalVersionTests(unittest.TestCase):
-    def test_current_version_is_0_3_1(self) -> None:
+    def test_current_version_is_0_3_2(self) -> None:
         v = load_version()
-        self.assertEqual(v["port_version"], "0.3.1")
+        self.assertEqual(v["port_version"], "0.3.2")
         self.assertEqual(v["upstream_version"], "1.26.29")
         self.assertEqual(v["upstream_commit"], "b48e31f5b47da7d41025e3f0e02751675e15005a")
         self.assertEqual(v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
         self.assertEqual(v["upstream_tag"], "VeraCrypt_1.26.29")
-        h = read("src/Main/PortVersion.h")
-        self.assertIn('#define VC_PORT_VERSION\t\t\t"0.3.1"', h)
+        plist = read("ports/ios/VCPort/Info.plist")
+        self.assertIn("0.3.2", plist)
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
-        self.assertEqual(v["android_version_code"], 6)
-        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/6.txt")
-        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 6")
-        self.assertIn("hidden-volume", notes.read_text(encoding="utf-8"))
+        self.assertEqual(v["android_version_code"], 7)
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/7.txt")
+        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 7")
+        self.assertIn("official VeraCrypt src", notes.read_text(encoding="utf-8"))
         self.assertIn("not unbreakable", notes.read_text(encoding="utf-8").lower())
 
     def test_about_and_contact_on_every_surface(self) -> None:
@@ -353,9 +347,6 @@ class Phase9LegalVersionTests(unittest.TestCase):
             "02-wrap.png",
             "03-create.png",
             "04-tools.png",
-            "05-skin-cyberpunk.png",
-            "06-skin-matrix.png",
-            "07-skin-eva.png",
             "08-skin-signal.png",
         ]
         for name in names:

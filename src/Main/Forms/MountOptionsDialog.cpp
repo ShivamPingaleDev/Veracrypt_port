@@ -188,9 +188,6 @@ namespace VeraCrypt
 
 		Options.FilesystemOptions = FilesystemOptionsTextCtrl->GetValue();
 		Options.EMVSupportEnabled = Gui->GetPreferences().EMVSupportEnabled;
-#ifdef TC_MACOSX
-		Options.RememberPasswordWithBiometrics = PasswordPanel->ShouldRememberPasswordWithBiometrics();
-#endif
 
 		EndModal (wxID_OK);
 	}

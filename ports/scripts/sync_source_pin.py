@@ -5,7 +5,7 @@
     python3 ports/scripts/sync_source_pin.py --write
 
 Android Gradle already reads version.json at build time. This script updates
-the files that cannot: PortVersion.h and iOS Info.plist / project.yml.
+the files that cannot: iOS Info.plist / project.yml.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def rewrite_plist_string(text: str, key: str, value: str) -> str:
 
 def rewrite_yaml_field(text: str, key: str, value: str) -> str:
     return re.sub(
-        rf"^({re.escape(key)}:\s*).*$",
+        rf"^(\s*{re.escape(key)}:\s*).*$",
         rf"\g<1>{value}",
         text,
         count=1,

@@ -274,19 +274,21 @@ class BlackBoxTests(unittest.TestCase):
         self.assertNotIn("UpdateChecker.check()", slow)
         self.assertIn("Check for updates", ui)
         self.assertIn("Working…", ui)
-        self.assertIn("BuildConfig.ENABLE_SKINS", ui)
-        self.assertIn("Looks (this phone)", ui)
+        self.assertIn("Appearance", ui)
+        self.assertIn("appearanceDarkModeShot", ui)
+        self.assertIn("skin_signal", ui)
+        self.assertNotIn("skin_cyberpunk", ui)
         self.assertIn("ui-test-junit4", gradle)
         self.assertIn("ui-test-manifest", gradle)
         self.assertIn("animationsDisabled true", gradle)
         self.assertIn("AndroidJUnitRunner", gradle)
         self.assertIn("ENABLE_UPDATE_CHECK", gradle)
-        self.assertIn("ENABLE_SKINS", gradle)
+        self.assertNotIn("ENABLE_SKINS", gradle)
         self.assertNotIn("applicationIdSuffix", gradle)
         self.assertIn("vcport-api35", script)
         self.assertIn("connectedFossDebugAndroidTest", script)
-        self.assertIn("connectedStyledDebugAndroidTest", script)
-        self.assertIn("connectedLooksgithubDebugAndroidTest", script)
+        self.assertNotIn("connectedStyledDebugAndroidTest", script)
+        self.assertNotIn("connectedLooksgithubDebugAndroidTest", script)
         cmake = read("ports/shared/CMakeLists.txt")
         self.assertIn("-fgnu89-inline", cmake)
         self.assertIn("armv8-a+crypto", cmake)
@@ -354,13 +356,11 @@ class ModuleTests(unittest.TestCase):
 class IntegrationTests(unittest.TestCase):
     def test_version_json_feeds_portversion_and_plist(self) -> None:
         v = json.loads(read("ports/version.json"))
-        header = read("src/Main/PortVersion.h")
         plist = read("ports/ios/VCPort/Info.plist")
         gradle = read("ports/android/app/build.gradle")
-        self.assertIn(v["upstream_commit"], header)
         self.assertIn(v["upstream_commit"], plist)
         self.assertIn("versionJson.upstream_git", gradle)
-        self.assertIn(v["upstream_git"], header)
+        self.assertIn(v["upstream_git"], plist)
 
     def test_kotlin_and_swift_share_vcf2_module(self) -> None:
         kotlin = Path("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
@@ -400,22 +400,29 @@ class FunctionalTests(unittest.TestCase):
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("fun WorkOverlay", theme)
         self.assertIn("fun SkinProgress", theme)
-        self.assertIn("CpTerm", theme)
-        self.assertIn("MELCHIOR", theme)
-        self.assertIn("BALTHASAR", theme)
-        self.assertIn("CASPER", theme)
-        self.assertIn("UNIT-01", theme)
-        self.assertIn("drawMagiSeal", theme)
-        self.assertIn("drawSkinFrame", theme)
+        self.assertIn('Desktop("Original"', theme)
+        self.assertIn('Signal("Dark mode"', theme)
+        self.assertNotIn("CpTerm", theme)
+        self.assertNotIn("MELCHIOR", theme)
+        self.assertNotIn("BALTHASAR", theme)
+        self.assertNotIn("CASPER", theme)
+        self.assertNotIn("UNIT-01", theme)
+        self.assertNotIn("drawMagiSeal", theme)
+        self.assertNotIn("drawSkinFrame", theme)
         self.assertIn("graphicsLayer", theme)
         self.assertIn("CompositingStrategy.ModulateAlpha", theme)
         self.assertIn("fun SkinTabIndicator", theme)
         self.assertIn("fun SkinCardCap", theme)
         self.assertIn("skinTextFieldColors", theme)
-        self.assertIn("UNIT-01  SYNC", theme)
-        self.assertIn("sys.ready", theme)
-        self.assertTrue(resolve("ports/android/app/src/main/res/drawable/ic_look_magi.xml").is_file())
-        self.assertTrue(resolve("ports/android/app/src/main/res/drawable/ic_look_unit01.xml").is_file())
+        self.assertFalse(resolve("ports/android/app/src/main/res/drawable/ic_look_magi.xml").is_file())
+        self.assertFalse(resolve("ports/android/app/src/main/res/drawable/ic_look_unit01.xml").is_file())
+        self.assertTrue(resolve("archive/looks/VcPortTheme.kt").is_file())
+        self.assertTrue(resolve("archive/looks/drawable/ic_look_magi.xml").is_file())
+        main = read(
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"
+        )
+        self.assertIn("Appearance", main)
+        self.assertNotIn("Looks (this phone)", main)
         self.assertIn("struct WorkOverlay", view)
         self.assertIn("Nothing runs out of sight.", theme)
         self.assertIn("Nothing runs out of sight.", view)
@@ -436,7 +443,7 @@ class FunctionalTests(unittest.TestCase):
 class SmokeSanityTests(unittest.TestCase):
     def test_version_json_parses(self) -> None:
         v = json.loads(read("ports/version.json"))
-        self.assertEqual(v["port_version"], "0.3.1")
+        self.assertEqual(v["port_version"], "0.3.2")
         self.assertEqual(len(v["upstream_commit"]), 40)
 
     def test_pin_file_matches_json(self) -> None:
@@ -592,7 +599,6 @@ class DifferentialTests(unittest.TestCase):
         blobs = [
             read("ports/android/app/src/main/java/dev/shivampingale/vcport/SourcePin.kt"),
             read("ports/ios/VCPort/SourcePin.swift"),
-            read("src/Main/OfflineUpdate.cpp"),
             read("ports/scripts/check_veracrypt_release.py"),
         ]
         for blob in blobs:

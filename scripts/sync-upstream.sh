@@ -3,16 +3,9 @@
 #
 # Official source (hardcoded in ports/version.json):
 #   https://github.com/veracrypt/VeraCrypt.git
-# Published releases:
-#   https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest
 #
-# The Android/iOS apps never run this script. They can only *report* that a
-# newer official tag exists. A maintainer merges, then rebuilds VC Port.
-#
+# src/ stays official VeraCrypt. Phone hunks live in ports/overlay/src/.
 # Owned files (ports/overlay/owned.txt) are restored after the merge.
-# Patched upstream files (ports/overlay/patched.txt) are left to git's
-# 3-way merge. Restoring those from a pre-merge copy would drop VeraCrypt
-# changes in the same files (FUSE, translations, CoreService, …).
 #
 #   scripts/sync-upstream.sh --check     # fetch; exit 2 if upstream moved
 #   scripts/sync-upstream.sh             # merge + restore owned files
@@ -30,7 +23,6 @@ BRANCH=${UPSTREAM_BRANCH:-master}
 PIN_FILE=ports/UPSTREAM_COMMIT
 OWNED=ports/overlay/owned.txt
 VERSION_JSON=ports/version.json
-PORT_VERSION_H=src/Main/PortVersion.h
 
 read_list() {
 	grep -v '^#' "$1" | grep -v '^$' || true
@@ -138,23 +130,6 @@ PY
 	git add "$VERSION_JSON" 2>/dev/null || true
 fi
 
-if [ -f "$PORT_VERSION_H" ]; then
-	python3 - "$PORT_VERSION_H" "$NEW" <<'PY' || true
-import re, sys
-path, commit = sys.argv[1], sys.argv[2]
-text = open(path).read()
-text, n = re.subn(
-    r'(#define VC_PORT_UPSTREAM_COMMIT\t")[^"]+(")',
-    r'\g<1>' + commit + r'\2',
-    text,
-    count=1,
-)
-if n:
-    open(path, "w").write(text)
-PY
-	git add "$PORT_VERSION_H" 2>/dev/null || true
-fi
-
 conflicts=$(git diff --name-only --diff-filter=U || true)
 if [ -n "$conflicts" ]; then
 	echo "Remaining conflicts (patched upstream files — resolve by hand, do not copy old versions over new VeraCrypt code):"
@@ -168,6 +143,6 @@ if [ "$merge_rc" != 0 ]; then
 	exit "$merge_rc"
 fi
 
-echo "Upstream merge complete. Owned overlay restored; patched files used git's 3-way merge."
-echo "Next: scripts/refresh-overlay.sh && scripts/check-upstream-layout.sh"
+echo "Upstream merge complete. Owned overlay restored; src/ stays official VeraCrypt."
+echo "Phone replacements live in ports/overlay/src/. Next: scripts/refresh-overlay.sh && scripts/check-upstream-layout.sh"
 echo "Then review git diff and commit."

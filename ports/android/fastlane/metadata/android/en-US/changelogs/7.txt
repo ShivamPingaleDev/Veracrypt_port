@@ -1,0 +1,1 @@
+VC Port 0.3.2: official VeraCrypt src with a phone overlay, one FOSS APK (Original and Dark mode), several volumes in one session. No in-app updates or biometrics on master. GitHub APKs stay debug-signed previews. Not unbreakable.

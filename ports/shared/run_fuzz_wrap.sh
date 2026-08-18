@@ -23,7 +23,7 @@ mkdir -p "$OBJ"
 UNAME_S="$(uname -s)"
 UNAME_M="$(uname -m)"
 SAN="${VC_SANITIZE:--fsanitize=address,undefined -fno-omit-frame-pointer}"
-CFLAGS="-O1 -g -fno-strict-aliasing -fstack-protector-strong -fno-common -DTC_UNIX -DARGON2_NO_THREADS -DCRYPTOPP_DISABLE_X86ASM -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
+CFLAGS="-O1 -g -fno-strict-aliasing -fstack-protector-strong -fno-common -DTC_UNIX -DTC_PORT_NO_TOKEN -DARGON2_NO_THREADS -DCRYPTOPP_DISABLE_X86ASM -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE"
 case "$UNAME_S" in
 	Darwin) CFLAGS="$CFLAGS -DTC_MACOSX" ;;
 	*) CFLAGS="$CFLAGS -DTC_LINUX" ;;
@@ -33,7 +33,7 @@ case "$UNAME_M" in
 		CFLAGS="$CFLAGS -DCRYPTOPP_DISABLE_AESNI -DCRYPTOPP_DISABLE_SHANI"
 		;;
 esac
-INCLUDES="-I$SRC -I$SRC/Crypto -I$SRC/Crypto/Argon2/include -I$SHARED"
+INCLUDES="-I$SHARED -I$SRC -I$SRC/Crypto -I$SRC/Crypto/Argon2/include"
 
 if [ "$MODE" = "libfuzzer" ]; then
 	CXX="${FUZZ_CXX:-clang++}"

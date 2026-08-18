@@ -43,10 +43,6 @@ namespace VeraCrypt
 		bool IsUsePimChecked () const { return PimCheckBox->GetValue (); }
 		void SetUsePimChecked (bool checked) const { PimCheckBox->SetValue (checked); }
 		bool UpdatePimHelpText (bool pimChanged);
-#ifdef TC_MACOSX
-		bool ShouldRememberPasswordWithBiometrics () const;
-		void ApplyStoredBiometricPassword ();
-#endif
 
 		Event UpdateEvent;
 		wxWindow* TopOwnerParent; // use to handle layout when embedded inside sizer child
@@ -69,21 +65,10 @@ namespace VeraCrypt
 		void OnUpdate () { UpdateEvent.Raise(); }
 		void OnUseKeyfilesCheckBoxClick (wxCommandEvent& event) { OnUpdate(); }
 		void WipeTextCtrl (wxTextCtrl *textCtrl);
-#ifdef TC_MACOSX
-		void OnBiometricUnlockClick (wxCommandEvent& event);
-		void OnRememberBiometricClick (wxCommandEvent& event);
-		void SetPasswordFromUtf8 (const uint8 *data, size_t size);
-#endif
 
 		shared_ptr <KeyfileList> Keyfiles;
 		shared_ptr <Functor> UpdateCallback;
 		bool EnablePimEntry;
-#ifdef TC_MACOSX
-		wxCheckBox *RememberBiometricCheckBox;
-		wxButton *BiometricUnlockButton;
-		string VolumePathForBiometric;
-		bool IsMountPassword;
-#endif
 	};
 }
 

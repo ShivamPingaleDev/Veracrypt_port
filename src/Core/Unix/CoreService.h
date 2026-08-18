@@ -54,9 +54,6 @@ namespace VeraCrypt
 		template <class T> static unique_ptr <T> GetResponse ();
 		template <class T> static unique_ptr <T> SendRequest (CoreServiceRequest &request);
 		static void StartElevated (const CoreServiceRequest &request);
-#ifdef TC_MACOSX
-		static void AdoptElevatedChannel (int writeFd, int readFd);
-#endif
 
 		static shared_ptr <GetStringFunctor> AdminPasswordCallback;
 

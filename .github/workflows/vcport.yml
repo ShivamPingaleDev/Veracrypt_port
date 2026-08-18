@@ -67,22 +67,15 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - name: Build production and Looks APKs
+      - name: Build production APKs
         working-directory: ports/android
-        run: ./gradlew :app:assembleFossRelease :app:assembleGithubRelease :app:assembleStyledRelease :app:assembleLooksgithubRelease --no-daemon
+        run: ./gradlew :app:assembleFossRelease :app:assembleGithubRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: vcport-apks
           path: |
             ports/android/app/build/outputs/apk/foss/release/*.apk
             ports/android/app/build/outputs/apk/github/release/*.apk
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        with:
-          name: vcport-looks-apk
-          path: |
-            ports/android/app/build/outputs/apk/styled/release/*.apk
-            ports/android/app/build/outputs/apk/looksgithub/release/*.apk
           if-no-files-found: error
 
   ios-native:

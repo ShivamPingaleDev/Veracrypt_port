@@ -44,7 +44,6 @@
 #include <sys/statvfs.h>
 #include <sys/time.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
 
 #include "FuseService.h"
 #include "Platform/FileStream.h"
@@ -664,41 +663,14 @@ namespace VeraCrypt
 		args.push_back ("nobrowse");
 
 #ifdef VC_MACOSX_FUSET
-		// FUSE-T cannot be avoided on Apple Silicon yet: VeraCrypt presents a
-		// decrypted block image through FUSE, then hdiutil attaches it. Apple
-		// FSKit is not a drop-in replacement for that auxiliary image.
-		// Prefer FSKit when the installed FUSE-T build provides it, then SMB,
-		// then NFS. Forcing SMB when the backend is missing hangs the mount.
-		auto fuseTHasBackend = [](const char *name) -> bool {
-			string paths[] = {
-				string ("/Library/Application Support/fuse-t/bin/") + name,
-				string ("/Library/Application Support/fuse-t/bin/go-") + name,
-				string ("/usr/local/libexec/fuse-t/") + name
-			};
-			for (size_t i = 0; i < sizeof (paths) / sizeof (paths[0]); ++i)
-			{
-				struct stat st;
-				if (stat (paths[i].c_str(), &st) == 0)
-					return true;
-			}
-			return false;
-		};
-
-		if (fuseTHasBackend ("fskit") || fuseTHasBackend ("go-fskit"))
-		{
-			args.push_back ("-o");
-			args.push_back ("backend=fskit");
-		}
-		else if (fuseTHasBackend ("go-smb2") || fuseTHasBackend ("smb"))
-		{
-			args.push_back ("-o");
-			args.push_back ("backend=smb");
-			args.push_back ("-o");
-			args.push_back ("nonamedattr");
-			args.push_back ("-o");
-			args.push_back ("rwsize=262144");
-		}
-		// else: leave FUSE-T on its default NFS backend
+		// Use FUSE-T's SMB backend for the auxiliary mount. The default NFS
+		// backend can be affected by macOS Network Volumes privacy state.
+		args.push_back ("-o");
+		args.push_back ("backend=smb");
+		args.push_back ("-o");
+		args.push_back ("nonamedattr");
+		args.push_back ("-o");
+		args.push_back ("rwsize=262144");
 #endif
 
 		if (getuid() == 0 || geteuid() == 0)

@@ -42,7 +42,6 @@ class SlowHumanSessionTest {
 
     @Test
     fun generateCopyMinimizePasteContinueAndBasketSize() {
-        if (BuildConfig.ENABLE_SKINS) return
         NativeBridge.resetEntropy()
 
         slow()
@@ -193,7 +192,6 @@ class SlowHumanSessionTest {
 
     @Test
     fun nestedCreateMinimizeKeepsWizard() {
-        if (BuildConfig.ENABLE_SKINS) return
         NativeBridge.resetEntropy()
 
         slow()

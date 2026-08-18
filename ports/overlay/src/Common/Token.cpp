@@ -1,7 +1,12 @@
 /*
  Copyright (c) 2026 Shivam Mangesh Pingale. All rights reserved.
 
- Token stubs for Android/iOS. Smart-card keyfiles are not available on mobile.
+ Governed by the Apache License 2.0 the full text of which is
+ contained in the file License.txt included in VeraCrypt binary and source
+ code distribution packages.
+
+ Phone replacement for src/Common/Token.cpp. PKCS#11 / EMV smart-card
+ keyfiles are not available; file keyfiles still go through Keyfile.cpp.
 */
 
 #include "Common/Token.h"

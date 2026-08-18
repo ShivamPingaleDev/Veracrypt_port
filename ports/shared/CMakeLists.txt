@@ -58,21 +58,21 @@ else()
 endif()
 
 include_directories(
+	${CMAKE_CURRENT_SOURCE_DIR}
 	${VC_SRC}
 	${VC_SRC}/Crypto
 	${VC_SRC}/Crypto/Argon2/include
 	${VC_SRC}/PKCS11
-	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/upstream-sources.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/overlay.cmake")
 
 add_library(vc_mobile STATIC
 	vc_mobile.cpp
 	vc_exfat.cpp
 	vc_wrap.cpp
 	vc_progress.cpp
-	token_stubs.cpp
 	${VC_CRYPTO}
 	${VC_VOLUME}
 	${VC_PLATFORM}

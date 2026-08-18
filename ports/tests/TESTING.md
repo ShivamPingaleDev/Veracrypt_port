@@ -1,6 +1,6 @@
 # How VC Port is tested
 
-Host tests stand in for a phone, an iOS simulator, and a FUSE-T mount.
+Host tests stand in for a phone or an iOS simulator.
 
 ```
 ports/tests/run-all.sh
@@ -15,7 +15,7 @@ python3 ports/tests/test_quality.py
 | **Module** | Does one C/Kotlin/Swift unit keep its contract? | `run_wrap_test.sh`, `run_crypto_safety_test.sh` (ASan/UBSan), `run_volume_test.sh`, `run_lifecycle_test.sh`, SourcePin / UpdateChecker |
 | **White-box** | Do we look at the code paths? | Wrap wrong password / tamper MAC, FOSS `check()` throws |
 | **Black-box** | Does it behave from the outside? | Wrap in → unwrap out; create → open → list → export; create → store → close → reopen |
-| **Integration** | Do two layers talk? | JNI/C API; Kotlin/Swift VCF2; version.json → PortVersion.h / Info.plist |
+| **Integration** | Do two layers talk? | JNI/C API; Kotlin/Swift VCF2; version.json → Info.plist / Android BuildConfig |
 | **Functional** | Can a user finish a job? | Copy, wipe, panic, keyfiles, progress overlay — no open-time hidden checkbox. Lifecycle: password + PIM + biometric keyfile, Remember VCF2, files survive dismount, hidden-volume write protection |
 | **System** | Whole tree on a laptop | `run-phases.sh` |
 | **Smoke** | Does the pin parse? | `check_veracrypt_release.py --pin-only` |
@@ -51,8 +51,6 @@ A corrupted biometric vault must decode to empty factors, not crash.
 - Share sheet and USB/OTG roundtrip
 - FLAG_SECURE screenshot (`adb screencap` is black by design). GitHub README
   shots are Compose `captureToImage` of the real UI with FLAG_SECURE still on.
-
-- FUSE-T mount / hdiutil attach on a Mac
 
 Do not add Play Integrity, obfuscation, or an open-time hidden-volume checkbox
 to “make tests pass.” Those fail the threat model.
@@ -99,10 +97,9 @@ volume, generates outer and nested passwords, Homes twice, and checks
 that the nested checkbox, both passwords, PIM, KDF, filename, and basket
 size are still there. Home keeping the Create wizard is intentional;
 Dismount / Panic wipe still clear it.
-Looks skins are a separate `styled` APK (`connectedStyledDebugAndroidTest`, no INTERNET)
-and a `looksgithub` APK (`connectedLooksgithubDebugAndroidTest`, also no INTERNET on master)
-with the same `applicationId` as production;
-the FOSS/GitHub packages stay Desktop-only. Tests must not tap Panic wipe.
+Appearance is Original plus Dark mode on the foss APK
+(`connectedFossDebugAndroidTest`). Cyberpunk / Matrix / MAGI are archived
+under `archive/looks/` and are not built. Tests must not tap Panic wipe.
 
 ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-O3 -march=armv8-a+crypto`.
 `vc_runtime_start()` calls `DetectArmFeatures()` (getauxval HWCAP_AES on Android, always-on on Apple arm64) before any volume work so XTS uses the AES crypto extension instead of table AES. Debug NDK builds still use `-O2` on that slice so AES/SHA detection and

@@ -25,7 +25,6 @@ OBJS += Unix/CoreUnix.o
 OBJS += Unix/$(PLATFORM)/Core$(PLATFORM).o
 OBJS += Unix/$(PLATFORM)/Core$(PLATFORM).o
 ifeq "$(PLATFORM)" "MacOSX"
-OBJS += Unix/MacOSX/MacOSXAuthorization.o
 OBJS += Unix/FreeBSD/CoreFreeBSD.o
 endif
 

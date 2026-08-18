@@ -3,8 +3,8 @@
 Kotlin / Jetpack Compose client with:
 
 - VeraCrypt volume core via NDK (`shared/`)
-- Password, PIM, keyfiles, and desktop mount options (backup header, read-only, TrueCrypt Mode, hidden-volume protection). Fingerprint unlock is on `experimental-biometrics`, not master.
-- In-app FAT or exFAT folder browse, extract, copy/move, New folder / Rename / Delete / Properties, and wipe free space. Files larger than 4 GiB need exFAT. This app cannot mount a whole USB disk.
+- Password, PIM, keyfiles, and mount options (backup header, read-only, TrueCrypt Mode, hidden-volume protection). Fingerprint unlock is on `experimental-biometrics`, not master.
+- In-app FAT or exFAT folder browse, extract, copy/move (including Copy to volume / Move to volume between several mounted containers), New folder / Rename / Delete / Properties, and wipe free space. Files larger than 4 GiB need exFAT. This app cannot mount a whole USB disk. Several containers can stay mounted in one session (up to 8).
 - System share sheet for decrypted files inside a volume, and **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no unlock)
 - Wrap/unwrap individual files (`.vcpw`) and an in-memory password generator that never saves history
 - Incoming share / open: other apps can send a file into VC Port
@@ -17,12 +17,13 @@ cd android
 ./gradlew :app:assembleFossRelease
 ```
 
-Looks APK — same `applicationId` as production (`dev.shivampingale.vcport`), Desktop plus Cyberpunk / Matrix / MAGI / Signal. Installing it replaces the Desktop-only APK. GitHub Release asset. Two flavors, both offline on master:
+GitHub preview flavor (same app id, also offline on master):
 
 ```bash
-./gradlew :app:assembleStyledRelease
-./gradlew :app:assembleLooksgithubRelease
+./gradlew :app:assembleGithubRelease
 ```
+
+Appearance is Original plus Dark mode in both. Cyberpunk, Matrix, and MAGI are archived under `archive/looks/` and are not built.
 
 Open `android/` in Android Studio if you prefer. The native library is `libvcport.so`, built from `shared/CMakeLists.txt`.
 

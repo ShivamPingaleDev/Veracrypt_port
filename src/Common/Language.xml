@@ -1476,43 +1476,6 @@
     <entry lang="en" key="LINUX_DESELECT">Deselect</entry>
     <entry lang="en" key="LINUX_ADMIN_PW_QUERY">Enter your user password or administrator password:</entry>
     <entry lang="en" key="LINUX_ADMIN_PW_QUERY_TITLE">Administrator privileges required</entry>
-    <entry lang="en" key="MACOSX_REMEMBER_TOUCH_ID">Remember password with Touch ID</entry>
-    <entry lang="en" key="MACOSX_UNLOCK_TOUCH_ID">Unlock with Touch ID</entry>
-    <entry lang="en" key="MACOSX_TOUCH_ID_FAILED">Touch ID could not retrieve the stored volume password.</entry>
-    <entry lang="en" key="IDM_CHECK_FOR_UPDATES">Check for updates…</entry>
-    <entry lang="en" key="IDC_STAY_OFFLINE">Stay offline (no automatic network use)</entry>
-    <entry lang="en" key="IDC_STAY_OFFLINE_HELP">The application never contacts the network on its own. Help links and update checks ask first, then disconnect.</entry>
-    <entry lang="en" key="IDM_WRAP_FILE">Wrap a single file…</entry>
-    <entry lang="en" key="IDM_UNWRAP_FILE">Unwrap a file…</entry>
-    <entry lang="en" key="IDM_SHARE_ENCRYPTED">Share encrypted file…</entry>
-    <entry lang="en" key="IDM_PANIC_WIPE">Panic wipe</entry>
-    <entry lang="en" key="IDM_GENERATE_WRAP_PASSWORD">Generate strong password</entry>
-    <entry lang="en" key="WRAP_SELECT_FILE">Select a file to wrap</entry>
-    <entry lang="en" key="WRAP_SAVE_AS">Save wrapped file</entry>
-    <entry lang="en" key="WRAP_PASSWORD_TITLE">Wrap password</entry>
-    <entry lang="en" key="WRAP_PASSWORD_HINT">This password is never stored. Use at least 16 characters, or generate one. Share the .vcpw file as-is.</entry>
-    <entry lang="en" key="WRAP_PASSWORD_TOO_SHORT">Use Generate strong password, or type at least 16 characters. Nothing is saved.</entry>
-    <entry lang="en" key="WRAP_FAILED">Could not wrap the file.</entry>
-    <entry lang="en" key="WRAP_OK">File wrapped. Share the .vcpw file. The password was not saved.</entry>
-    <entry lang="en" key="UNWRAP_SELECT_FILE">Select a wrapped file</entry>
-    <entry lang="en" key="UNWRAP_SELECT_DIR">Choose a folder for the decrypted file</entry>
-    <entry lang="en" key="UNWRAP_PASSWORD_TITLE">Unwrap password</entry>
-    <entry lang="en" key="UNWRAP_NOT_WRAP">That file is not a VC Port wrap (.vcpw).</entry>
-    <entry lang="en" key="UNWRAP_WRONG_PASSWORD">Wrong password, or the wrap was tampered with.</entry>
-    <entry lang="en" key="UNWRAP_FAILED">Could not unwrap the file.</entry>
-    <entry lang="en" key="UNWRAP_OK">Unwrapped to {0}</entry>
-    <entry lang="en" key="SHARE_SELECT_FILE">Select an encrypted container or wrap to share as-is</entry>
-    <entry lang="en" key="SHARE_ENCRYPTED_HINT">This sends the ciphertext only. No password, no decrypt.</entry>
-    <entry lang="en" key="PANIC_WIPE_CONFIRM">Panic wipe dismounts all volumes, wipes the password cache, clears the clipboard, and deletes stored biometric volume passwords on this computer. Continue?</entry>
-    <entry lang="en" key="PANIC_WIPE_DONE">Panic wipe finished. Mounted volumes were dismounted. Cached and stored secrets were wiped. This is not unbreakable.</entry>
-    <entry lang="en" key="PANIC_WIPE_DISMOUNT_FAILED">Panic wipe still cleared the password cache, clipboard, and stored biometric secrets, but one or more volumes could not be dismounted. Dismount them manually. This is not unbreakable.</entry>
-    <entry lang="en" key="MACOSX_BIOMETRIC_COMPELLED">Do not use Touch ID as the only factor in a danger-state. Biometrics can be compelled. Prefer a long password and a keyfile you do not keep on this Mac. This is not unbreakable.</entry>
-    <entry lang="en" key="STAY_OFFLINE_LEAVE_CONFIRM">This action opens a website and will use the network. Continue?</entry>
-    <entry lang="en" key="UPDATE_CHECK_CONFIRM">Check for updates now? This makes one short HTTPS request, then the application stays offline again. Nothing is downloaded unless you agree.</entry>
-    <entry lang="en" key="UPDATE_CHECK_BAD_MANIFEST">The update information could not be read. The application is offline again.</entry>
-    <entry lang="en" key="UPDATE_AVAILABLE">An update is available.\n\nPort {0} (you have {1})\nUpstream VeraCrypt {2}</entry>
-    <entry lang="en" key="UPDATE_OPEN_DOWNLOAD">Open the download page? The application returns to offline mode afterwards.</entry>
-    <entry lang="en" key="UPDATE_UP_TO_DATE">You already have the latest VC Port. The application is offline again.</entry>
     <entry lang="en" key="LINUX_VC_RUNNING_ALREADY">VeraCrypt is already running.</entry>
     <entry lang="en" key="LINUX_SYSTEM_ENC_PW_LENGTH_NOTE">System Encryption password is longer than {0} characters.</entry>
     <entry lang="en" key="LINUX_MOUNT_SYSTEM_ENC_PREBOOT">Mount partition &amp;using system encryption (pre-boot authentication)</entry>

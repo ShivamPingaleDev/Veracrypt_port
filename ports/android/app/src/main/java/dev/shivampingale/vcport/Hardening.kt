@@ -63,7 +63,9 @@ object Hardening {
             if (file.isFile && (
                     file.name.startsWith("wrap-in-") ||
                         file.name.startsWith("vcbio") ||
-                        file.name.startsWith("vc-in-")
+                        file.name.startsWith("vc-in-") ||
+                        file.name.startsWith("xfer-") ||
+                        file.name.startsWith("to-device-")
                     )
             ) {
                 wipeFile(file)

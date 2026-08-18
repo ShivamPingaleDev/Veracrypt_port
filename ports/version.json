@@ -1,6 +1,6 @@
 {
-  "port_version": "0.3.1",
-  "android_version_code": 6,
+  "port_version": "0.3.2",
+  "android_version_code": 7,
   "upstream_name": "VeraCrypt",
   "upstream_git": "https://github.com/veracrypt/VeraCrypt.git",
   "upstream_releases": "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest",
@@ -9,7 +9,7 @@
   "upstream_commit": "b48e31f5b47da7d41025e3f0e02751675e15005a",
   "source_repo": "https://github.com/ShivamPingaleDev/Veracrypt_port",
   "update_manifest": "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json",
-  "notes": "VC Port 0.3.1: hidden-volume write protection, emulator NativeBridge+UI tests, ARM crypto and XTS thread pool. GitHub APKs remain debug-signed previews. Not unbreakable.",
+  "notes": "VC Port 0.3.2: official VeraCrypt src with a phone overlay, one FOSS APK, Original and Dark mode, several volumes in one session. GitHub APKs remain debug-signed previews. Not unbreakable.",
   "download_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
   "macos_url": "",
   "android_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",

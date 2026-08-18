@@ -94,11 +94,6 @@ namespace VeraCrypt
 		TC_CHECK_BOX_VALIDATOR (WipeCacheOnAutoDismount);
 		TC_CHECK_BOX_VALIDATOR (WipeCacheOnClose);
 
-		StayOfflineCheckBox = new wxCheckBox (SecurityPage, wxID_ANY, LangString["IDC_STAY_OFFLINE"]);
-		StayOfflineCheckBox->SetToolTip (LangString["IDC_STAY_OFFLINE_HELP"]);
-		SecurityPage->GetSizer()->Add (StayOfflineCheckBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
-		TC_CHECK_BOX_VALIDATOR (StayOffline);
-
 #ifdef TC_MACOSX
 		wxStaticBoxSizer *screenProtectionSizer = new wxStaticBoxSizer (new wxStaticBox (SecurityPage, wxID_ANY, LangString["IDT_SECURITY_OPTIONS"]), wxVERTICAL);
 		DisableScreenProtectionCheckBox = new wxCheckBox (screenProtectionSizer->GetStaticBox(), wxID_ANY, LangString["IDC_DISABLE_SCREEN_PROTECTION"]);

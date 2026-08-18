@@ -21,7 +21,7 @@ Please report:
 
 - Volume-open, wrap/unwrap, or key-handling bugs in `ports/shared/`
 - Android / iOS session wipe, backup, or share-sheet leaks
-- StayOffline / update-check network mistakes
+- Stay offline / update-check network mistakes
 - Attribution or license-text errors that would mislead a user
 
 Out of scope: “please make this unbreakable,” “foolproof against Unit 8200 / TAO / Lazarus / CIA,” Play Integrity / SafetyNet ideas,

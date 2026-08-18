@@ -59,10 +59,6 @@ echo "device ABI: $("$ADB" shell getprop ro.product.cpu.abi | tr -d '\r')"
 echo "device nproc: $("$ADB" shell nproc 2>/dev/null | tr -d '\r' || echo '?')"
 cd "$ANDROID"
 ./gradlew :app:connectedFossDebugAndroidTest --no-daemon
-./gradlew :app:connectedStyledDebugAndroidTest --no-daemon \
-	-Pandroid.testInstrumentationRunnerArguments.class=dev.shivampingale.vcport.MainActivityUiTest
-./gradlew :app:connectedLooksgithubDebugAndroidTest --no-daemon \
-	-Pandroid.testInstrumentationRunnerArguments.class=dev.shivampingale.vcport.MainActivityUiTest
 
 # Compose UI shots (FLAG_SECURE still on; not adb screencap).
 SHOTS="$(cd "$ANDROID/../docs/screenshots" && pwd)"
@@ -71,7 +67,7 @@ DL_SHOTS=/storage/emulated/0/Download/vcport-github-shots
 if "$ADB" shell ls "$DL_SHOTS/01-volume.png" >/dev/null 2>&1; then
 	echo "Pulling GitHub UI shots into $SHOTS"
 	for name in 01-volume.png 02-wrap.png 03-create.png 04-tools.png \
-		05-skin-cyberpunk.png 06-skin-matrix.png 07-skin-eva.png 08-skin-signal.png; do
+		08-skin-signal.png; do
 		if "$ADB" shell ls "$DL_SHOTS/$name" >/dev/null 2>&1; then
 			"$ADB" pull "$DL_SHOTS/$name" "$SHOTS/$name"
 			ls -l "$SHOTS/$name"
@@ -79,15 +75,4 @@ if "$ADB" shell ls "$DL_SHOTS/01-volume.png" >/dev/null 2>&1; then
 	done
 else
 	echo "NOTE  no github-shots on device (UI test did not write PNGs)"
-fi
-
-THEME_DL=/storage/emulated/0/Download/vcport-theme-shots
-THEME_SHOTS="$(cd "$ANDROID/../../experimental/pure-c" && pwd)/shots"
-if "$ADB" shell ls "$THEME_DL/skin-cyberpunk.png" >/dev/null 2>&1; then
-	mkdir -p "$THEME_SHOTS"
-	echo "Pulling experimental computer-skin shots into $THEME_SHOTS"
-	for name in skin-cyberpunk.png skin-matrix.png skin-eva.png skin-signal.png; do
-		"$ADB" pull "$THEME_DL/$name" "$THEME_SHOTS/$name"
-		ls -l "$THEME_SHOTS/$name"
-	done
 fi

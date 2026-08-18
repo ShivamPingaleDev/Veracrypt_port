@@ -132,4 +132,5 @@ set(VC_COMMON
 	${VC_SRC}/Common/Crc.c
 	${VC_SRC}/Common/Endian.c
 	${VC_SRC}/Common/GfMul.c
+	${VC_SRC}/Common/Token.cpp
 )

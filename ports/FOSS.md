@@ -32,9 +32,9 @@ cd android
 
 That flavor has no `INTERNET`, no Play libraries, and backups disabled. Updates are a new APK you rebuild from this git tree, not a download inside the app.
 
-Looks APKs (`assembleStyledRelease`, `assembleLooksgithubRelease`) add Desktop plus Cyberpunk / Matrix / MAGI / Signal. Same `applicationId` (`dev.shivampingale.vcport`). Installing Looks replaces the Desktop-only APK.
+Appearance is Original plus Dark mode. Cyberpunk, Matrix, and MAGI are archived under `archive/looks/` and are not built. The `github` flavor (`assembleGithubRelease`) shares `applicationId` (`dev.shivampingale.vcport`) and is also offline on master.
 
-GitHub Actions APKs are **debug-signed previews**. Sign anything called production yourself.
+GitHub Actions APKs are **debug-signed previews**. The GitHub Release for this version attaches **one** FOSS APK. Sign anything called production yourself.
 
 Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com. See [SECURITY.md](../SECURITY.md).
 

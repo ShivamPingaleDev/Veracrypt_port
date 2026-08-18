@@ -1,16 +1,6 @@
 # Files that do not exist in upstream VeraCrypt. After a merge, restore these
-# wholesale. Regenerate with: scripts/refresh-overlay.sh
+# wholesale. Regenerated with: scripts/refresh-overlay.sh
 PORTING.md
 scripts/check-upstream-layout.sh
 scripts/refresh-overlay.sh
 scripts/sync-upstream.sh
-src/Core/Unix/MacOSX/MacOSXAuthorization.h
-src/Core/Unix/MacOSX/MacOSXAuthorization.mm
-src/Main/MacOSXBiometric.h
-src/Main/MacOSXBiometric.mm
-src/Main/MacOSXShare.mm
-src/Main/OfflineUpdate.cpp
-src/Main/OfflineUpdate.h
-src/Main/PortFileWrap.cpp
-src/Main/PortFileWrap.h
-src/Main/PortVersion.h

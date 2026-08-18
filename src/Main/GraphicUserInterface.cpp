@@ -35,9 +35,6 @@
 #include "Forms/KeyfileGeneratorDialog.h"
 #include "Forms/MainFrame.h"
 #include "Forms/MountOptionsDialog.h"
-#ifdef TC_MACOSX
-#include "Main/MacOSXBiometric.h"
-#endif
 #include "Forms/RandomPoolEnrichmentDialog.h"
 #include "Forms/SecurityTokenKeyfilesDialog.h"
 
@@ -1017,11 +1014,6 @@ namespace VeraCrypt
 			ShowError (e);
 		}
 
-#ifdef TC_MACOSX
-		if (volume && options.RememberPasswordWithBiometrics && options.Password && options.Path)
-			MacOSXBiometric::StoreVolumePassword (string (*options.Path), options.Password, options.Pim);
-#endif
-
 #ifdef TC_LINUX
 		if (volume && !Preferences.NonInteractive && !Preferences.DisableKernelEncryptionModeWarning
 			&& volume->EncryptionModeName != L"XTS"
@@ -1551,12 +1543,6 @@ namespace VeraCrypt
 
 	void GraphicUserInterface::OpenHomepageLink (wxWindow *parent, const wxString &linkId, const wxString &extraVars)
 	{
-		if (GetPreferences().StayOffline)
-		{
-			if (!AskYesNo (LangString["STAY_OFFLINE_LEAVE_CONFIRM"], false, true))
-				return;
-		}
-
 		wxString url;
 
 		BeginInteractiveBusyState (parent);
@@ -1955,10 +1941,6 @@ namespace VeraCrypt
 	{
 		list < pair <wstring, wstring> > extensions;
 		extensions.push_back (make_pair (L"hc", LangString["TC_VOLUMES"].ToStdWstring()));
-		extensions.push_back (make_pair (L"jpg", L"JPEG"));
-		extensions.push_back (make_pair (L"png", L"PNG"));
-		extensions.push_back (make_pair (L"safetensors", L"SafeTensors"));
-		extensions.push_back (make_pair (L"lora", L"LoRA"));
 
 		FilePathList selFiles = Gui->SelectFiles (parent, LangString[saveMode ? "OPEN_NEW_VOLUME" : "OPEN_VOL_TITLE"], saveMode, false, extensions, directory);
 

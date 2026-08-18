@@ -40,7 +40,6 @@ class MainActivityUiTest {
 
     @Test
     fun chromeTabsAndContractCopy() {
-        if (BuildConfig.ENABLE_SKINS) return
         val flags = rule.activity.window.attributes.flags
         assertTrue(
             "FLAG_SECURE must stay on during UI use",
@@ -103,37 +102,20 @@ class MainActivityUiTest {
     }
 
     @Test
-    fun experimentalComputerSkinShots() {
-        if (!BuildConfig.ENABLE_SKINS) return
+    fun appearanceDarkModeShot() {
         rule.waitForIdle()
         rule.onNodeWithTag("tab_tools").performClick()
-        rule.onNodeWithText("Looks (this phone)").performScrollTo().assertIsDisplayed()
-        val shots = listOf(
-            "skin_cyberpunk" to "skin-cyberpunk.png",
-            "skin_matrix" to "skin-matrix.png",
-            "skin_eva" to "skin-eva.png",
-            "skin_signal" to "skin-signal.png"
-        )
-        val docs = listOf(
-            "05-skin-cyberpunk.png",
-            "06-skin-matrix.png",
-            "07-skin-eva.png",
-            "08-skin-signal.png"
-        )
-        for ((i, pair) in shots.withIndex()) {
-            val (tag, file) = pair
-            rule.onNodeWithTag(tag).performScrollTo().performClick()
-            rule.waitForIdle()
-            rule.onNodeWithTag("tab_volume").performClick()
-            rule.waitForIdle()
-            captureShot(file, folder = "vcport-theme-shots")
-            captureShot(docs[i])
-            rule.onNodeWithTag("tab_tools").performClick()
-            rule.waitForIdle()
-        }
+        rule.onNodeWithText("Appearance").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("skin_signal").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("tab_volume").performClick()
+        rule.waitForIdle()
+        captureShot("08-skin-signal.png")
+        rule.onNodeWithTag("tab_tools").performClick()
+        rule.waitForIdle()
         rule.onNodeWithTag("skin_desktop").performScrollTo().performClick()
         assertTrue(
-            "FLAG_SECURE stays on for experimental skins",
+            "FLAG_SECURE stays on for Dark mode",
             rule.activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0
         )
         rule.onNodeWithTag("tab_volume").performClick()
@@ -143,7 +125,6 @@ class MainActivityUiTest {
 
     @Test
     fun generateCopyBackgroundPasteContinue() {
-        if (BuildConfig.ENABLE_SKINS) return
         rule.onNodeWithTag("tab_create").performClick()
         rule.onNodeWithText("Generate strong password").performScrollTo().assertIsEnabled()
         rule.onAllNodesWithText("Generate strong password").onFirst().performClick()

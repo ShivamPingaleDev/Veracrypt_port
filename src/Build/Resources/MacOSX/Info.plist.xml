@@ -96,11 +96,5 @@
 
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
-
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>VeraCrypt presents encrypted volumes through a local filesystem helper on Apple silicon.</string>
-
-    <key>NSFaceIDUsageDescription</key>
-    <string>Touch ID or Face ID is used to unlock stored VeraCrypt volume passwords on this Mac.</string>
 </dict>
 </plist>

@@ -26,7 +26,6 @@ namespace VeraCrypt
 
 		static void Add (const VolumePath &path);
 		static void Clear ();
-		static bool ConfirmEnable ();
 		static void ConnectComboBox (wxComboBox *comboBox);
 		static void DisconnectComboBox (wxComboBox *comboBox);
 		static VolumePathList Get () { return VolumePaths; }

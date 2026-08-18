@@ -12,7 +12,6 @@
 
 #include "System.h"
 
-#include <wx/clipbrd.h>
 #ifdef TC_UNIX
 #include <fcntl.h>
 #include <unistd.h>
@@ -29,12 +28,6 @@
 #include "Main/Xml.h"
 #include "MainFrame.h"
 #include "AboutDialog.h"
-#include "Main/OfflineUpdate.h"
-#include "Main/PortVersion.h"
-#include "Main/PortFileWrap.h"
-#ifdef TC_MACOSX
-#include "Main/MacOSXBiometric.h"
-#endif
 #include "BenchmarkDialog.h"
 #include "ChangePasswordDialog.h"
 #include "EncryptionTestDialog.h"
@@ -64,8 +57,7 @@ namespace VeraCrypt
 		ListItemRightClickEventPending (false),
 		SelectedItemIndex (-1),
 		SelectedSlotNumber (0),
-		ShowRequestFifo (-1),
-		CheckForUpdatesMenuItemId (wxID_HIGHEST + 42)
+		ShowRequestFifo (-1)
 	{
 		wxBusyCursor busy;
 
@@ -355,26 +347,6 @@ namespace VeraCrypt
 
 		Gui->SetListCtrlHeight (SlotListCtrl, slotListRowCount);
 
-		CheckForUpdatesMenuItemId = wxID_HIGHEST + 42;
-		wxMenuItem *checkUpdates = new wxMenuItem (HelpMenu, CheckForUpdatesMenuItemId, LangString["IDM_CHECK_FOR_UPDATES"], wxEmptyString, wxITEM_NORMAL);
-		HelpMenu->Insert (HelpMenu->GetMenuItemCount() - 1, checkUpdates);
-		HelpMenu->InsertSeparator (HelpMenu->GetMenuItemCount() - 1);
-
-		WrapFileMenuItemId = wxID_HIGHEST + 43;
-		UnwrapFileMenuItemId = wxID_HIGHEST + 44;
-		ShareEncryptedMenuItemId = wxID_HIGHEST + 45;
-		PanicWipeMenuItemId = wxID_HIGHEST + 46;
-		ToolsMenu->Insert (0, new wxMenuItem (ToolsMenu, WrapFileMenuItemId, LangString["IDM_WRAP_FILE"], wxEmptyString, wxITEM_NORMAL));
-		ToolsMenu->Insert (1, new wxMenuItem (ToolsMenu, UnwrapFileMenuItemId, LangString["IDM_UNWRAP_FILE"], wxEmptyString, wxITEM_NORMAL));
-		ToolsMenu->Insert (2, new wxMenuItem (ToolsMenu, ShareEncryptedMenuItemId, LangString["IDM_SHARE_ENCRYPTED"], wxEmptyString, wxITEM_NORMAL));
-		ToolsMenu->InsertSeparator (3);
-		ToolsMenu->AppendSeparator();
-		ToolsMenu->Append (PanicWipeMenuItemId, LangString["IDM_PANIC_WIPE"]);
-		Connect (WrapFileMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnWrapFileMenuItemSelected));
-		Connect (UnwrapFileMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnUnwrapFileMenuItemSelected));
-		Connect (ShareEncryptedMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnShareEncryptedMenuItemSelected));
-		Connect (PanicWipeMenuItemId, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler (MainFrame::OnPanicWipeMenuItemSelected));
-
 #ifdef __WXGTK__
 		wxSize size (-1, (int) ((double) Gui->GetCharHeight (this) * 1.53));
 		CreateVolumeButton->SetMinSize (size);
@@ -464,8 +436,6 @@ namespace VeraCrypt
 
 		mTimer.reset (dynamic_cast <wxTimer *> (new Timer (this)));
 		mTimer->Start (2000);
-
-		Bind (wxEVT_MENU, &MainFrame::OnCheckForUpdatesMenuItemSelected, this, CheckForUpdatesMenuItemId);
 	}
 
 #ifdef TC_WINDOWS
@@ -774,93 +744,6 @@ namespace VeraCrypt
 #endif
 		AboutDialog dialog (this);
 		dialog.ShowModal();
-	}
-
-	void MainFrame::OnCheckForUpdatesMenuItemSelected (wxCommandEvent& event)
-	{
-#ifdef TC_MACOSX
-		if (Gui->IsInBackgroundMode())
-			Gui->SetBackgroundMode (false);
-		EnsureVisible ();
-#endif
-		if (Gui->GetPreferences().StayOffline)
-		{
-			if (!Gui->AskYesNo (LangString["STAY_OFFLINE_LEAVE_CONFIRM"], false, true))
-				return;
-		}
-		else if (!Gui->AskYesNo (LangString["UPDATE_CHECK_CONFIRM"], false, true))
-			return;
-
-		wxBusyCursor busy;
-		try
-		{
-			try
-			{
-				string st = OfflineUpdate::FetchHttps ("https://www.githubstatus.com/api/v2/status.json");
-				if (st.find ("\"indicator\":\"major\"") != string::npos
-					|| st.find ("\"indicator\":\"critical\"") != string::npos)
-					Gui->ShowWarning (L"GitHub reports a major incident. Treat this check as unverified.");
-			}
-			catch (...)
-			{
-			}
-			string body = OfflineUpdate::FetchHttps (VC_PORT_UPDATE_MANIFEST_URL);
-			UpdateManifest manifest = OfflineUpdate::ParseManifest (body);
-			if (!manifest.Parsed)
-			{
-				Gui->ShowWarning (LangString["UPDATE_CHECK_BAD_MANIFEST"]);
-				return;
-			}
-
-			wxString msg;
-			if (OfflineUpdate::IsNewer (manifest.PortVersion, VC_PORT_VERSION)
-				|| OfflineUpdate::IsNewer (manifest.UpstreamVersion, VC_PORT_UPSTREAM_VERSION))
-			{
-				msg = LangString["UPDATE_AVAILABLE"];
-				msg.Replace (L"{0}", wxString::FromUTF8 (manifest.PortVersion.c_str()));
-				msg.Replace (L"{1}", wxString::FromUTF8 (VC_PORT_VERSION));
-				msg.Replace (L"{2}", wxString::FromUTF8 (manifest.UpstreamVersion.c_str()));
-				if (!manifest.Notes.empty())
-					msg += L"\n\n" + wxString::FromUTF8 (manifest.Notes.c_str());
-				if (!manifest.DownloadUrl.empty() && Gui->AskYesNo (msg + L"\n\n" + LangString["UPDATE_OPEN_DOWNLOAD"], true, true))
-					wxLaunchDefaultBrowser (wxString::FromUTF8 (manifest.DownloadUrl.c_str()), wxBROWSER_NEW_WINDOW);
-				else
-					Gui->ShowInfo (msg);
-			}
-			else
-			{
-				msg = LangString["UPDATE_UP_TO_DATE"];
-			}
-
-			// Optional second GET: official VeraCrypt GitHub latest release.
-			// Failure is ignored — the phone/desktop must not depend on GitHub.
-			try
-			{
-				string rel = OfflineUpdate::FetchHttps (VC_PORT_UPSTREAM_RELEASES);
-				string tag = OfflineUpdate::ParseGithubReleaseTag (rel);
-				string official = OfflineUpdate::VersionFromVeraCryptTag (tag);
-				if (!official.empty() && OfflineUpdate::IsNewer (official, VC_PORT_UPSTREAM_VERSION))
-				{
-					wxString extra = L"Official VeraCrypt ";
-					extra += wxString::FromUTF8 (official.c_str());
-					extra += L" is published. This build still compiles ";
-					extra += wxString::FromUTF8 (VC_PORT_UPSTREAM_VERSION);
-					extra += L". Merge with scripts/sync-upstream.sh and rebuild. This app does not fetch their source.";
-					Gui->ShowInfo (extra);
-				}
-				else if (msg == LangString["UPDATE_UP_TO_DATE"])
-					Gui->ShowInfo (msg);
-			}
-			catch (...)
-			{
-				if (msg == LangString["UPDATE_UP_TO_DATE"])
-					Gui->ShowInfo (msg);
-			}
-		}
-		catch (exception &e)
-		{
-			Gui->ShowError (e);
-		}
 	}
 
 	void MainFrame::OnActivate (wxActivateEvent& event)
@@ -1357,25 +1240,17 @@ namespace VeraCrypt
 	void MainFrame::OnNoHistoryCheckBoxClick (wxCommandEvent& event)
 	{
 		UserPreferences prefs = GetPreferences();
-		if (!event.IsChecked())
+		prefs.SaveHistory = !event.IsChecked();
+		Gui->SetPreferences (prefs);
+
+		if (event.IsChecked())
 		{
-			if (!VolumeHistory::ConfirmEnable())
-			{
-				NoHistoryCheckBox->SetValue (true);
-				return;
-			}
-			prefs.SaveHistory = true;
-		}
-		else
-		{
-			prefs.SaveHistory = false;
 			try
 			{
 				VolumeHistory::Clear();
 			}
 			catch (exception &e) { Gui->ShowError (e); }
 		}
-		Gui->SetPreferences (prefs);
 	}
 
 	void MainFrame::OnOrganizeFavoritesMenuItemSelected (wxCommandEvent& event)
@@ -1937,50 +1812,6 @@ namespace VeraCrypt
 	{
 		Core->WipePasswordCache();
 		UpdateWipeCacheButton();
-	}
-
-	void MainFrame::OnWrapFileMenuItemSelected (wxCommandEvent&)
-	{
-		PortFileWrap::WrapFile (this);
-	}
-
-	void MainFrame::OnUnwrapFileMenuItemSelected (wxCommandEvent&)
-	{
-		PortFileWrap::UnwrapFile (this);
-	}
-
-	void MainFrame::OnShareEncryptedMenuItemSelected (wxCommandEvent&)
-	{
-		PortFileWrap::ShareEncrypted (this);
-	}
-
-	void MainFrame::OnPanicWipeMenuItemSelected (wxCommandEvent&)
-	{
-		if (!Gui->AskYesNo (LangString["PANIC_WIPE_CONFIRM"], false, true))
-			return;
-		bool dismountFailed = false;
-		try
-		{
-			if (!Core->GetMountedVolumes().empty())
-				Gui->DismountAllVolumes (true, false);
-		}
-		catch (...)
-		{
-			dismountFailed = true;
-		}
-		WipeCache();
-#ifdef TC_MACOSX
-		MacOSXBiometric::DeleteAllStoredPasswords();
-#endif
-		if (wxTheClipboard->Open())
-		{
-			wxTheClipboard->Clear();
-			wxTheClipboard->Close();
-		}
-		if (dismountFailed)
-			Gui->ShowWarning (LangString["PANIC_WIPE_DISMOUNT_FAILED"]);
-		else
-			Gui->ShowInfo (LangString["PANIC_WIPE_DONE"]);
 	}
 	
 #ifdef TC_MACOSX

@@ -34,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
@@ -43,6 +44,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -67,7 +70,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,6 +87,16 @@ data class VaultEntry(
     val size: Long,
     val dosDate: Int = 0,
     val dosTime: Int = 0
+)
+
+data class MountedVolume(
+    val handle: Long,
+    val label: String,
+    val path: String,
+    val uriKey: String,
+    val dirPath: String = "",
+    val entries: List<VaultEntry> = emptyList(),
+    val truncated: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,6 +120,8 @@ class MainActivity : AppCompatActivity() {
     private val keyfileGenCountState = mutableStateOf("1")
     private val containerLabelState = mutableStateOf("")
     private val handleState = mutableStateOf(0L)
+    private val mountedVolumesState = mutableStateOf(listOf<MountedVolume>())
+    private val activeMountIndexState = mutableIntStateOf(0)
     private val entriesState = mutableStateOf(listOf<VaultEntry>())
     private val dirPathState = mutableStateOf("")
     private val listTruncatedState = mutableStateOf(false)
@@ -130,7 +144,8 @@ class MainActivity : AppCompatActivity() {
     private val hiddenProtectPasswordState = mutableStateOf("")
     private var suppressLock = false
     private var wrapHold = ""
-    private var containerPfd: ParcelFileDescriptor? = null
+    private var pendingContainerPfd: ParcelFileDescriptor? = null
+    private val liveContainerPfds = mutableMapOf<Long, ParcelFileDescriptor>()
     /** File pickers stop this activity. Do not wipe the wrap password in that gap. */
     private fun holdLockForPicker() {
         suppressLock = true
@@ -153,13 +168,14 @@ class MainActivity : AppCompatActivity() {
     private fun lookPrefs() = getSharedPreferences("vc_port_look", MODE_PRIVATE)
 
     private fun loadSkin(): VcSkin {
-        if (!BuildConfig.ENABLE_SKINS) return VcSkin.Desktop
         val name = lookPrefs().getString("skin", VcSkin.Desktop.name) ?: VcSkin.Desktop.name
-        return VcSkin.entries.find { it.name == name } ?: VcSkin.Desktop
+        return when (name) {
+            VcSkin.Signal.name, "DarkMode" -> VcSkin.Signal
+            else -> VcSkin.Desktop
+        }
     }
 
     private fun saveSkin(skin: VcSkin) {
-        if (!BuildConfig.ENABLE_SKINS) return
         lookPrefs().edit().putString("skin", skin.name).apply()
     }
 
@@ -187,6 +203,8 @@ class MainActivity : AppCompatActivity() {
                 var status by statusState
                 var entries by entriesState
                 var handle by handleState
+                var mountedVolumes by mountedVolumesState
+                var activeMountIndex by activeMountIndexState
                 var dirPath by dirPathState
                 var listTruncated by listTruncatedState
                 var busy by busyState
@@ -234,6 +252,8 @@ class MainActivity : AppCompatActivity() {
                 var pendingSaveName by remember { mutableStateOf("") }
                 var pendingSaveMove by remember { mutableStateOf(false) }
                 var pendingFromDeviceMove by remember { mutableStateOf(false) }
+                var showOpenAnother by remember { mutableStateOf(false) }
+                var transferMove by remember { mutableStateOf<Boolean?>(null) }
                 var selectedNames by remember { mutableStateOf(setOf<String>()) }
                 var lastPlainFiles by lastPlainFilesState
                 var incoming by incomingState
@@ -424,7 +444,6 @@ class MainActivity : AppCompatActivity() {
                             pimText = pim,
                             useTextPassword = useTextPassword,
                             keyfileUris = keyfileUris,
-                            currentHandle = handle,
                             onHandle = { handle = it },
                             onEntries = { entries = it },
                             onStatus = { status = it }
@@ -493,14 +512,18 @@ class MainActivity : AppCompatActivity() {
                                     Spacer(Modifier.padding(6.dp))
                                     Column {
                                         Text(
-                                            if (BuildConfig.ENABLE_SKINS) "VC Port Looks" else "VC Port",
+                                            "VC Port",
                                             style = MaterialTheme.typography.titleLarge
                                         )
                                         Text(
-                                            if (NativeBridge.isOpen(handle))
-                                                "Mounted in this app"
-                                            else
-                                                "Stay offline. This build has no network.",
+                                            when {
+                                                mountedVolumes.size > 1 ->
+                                                    "${mountedVolumes.size} volumes mounted"
+                                                NativeBridge.isOpen(handle) ->
+                                                    "Mounted in this app"
+                                                else ->
+                                                    "Stay offline. This build has no network."
+                                            },
                                             style = MaterialTheme.typography.labelSmall,
                                             color = colors.onPrimary.copy(alpha = 0.85f),
                                             maxLines = 1,
@@ -644,6 +667,22 @@ class MainActivity : AppCompatActivity() {
                                 selectedNames = selectedNames,
                                 truncated = listTruncated,
                                 busy = busy,
+                                mounts = mountedVolumes,
+                                activeMount = activeMountIndex,
+                                onSelectMount = { index ->
+                                    persistActiveMount(dirPath, entries, listTruncated)
+                                    activeMountIndex = index
+                                    val v = mountedVolumes[index]
+                                    handle = v.handle
+                                    dirPath = v.dirPath
+                                    entries = v.entries
+                                    listTruncated = v.truncated
+                                },
+                                onDismountMount = { dismountMountedAt(it) },
+                                onOpenAnother = { showOpenAnother = true },
+                                canTransfer = mountedVolumes.size > 1,
+                                onCopyToVolume = { transferMove = false },
+                                onMoveToVolume = { transferMove = true },
                                 onUp = {
                                     dirPath = parentDir(dirPath)
                                     loadDir(handle, dirPath, { entries = it }, { status = it })
@@ -1186,39 +1225,37 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                     2 -> {
-                                        if (BuildConfig.ENABLE_SKINS) {
-                                            VcCard {
-                                                Text("Looks (this phone)", style = MaterialTheme.typography.titleMedium)
-                                                VcHint("Desktop, Cyberpunk, Matrix, MAGI, Signal. Same app id — this APK replaces the Desktop-only install. Inspired drawing, not affiliated.")
-                                                VcSkin.entries.forEach { option ->
-                                                    val selected = skin == option
-                                                    if (selected) {
-                                                        Button(
-                                                            onClick = {
-                                                                skin = option
-                                                                saveSkin(option)
-                                                            },
-                                                            enabled = !busy,
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .testTag(option.tag),
-                                                            colors = ButtonDefaults.buttonColors(
-                                                                containerColor = colors.primary,
-                                                                contentColor = colors.onPrimary
-                                                            )
-                                                        ) { LookPickerLabel(option, selected = true) }
-                                                    } else {
-                                                        OutlinedButton(
-                                                            onClick = {
-                                                                skin = option
-                                                                saveSkin(option)
-                                                            },
-                                                            enabled = !busy,
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .testTag(option.tag)
-                                                        ) { LookPickerLabel(option, selected = false) }
-                                                    }
+                                        VcCard {
+                                            Text("Appearance", style = MaterialTheme.typography.titleMedium)
+                                            VcHint("Original is the VeraCrypt-like look. Dark mode is a dark theme. Pick is stored on this phone only.")
+                                            VcSkin.entries.forEach { option ->
+                                                val selected = skin == option
+                                                if (selected) {
+                                                    Button(
+                                                        onClick = {
+                                                            skin = option
+                                                            saveSkin(option)
+                                                        },
+                                                        enabled = !busy,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .testTag(option.tag),
+                                                        colors = ButtonDefaults.buttonColors(
+                                                            containerColor = colors.primary,
+                                                            contentColor = colors.onPrimary
+                                                        )
+                                                    ) { Text(if (selected) "●  ${option.picker}" else option.picker) }
+                                                } else {
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            skin = option
+                                                            saveSkin(option)
+                                                        },
+                                                        enabled = !busy,
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .testTag(option.tag)
+                                                    ) { Text(if (selected) "●  ${option.picker}" else option.picker) }
                                                 }
                                             }
                                         }
@@ -1248,7 +1285,6 @@ class MainActivity : AppCompatActivity() {
                                                         useTextPassword = useTextPassword,
                                                         keyfileUris = keyfileUris,
                                                         useBackupHeader = useBackupHeader,
-                                                        currentHandle = handle,
                                                         newPassword = newPassword,
                                                         newPimText = newPim,
                                                         newKdf = "",
@@ -1282,7 +1318,6 @@ class MainActivity : AppCompatActivity() {
                                                             useTextPassword = useTextPassword,
                                                                     keyfileUris = keyfileUris,
                                                             useBackupHeader = useBackupHeader,
-                                                            currentHandle = handle,
                                                             newPassword = "",
                                                             newPimText = newPim,
                                                             newKdf = kdf,
@@ -1306,7 +1341,6 @@ class MainActivity : AppCompatActivity() {
                                                         useTextPassword = useTextPassword,
                                                         keyfileUris = keyfileUris,
                                                         useBackupHeader = useBackupHeader,
-                                                        currentHandle = handle,
                                                         newPassword = "",
                                                         newPimText = newPim,
                                                         newKdf = "",
@@ -1329,7 +1363,6 @@ class MainActivity : AppCompatActivity() {
                                                         useTextPassword = useTextPassword,
                                                         keyfileUris = keyfileUris,
                                                         useBackupHeader = useBackupHeader,
-                                                        currentHandle = handle,
                                                         newPassword = "",
                                                         newPimText = newPim,
                                                         newKdf = "",
@@ -1352,7 +1385,6 @@ class MainActivity : AppCompatActivity() {
                                                         pimText = pim,
                                                         useTextPassword = useTextPassword,
                                                         keyfileUris = keyfileUris,
-                                                        currentHandle = handle,
                                                         onHandle = { handle = it },
                                                         onEntries = { entries = it },
                                                         onStatus = { status = it },
@@ -1385,7 +1417,6 @@ class MainActivity : AppCompatActivity() {
                                                         pimText = pim,
                                                         useTextPassword = useTextPassword,
                                                         keyfileUris = keyfileUris,
-                                                        currentHandle = handle,
                                                         onHandle = { handle = it },
                                                         onEntries = { entries = it },
                                                         onStatus = { status = it }
@@ -1529,7 +1560,6 @@ class MainActivity : AppCompatActivity() {
                                             VcHint("Root / jailbreak: this app will not ask for superuser.")
                                             VcHint("Device encryption: this app encrypts VeraCrypt container files (any file name). It cannot encrypt the phone's operating system. Android already encrypts the device with your screen lock.")
                                             VcHint("Security tokens: PKCS#11 smart cards are not available here. Export a keyfile on a computer, then Add keyfiles.")
-                                            VcHint("Desktop leftovers: mount as a drive, Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/ext, PKCS#11 tokens, and a DocumentsProvider browse of an unlocked volume. Phone volumes are FAT or exFAT file containers. Online help is not fetched while Stay offline. English UI only.")
                                         }
                                         VcCard {
                                             Text("About / licenses", style = MaterialTheme.typography.titleMedium)
@@ -1670,6 +1700,7 @@ class MainActivity : AppCompatActivity() {
                                             }
                                             Button(
                                                 onClick = {
+                                                    persistActiveMount(dirPath, entries, listTruncated)
                                                     openVolumeWithFactors(
                                                         path = path,
                                                         password = password,
@@ -1682,7 +1713,6 @@ class MainActivity : AppCompatActivity() {
                                                         protectHidden = protectHidden,
                                                         hiddenPassword = hiddenProtectPassword,
                                                         hiddenPimText = hiddenProtectPim,
-                                                        currentHandle = handle,
                                                         onHandle = { handle = it },
                                                         onEntries = { entries = it },
                                                         onStatus = { status = it }
@@ -1733,6 +1763,105 @@ class MainActivity : AppCompatActivity() {
                     }
                 )
             }
+            if (showOpenAnother) {
+                AlertDialog(
+                    onDismissRequest = { showOpenAnother = false },
+                    title = { Text("Open another container") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("This session can keep several volumes mounted. Copy to volume / Move to volume sends a file into the folder last opened on the other volume.")
+                            if (containerLabel.isNotEmpty()) {
+                                Text("Selected: $containerLabel")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    holdLockForPicker()
+                                    picker.launch(arrayOf("*/*"))
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Choose container") }
+                            if (useTextPassword) {
+                                SecretField(password, { password = it }, "Password", enabled = !busy)
+                            }
+                            OutlinedTextField(
+                                pim,
+                                { pim = it },
+                                label = { Text("PIM (0 = default)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy,
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showOpenAnother = false
+                                persistActiveMount(dirPath, entries, listTruncated)
+                                openVolumeWithFactors(
+                                    path = path,
+                                    password = password,
+                                    pimText = pim,
+                                    useTextPassword = useTextPassword,
+                                    keyfileUris = keyfileUris,
+                                    useBackupHeader = useBackupHeader,
+                                    readOnly = readOnlyOpen,
+                                    trueCryptMode = trueCryptMode,
+                                    protectHidden = protectHidden,
+                                    hiddenPassword = hiddenProtectPassword,
+                                    hiddenPimText = hiddenProtectPim,
+                                    onHandle = { handle = it },
+                                    onEntries = { entries = it },
+                                    onStatus = { status = it }
+                                )
+                            }
+                        ) { Text("Open") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showOpenAnother = false }) { Text("Cancel") }
+                    }
+                )
+            }
+            if (transferMove != null) {
+                val others = mountedVolumes.filterIndexed { i, _ -> i != activeMountIndex }
+                AlertDialog(
+                    onDismissRequest = { transferMove = null },
+                    title = { Text(if (transferMove == true) "Move to volume" else "Copy to volume") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("The file lands in the folder last opened on that volume.")
+                            others.forEach { dest ->
+                                OutlinedButton(
+                                    onClick = {
+                                        val move = transferMove == true
+                                        transferMove = null
+                                        val entry = entries.firstOrNull { it.name in selectedNames && !it.isDir }
+                                        if (entry == null) {
+                                            status = "Tap a file, then Copy to volume or Move to volume."
+                                        } else {
+                                            transferBetweenVolumes(
+                                                srcHandle = handle,
+                                                srcDir = dirPath,
+                                                entry = entry,
+                                                dest = dest,
+                                                move = move,
+                                                onSrcEntries = { entries = it },
+                                                onStatus = { status = it }
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) { Text(dest.label) }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { transferMove = null }) { Text("Cancel") }
+                    }
+                )
+            }
                 WorkOverlay(
                     visible = busy,
                     title = overlayTitle.ifEmpty { status },
@@ -1750,7 +1879,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        releaseContainerPfd()
+        releaseAllContainerPfds()
         super.onDestroy()
     }
 
@@ -1771,9 +1900,59 @@ class MainActivity : AppCompatActivity() {
         dismountOnLeave()
     }
 
+    private fun persistActiveMount(dirPath: String, entries: List<VaultEntry>, truncated: Boolean) {
+        val list = mountedVolumesState.value.toMutableList()
+        val i = activeMountIndexState.intValue
+        if (i in list.indices) {
+            list[i] = list[i].copy(dirPath = dirPath, entries = entries, truncated = truncated)
+            mountedVolumesState.value = list
+        }
+    }
+
+    private fun dismountMountedAt(index: Int) {
+        persistActiveMount(dirPathState.value, entriesState.value, listTruncatedState.value)
+        val list = mountedVolumesState.value.toMutableList()
+        if (index !in list.indices) return
+        val victim = list.removeAt(index)
+        if (NativeBridge.isOpen(victim.handle)) NativeBridge.closeVolume(victim.handle)
+        liveContainerPfds.remove(victim.handle)?.let {
+            try {
+                it.close()
+            } catch (_: Exception) {
+            }
+        }
+        mountedVolumesState.value = list
+        if (list.isEmpty()) {
+            activeMountIndexState.intValue = 0
+            handleState.value = 0L
+            entriesState.value = emptyList()
+            dirPathState.value = ""
+            listTruncatedState.value = false
+            statusState.value = "Dismounted ${victim.label}."
+            return
+        }
+        val active = activeMountIndexState.intValue
+        val next = when {
+            index < active -> (active - 1).coerceIn(0, list.lastIndex)
+            index == active -> active.coerceIn(0, list.lastIndex)
+            else -> active
+        }
+        activeMountIndexState.intValue = next
+        val v = list[next]
+        handleState.value = v.handle
+        dirPathState.value = v.dirPath
+        entriesState.value = v.entries
+        listTruncatedState.value = v.truncated
+        statusState.value = "Dismounted ${victim.label}. ${list.size} still mounted."
+    }
+
     private fun closeMountedVolume() {
-        val handle = handleState.value
-        if (NativeBridge.isOpen(handle)) NativeBridge.closeVolume(handle)
+        for (vol in mountedVolumesState.value) {
+            if (NativeBridge.isOpen(vol.handle)) NativeBridge.closeVolume(vol.handle)
+        }
+        releaseAllContainerPfds()
+        mountedVolumesState.value = emptyList()
+        activeMountIndexState.intValue = 0
         handleState.value = 0L
         entriesState.value = emptyList()
         dirPathState.value = ""
@@ -1851,7 +2030,6 @@ class MainActivity : AppCompatActivity() {
     private fun panicWipe() {
         closeMountedVolume()
         wipeRamSecrets()
-        releaseContainerPfd()
         Hardening.panic(this)
         basketUrisState.value = emptyList()
     }
@@ -2287,7 +2465,6 @@ class MainActivity : AppCompatActivity() {
         useTextPassword: Boolean,
         keyfileUris: List<Uri>,
         useBackupHeader: Boolean,
-        currentHandle: Long,
         newPassword: String,
         newPimText: String,
         newKdf: String,
@@ -2316,6 +2493,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             newPimText.toIntOrNull() ?: 0
         }
+        closeMountedVolume()
         beginWork("Rewriting volume header…")
         Thread {
             val temps = mutableListOf<File>()
@@ -2329,7 +2507,6 @@ class MainActivity : AppCompatActivity() {
                     return@Thread
                 }
                 temps.addAll(copied)
-                if (NativeBridge.isOpen(currentHandle)) NativeBridge.closeVolume(currentHandle)
                 val newKeys = if (keepKeyfiles) temps.map { it.absolutePath }.toTypedArray() else emptyArray()
                 val rc = NativeBridge.changeHeader(
                     path,
@@ -2366,7 +2543,6 @@ class MainActivity : AppCompatActivity() {
         pimText: String,
         useTextPassword: Boolean,
         keyfileUris: List<Uri>,
-        currentHandle: Long,
         onHandle: (Long) -> Unit,
         onEntries: (List<VaultEntry>) -> Unit,
         onStatus: (String) -> Unit,
@@ -2377,6 +2553,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val text = if (useTextPassword) password else ""
+        closeMountedVolume()
         beginWork("Backing up volume header…")
         Thread {
             val temps = mutableListOf<File>()
@@ -2390,7 +2567,6 @@ class MainActivity : AppCompatActivity() {
                     return@Thread
                 }
                 temps.addAll(copied)
-                if (NativeBridge.isOpen(currentHandle)) NativeBridge.closeVolume(currentHandle)
                 val dest = File(cacheDir, "volume-header.bak")
                 val rc = NativeBridge.backupHeaders(
                     volumePath,
@@ -2428,7 +2604,6 @@ class MainActivity : AppCompatActivity() {
         pimText: String,
         useTextPassword: Boolean,
         keyfileUris: List<Uri>,
-        currentHandle: Long,
         onHandle: (Long) -> Unit,
         onEntries: (List<VaultEntry>) -> Unit,
         onStatus: (String) -> Unit
@@ -2438,6 +2613,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val text = if (useTextPassword) password else ""
+        closeMountedVolume()
         beginWork("Restoring volume header…")
         Thread {
             val temps = mutableListOf<File>()
@@ -2461,7 +2637,6 @@ class MainActivity : AppCompatActivity() {
                     }
                     return@Thread
                 }
-                if (NativeBridge.isOpen(currentHandle)) NativeBridge.closeVolume(currentHandle)
                 val rc = NativeBridge.restoreHeaders(
                     volumePath,
                     backup.absolutePath,
@@ -2507,12 +2682,23 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun releaseContainerPfd() {
+    private fun releasePendingPfd() {
         try {
-            containerPfd?.close()
+            pendingContainerPfd?.close()
         } catch (_: Exception) {
         }
-        containerPfd = null
+        pendingContainerPfd = null
+    }
+
+    private fun releaseAllContainerPfds() {
+        releasePendingPfd()
+        liveContainerPfds.values.forEach {
+            try {
+                it.close()
+            } catch (_: Exception) {
+            }
+        }
+        liveContainerPfds.clear()
     }
 
     private fun nativePathIsInternal(nativePath: String): Boolean {
@@ -2522,7 +2708,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindContainer(uri: Uri): String {
-        releaseContainerPfd()
+        releasePendingPfd()
         if (uri.scheme == "file") {
             val p = uri.path
             if (!p.isNullOrEmpty() && File(p).canRead()) return p
@@ -2538,7 +2724,7 @@ class MainActivity : AppCompatActivity() {
         return try {
             val pfd = contentResolver.openFileDescriptor(uri, mode)
             if (pfd != null && pfd.statSize >= 0L) {
-                containerPfd = pfd
+                pendingContainerPfd = pfd
                 "/proc/self/fd/${pfd.fd}"
             } else {
                 pfd?.close()
@@ -2561,13 +2747,22 @@ class MainActivity : AppCompatActivity() {
         protectHidden: Boolean,
         hiddenPassword: String,
         hiddenPimText: String,
-        currentHandle: Long,
         onHandle: (Long) -> Unit,
         onEntries: (List<VaultEntry>) -> Unit,
         onStatus: (String) -> Unit
     ) {
         if (path.isEmpty()) {
             onStatus("Choose a container first.")
+            return
+        }
+        val already = mountedVolumesState.value
+        if (already.size >= 8) {
+            onStatus("This session already has 8 volumes mounted. Dismount one first.")
+            return
+        }
+        val key = containerUriState.value?.toString() ?: path
+        if (already.any { it.uriKey == key || it.path == path }) {
+            onStatus("That container is already mounted. Switch to it in the volume row.")
             return
         }
         val text = if (useTextPassword) password else ""
@@ -2591,7 +2786,6 @@ class MainActivity : AppCompatActivity() {
                     }
                     temps.add(copied)
                 }
-                if (NativeBridge.isOpen(currentHandle)) NativeBridge.closeVolume(currentHandle)
                 val result = NativeBridge.openVolume(
                     path,
                     text,
@@ -2606,9 +2800,6 @@ class MainActivity : AppCompatActivity() {
                 if (!NativeBridge.isOpen(result)) {
                     runOnUiThread {
                         endWork()
-                        onHandle(0)
-                        onEntries(emptyList())
-                        listTruncatedState.value = false
                         onStatus(openErrorMessage(result))
                     }
                     return@Thread
@@ -2622,16 +2813,32 @@ class MainActivity : AppCompatActivity() {
                     endWork()
                     if (parsed.size == 1 && parsed[0].name == "!error!") {
                         NativeBridge.closeVolume(result)
-                        onHandle(0)
-                        onEntries(emptyList())
-                        listTruncatedState.value = false
                         onStatus(listErrorMessage(parsed[0].size.toInt()))
                     } else {
+                        pendingContainerPfd?.let { pfd ->
+                            liveContainerPfds[result] = pfd
+                            pendingContainerPfd = null
+                        }
+                        persistActiveMount(dirPathState.value, entriesState.value, listTruncatedState.value)
+                        val label = containerLabelState.value.ifEmpty { File(path).name }
+                        val uriKey = containerUriState.value?.toString() ?: path
+                        val next = mountedVolumesState.value + MountedVolume(
+                            handle = result,
+                            label = label,
+                            path = path,
+                            uriKey = uriKey,
+                            dirPath = "",
+                            entries = files,
+                            truncated = truncated
+                        )
+                        mountedVolumesState.value = next
+                        activeMountIndexState.intValue = next.lastIndex
                         onHandle(result)
                         onEntries(files)
                         dirPathState.value = ""
                         listTruncatedState.value = truncated
-                        var msg = "Mounted in this app. Size $volumeBytes bytes. Tap a folder to open it, or a file to share the decrypted copy. Copy to device puts a file where Files can open it."
+                        var msg = "Mounted in this app. Size $volumeBytes bytes. Tap a folder to open it, or a file to share the decrypted copy. Copy to volume moves a file into another mounted container."
+                        if (next.size > 1) msg = "${next.size} volumes mounted. $msg"
                         if (protectHidden) msg = "Hidden volume is being protected against damage. $msg"
                         if (truncated) msg += " Listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more."
                         onStatus(msg)
@@ -2942,8 +3149,10 @@ class MainActivity : AppCompatActivity() {
                     }
                     val truncated = parsed.any { it.name == "!truncated!" }
                     val files = parsed.filter { it.name != "!truncated!" }
-                    onEntries(if (append) entriesState.value + files else files)
+                    val shown = if (append) entriesState.value + files else files
+                    onEntries(shown)
                     listTruncatedState.value = truncated
+                    persistActiveMount(path, shown, truncated)
                     if (truncated) onStatus("Folder listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more.")
                 }
             } catch (_: Exception) {
@@ -3206,7 +3415,7 @@ class MainActivity : AppCompatActivity() {
             val rc = NativeBridge.mkdir(handle, if (dirPath.isEmpty()) "/" else dirPath, name)
             runOnUiThread {
                 endWork()
-                if (rc != 0) onStatus(importErrorMessage(name, rc))
+                if (rc != 0) onStatus(importErrorMessage(name, rc, handle))
                 else {
                     onStatus("Created folder $name.")
                     loadDir(handle, dirPath, onEntries, onStatus)
@@ -3228,7 +3437,7 @@ class MainActivity : AppCompatActivity() {
             val rc = NativeBridge.renameFile(handle, joinDir(dirPath, entry.name), newName)
             runOnUiThread {
                 endWork()
-                if (rc != 0) onStatus(importErrorMessage(entry.name, rc))
+                if (rc != 0) onStatus(importErrorMessage(entry.name, rc, handle))
                 else {
                     onStatus("Renamed ${entry.name} to $newName.")
                     loadDir(handle, dirPath, onEntries, onStatus)
@@ -3253,7 +3462,7 @@ class MainActivity : AppCompatActivity() {
                 if (rc != 0) {
                     onStatus(
                         if (entry.isDir && rc == -3) "Folder $path is not empty."
-                        else importErrorMessage(entry.name, rc)
+                        else importErrorMessage(entry.name, rc, handle)
                     )
                 } else {
                     onStatus("Deleted ${entry.name}.")
@@ -3278,8 +3487,14 @@ class MainActivity : AppCompatActivity() {
             val rc = NativeBridge.wipeFreeSpace(handle)
             runOnUiThread {
                 endWork()
-                if (rc != 0) onStatus("Could not wipe free space (code $rc). Read-only volumes refuse this.")
-                else {
+                if (rc != 0) {
+                    onStatus(
+                        if (NativeBridge.protectionTriggered(handle))
+                            "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+                        else
+                            "Could not wipe free space (code $rc). Read-only volumes refuse this."
+                    )
+                } else {
                     onStatus("Wiped unused FAT clusters. Deleted file contents in free space are overwritten.")
                     loadDir(handle, dirPath, onEntries, onStatus)
                 }
@@ -3293,7 +3508,6 @@ class MainActivity : AppCompatActivity() {
         pimText: String,
         useTextPassword: Boolean,
         keyfileUris: List<Uri>,
-        currentHandle: Long,
         onHandle: (Long) -> Unit,
         onEntries: (List<VaultEntry>) -> Unit,
         onStatus: (String) -> Unit
@@ -3303,6 +3517,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val text = if (useTextPassword) password else ""
+        closeMountedVolume()
         beginWork("Restoring from the embedded backup header…")
         Thread {
             val temps = mutableListOf<File>()
@@ -3316,7 +3531,6 @@ class MainActivity : AppCompatActivity() {
                     return@Thread
                 }
                 temps.addAll(copied)
-                if (NativeBridge.isOpen(currentHandle)) NativeBridge.closeVolume(currentHandle)
                 val rc = NativeBridge.restoreHeaders(
                     volumePath,
                     "",
@@ -3371,6 +3585,99 @@ class MainActivity : AppCompatActivity() {
         return outFile.absolutePath
     }
 
+    private fun transferBetweenVolumes(
+        srcHandle: Long,
+        srcDir: String,
+        entry: VaultEntry,
+        dest: MountedVolume,
+        move: Boolean,
+        onSrcEntries: (List<VaultEntry>) -> Unit,
+        onStatus: (String) -> Unit
+    ) {
+        if (!NativeBridge.isOpen(srcHandle) || !NativeBridge.isOpen(dest.handle)) {
+            onStatus("Open both volumes first.")
+            return
+        }
+        if (entry.isDir) {
+            onStatus("Open the folder, then copy a file inside it.")
+            return
+        }
+        if (srcHandle == dest.handle) {
+            onStatus("Pick a different volume.")
+            return
+        }
+        beginWork(if (move) "Moving ${entry.name} to ${dest.label}…" else "Copying ${entry.name} to ${dest.label}…")
+        Thread {
+            val temp = File(cacheDir, "xfer-${System.nanoTime()}-${ShareHelper.safeName(entry.name)}")
+            try {
+                val srcPath = joinDir(srcDir, entry.name)
+                val rcExport = NativeBridge.exportFile(srcHandle, srcPath, temp.absolutePath)
+                if (rcExport != 0 || !temp.exists()) {
+                    runOnUiThread {
+                        endWork()
+                        onStatus(extractErrorMessage(entry.name, rcExport))
+                    }
+                    return@Thread
+                }
+                val destDir = dest.dirPath.ifEmpty { "/" }
+                val rcImport = NativeBridge.importFile(dest.handle, destDir, temp.absolutePath, entry.name)
+                if (rcImport != 0) {
+                    runOnUiThread {
+                        endWork()
+                        onStatus(importErrorMessage(entry.name, rcImport, dest.handle))
+                    }
+                    return@Thread
+                }
+                var deleted = true
+                if (move) {
+                    deleted = NativeBridge.deleteFile(srcHandle, srcPath) == 0
+                }
+                runOnUiThread {
+                    endWork()
+                    when {
+                        move && !deleted ->
+                            onStatus("Copied ${entry.name} into ${dest.label}. Could not delete it from the source volume.")
+                        move -> onStatus("Moved ${entry.name} into ${dest.label}.")
+                        else -> onStatus("Copied ${entry.name} into ${dest.label}.")
+                    }
+                    loadDir(srcHandle, srcDir, { files ->
+                        onSrcEntries(files)
+                        persistActiveMount(srcDir, files, listTruncatedState.value)
+                    }, onStatus)
+                    refreshMountedListing(dest.handle, dest.dirPath)
+                }
+            } catch (_: Exception) {
+                runOnUiThread {
+                    endWork()
+                    onStatus("Could not copy that file into the other volume.")
+                }
+            } finally {
+                Hardening.wipeFile(temp)
+            }
+        }.start()
+    }
+
+    private fun refreshMountedListing(handle: Long, dirPath: String) {
+        if (!NativeBridge.isOpen(handle)) return
+        Thread {
+            try {
+                val listed = NativeBridge.listDir(handle, if (dirPath.isEmpty()) "/" else dirPath)
+                val parsed = listed.mapNotNull { parseEntry(it) }
+                val truncated = parsed.any { it.name == "!truncated!" }
+                val files = parsed.filter { it.name != "!error!" && it.name != "!truncated!" }
+                runOnUiThread {
+                    val list = mountedVolumesState.value.toMutableList()
+                    val i = list.indexOfFirst { it.handle == handle }
+                    if (i >= 0) {
+                        list[i] = list[i].copy(entries = files, truncated = truncated)
+                        mountedVolumesState.value = list
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }.start()
+    }
+
     private fun copyToCache(uri: Uri): String {
         val display = ShareHelper.displayName(this, uri) ?: "volume.hc"
         val name = ShareHelper.sanitizeDisguiseName(display)
@@ -3395,6 +3702,14 @@ private fun VaultPane(
     selectedNames: Set<String>,
     truncated: Boolean,
     busy: Boolean,
+    mounts: List<MountedVolume>,
+    activeMount: Int,
+    onSelectMount: (Int) -> Unit,
+    onDismountMount: (Int) -> Unit,
+    onOpenAnother: () -> Unit,
+    canTransfer: Boolean,
+    onCopyToVolume: () -> Unit,
+    onMoveToVolume: () -> Unit,
     onUp: () -> Unit,
     onGoToPath: (String) -> Unit,
     onOpen: (VaultEntry) -> Unit,
@@ -3413,10 +3728,63 @@ private fun VaultPane(
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
         Text(
-            "Mounted in this app",
+            if (mounts.size > 1) "${mounts.size} volumes mounted" else "Mounted in this app",
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
+        if (mounts.isNotEmpty()) {
+            Row(
+                Modifier
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                mounts.forEachIndexed { index, vol ->
+                    FilterChip(
+                        selected = index == activeMount,
+                        onClick = { onSelectMount(index) },
+                        enabled = !busy,
+                        label = {
+                            Text(vol.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Dismount ${vol.label}",
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clickable(enabled = !busy) { onDismountMount(index) }
+                            )
+                        }
+                    )
+                }
+            }
+        }
+        Column(
+            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            OutlinedButton(
+                onClick = onOpenAnother,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Open another container") }
+            if (canTransfer) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = onCopyToVolume,
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Copy to volume", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+                    OutlinedButton(
+                        onClick = onMoveToVolume,
+                        enabled = !busy,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Move to volume", maxLines = 1, style = MaterialTheme.typography.labelLarge) }
+                }
+            }
+        }
         Row(
             Modifier
                 .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -3589,30 +3957,6 @@ private fun VaultPane(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun LookPickerLabel(option: VcSkin, selected: Boolean) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        if (option == VcSkin.Evangelion) {
-            Icon(
-                painter = painterResource(R.drawable.ic_look_magi),
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = Color.Unspecified
-            )
-            Icon(
-                painter = painterResource(R.drawable.ic_look_unit01),
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = Color.Unspecified
-            )
-        }
-        Text(if (selected) "●  ${option.picker}" else option.picker)
     }
 }
 

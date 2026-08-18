@@ -24,7 +24,7 @@ OUT="$OBJ/vcport-crypto-safety-test"
 UNAME_S="$(uname -s)"
 UNAME_M="$(uname -m)"
 SAN="${VC_SANITIZE:--fsanitize=address,undefined -fno-omit-frame-pointer}"
-CFLAGS="-O1 -g -fno-strict-aliasing -fstack-protector-strong -fno-common -DTC_UNIX -DARGON2_NO_THREADS -DCRYPTOPP_DISABLE_X86ASM -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE $SAN"
+CFLAGS="-O1 -g -fno-strict-aliasing -fstack-protector-strong -fno-common -DTC_UNIX -DTC_PORT_NO_TOKEN -DARGON2_NO_THREADS -DCRYPTOPP_DISABLE_X86ASM -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE $SAN"
 case "$UNAME_S" in
 	Darwin) CFLAGS="$CFLAGS -DTC_MACOSX" ;;
 	*) CFLAGS="$CFLAGS -DTC_LINUX" ;;
@@ -34,7 +34,7 @@ case "$UNAME_M" in
 		CFLAGS="$CFLAGS -DCRYPTOPP_DISABLE_AESNI -DCRYPTOPP_DISABLE_SHANI"
 		;;
 esac
-INCLUDES="-I$SRC -I$SRC/Crypto -I$SRC/Crypto/Argon2/include -I$SHARED"
+INCLUDES="-I$SHARED -I$SRC -I$SRC/Crypto -I$SRC/Crypto/Argon2/include"
 
 printf '%s\n' "$CC $CXX $CFLAGS $UNAME_M $SRC" > "$OBJ/flags.new"
 if [ ! -f "$OBJ/flags" ] || ! cmp -s "$OBJ/flags" "$OBJ/flags.new"; then

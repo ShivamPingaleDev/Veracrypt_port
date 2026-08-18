@@ -439,7 +439,77 @@ int main ()
 	if (innerVol)
 	{
 		expect (vc_list_root (innerVol, entries, 32) >= 0, "list nested FAT");
+		char secret[] = "/tmp/vcport-hidden-secret-XXXXXX";
+		int sfd = mkstemp (secret);
+		if (sfd >= 0)
+		{
+			const char *body = "inner-secret-ok\n";
+			write (sfd, body, 16);
+			close (sfd);
+		}
+		expect (vc_import_file (innerVol, "/", secret, "SECRET.TXT") == VC_OK, "store secret in hidden volume");
 		vc_close (innerVol);
+
+		VcOpenOptions badProt = outerOpt;
+		badProt.protect_hidden = 1;
+		badProt.hidden_password = "wrong-hidden";
+		badProt.hidden_password_len = strlen ("wrong-hidden");
+		badProt.hidden_pim = kPim;
+		err = 0;
+		VcVolume *denied = vc_open (&badProt, &err);
+		expect (denied == nullptr && err == VC_ERR_PASSWORD, "protect hidden rejects wrong nested password");
+		if (denied)
+			vc_close (denied);
+
+		VcOpenOptions prot = outerOpt;
+		prot.protect_hidden = 1;
+		prot.hidden_password = kHidden;
+		prot.hidden_password_len = strlen (kHidden);
+		prot.hidden_pim = kPim;
+		err = 0;
+		VcVolume *protectedOuter = vc_open (&prot, &err);
+		expect (protectedOuter != nullptr && err == VC_OK, "open outer with hidden volume protection");
+		if (protectedOuter)
+		{
+			char info[512];
+			expect (vc_volume_info (protectedOuter, info, sizeof (info)) == VC_OK
+				&& strstr (info, "Hidden Volume Protected: Yes") != nullptr
+				&& strstr (info, "Volume type: Outer") != nullptr, "outer reports Hidden Volume Protected");
+			expect (!vc_protection_triggered (protectedOuter), "protection has not tripped yet");
+			expect (vc_import_file (protectedOuter, "/", secret, "OUTER.TXT") == VC_OK,
+				"small outer write stays in outer FAT and is allowed");
+			expect (!vc_protection_triggered (protectedOuter), "small outer write does not trip protection");
+			int wipe = vc_wipe_free_space (protectedOuter);
+			expect (wipe != VC_OK && vc_protection_triggered (protectedOuter),
+				"wipe outer free space is refused before it can overwrite the hidden volume");
+			expect (vc_import_file (protectedOuter, "/", secret, "LATER.TXT") != VC_OK,
+				"further outer writes stay blocked after protection trips");
+			expect (vc_volume_info (protectedOuter, info, sizeof (info)) == VC_OK
+				&& strstr (info, "damage prevented") != nullptr, "Hidden Volume Protected: Yes (damage prevented!)");
+			vc_close (protectedOuter);
+		}
+
+		err = 0;
+		innerVol = vc_open (&innerOpt, &err);
+		expect (innerVol != nullptr && err == VC_OK, "hidden volume still opens after refused outer wipe");
+		if (innerVol)
+		{
+			char staging[] = "/tmp/vcport-hidden-out-XXXXXX";
+			int ofd = mkstemp (staging);
+			if (ofd >= 0)
+				close (ofd);
+			expect (vc_export_file (innerVol, "SECRET.TXT", staging) == VC_OK, "export hidden SECRET.TXT");
+			FILE *sf = fopen (staging, "rb");
+			char buf[32];
+			size_t got = sf ? fread (buf, 1, sizeof (buf), sf) : 0;
+			if (sf)
+				fclose (sf);
+			expect (got == 16 && memcmp (buf, "inner-secret-ok\n", 16) == 0,
+				"hidden file bytes intact after outer write attempt");
+			vc_close (innerVol);
+			unlink (staging);
+		}
+		unlink (secret);
 	}
 	unlink (nested);
 
@@ -610,6 +680,77 @@ int main ()
 		expect (noKf != nullptr && err == VC_OK, "open after removing all keyfiles");
 		if (noKf)
 			vc_close (noKf);
+	}
+
+	{
+		char volA[] = "/tmp/vcport-xfer-a-XXXXXX";
+		char volB[] = "/tmp/vcport-xfer-b-XXXXXX";
+		char payload[] = "/tmp/vcport-xfer-payload-XXXXXX";
+		char staging[] = "/tmp/vcport-xfer-stage-XXXXXX";
+		int afd = mkstemp (volA);
+		int bfd = mkstemp (volB);
+		int pfd = mkstemp (payload);
+		int sfd = mkstemp (staging);
+		if (afd >= 0)
+			close (afd);
+		if (bfd >= 0)
+			close (bfd);
+		if (pfd >= 0)
+		{
+			const char *body = "across-volumes\n";
+			write (pfd, body, 16);
+			close (pfd);
+		}
+		if (sfd >= 0)
+			close (sfd);
+		VcCreateOptions ax = copts;
+		ax.path = volA;
+		ax.size_bytes = 2ull * 1024ull * 1024ull;
+		VcCreateOptions bx = ax;
+		bx.path = volB;
+		expect (vc_create_volume (&ax) == VC_OK, "create transfer volume A");
+		expect (vc_create_volume (&bx) == VC_OK, "create transfer volume B");
+		err = 0;
+		VcOpenOptions oa = opt;
+		oa.path = volA;
+		VcOpenOptions ob = opt;
+		ob.path = volB;
+		VcVolume *a = vc_open (&oa, &err);
+		expect (a != nullptr && err == VC_OK, "open A while B stays closed");
+		err = 0;
+		VcVolume *b = vc_open (&ob, &err);
+		expect (a != nullptr && b != nullptr && err == VC_OK, "open A and B in one session");
+		if (a && b)
+		{
+			expect (vc_import_file (a, "/", payload, "CROSS.TXT") == VC_OK, "import into A");
+			expect (vc_export_file (a, "CROSS.TXT", staging) == VC_OK, "export A to staging");
+			expect (vc_import_file (b, "/", staging, "CROSS.TXT") == VC_OK, "import staging into B");
+			expect (vc_delete_file (a, "CROSS.TXT") == VC_OK, "move deletes CROSS.TXT from A");
+			n = vc_list_root (a, entries, 32);
+			expect (!has_name (entries, n, "CROSS.TXT", 0), "A no longer has CROSS.TXT");
+			n = vc_list_root (b, entries, 32);
+			expect (has_name (entries, n, "CROSS.TXT", 0), "B has CROSS.TXT");
+			expect (vc_export_file (b, "CROSS.TXT", staging) == VC_OK, "export B copy");
+			FILE *xf = fopen (staging, "rb");
+			char xbuf[32];
+			size_t xgot = xf ? fread (xbuf, 1, sizeof (xbuf), xf) : 0;
+			if (xf)
+				fclose (xf);
+			expect (xgot == 16 && memcmp (xbuf, "across-volumes\n", 16) == 0, "moved bytes match");
+			vc_close (a);
+			vc_close (b);
+		}
+		else
+		{
+			if (a)
+				vc_close (a);
+			if (b)
+				vc_close (b);
+		}
+		unlink (volA);
+		unlink (volB);
+		unlink (payload);
+		unlink (staging);
 	}
 
 	expect (vc_test_vectors () == VC_OK, "test vectors");

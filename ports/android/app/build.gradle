@@ -28,7 +28,6 @@ android {
         buildConfigField 'String', 'UPSTREAM_GIT', "\"${qcfg(versionJson.upstream_git as String)}\""
         buildConfigField 'String', 'UPSTREAM_RELEASES', "\"${qcfg(versionJson.upstream_releases as String)}\""
         buildConfigField 'String', 'UPSTREAM_TAG', "\"${qcfg(versionJson.upstream_tag as String)}\""
-        buildConfigField 'boolean', 'ENABLE_SKINS', 'false'
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
         }
@@ -45,25 +44,10 @@ android {
         foss {
             dimension 'distribution'
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
-            buildConfigField 'boolean', 'ENABLE_SKINS', 'false'
         }
         github {
             dimension 'distribution'
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
-            buildConfigField 'boolean', 'ENABLE_SKINS', 'false'
-        }
-        // Same applicationId as production. Looks APK on GitHub Releases, not a new package.
-        styled {
-            dimension 'distribution'
-            buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
-            buildConfigField 'boolean', 'ENABLE_SKINS', 'true'
-        }
-        // Looks skins, same applicationId; installing it replaces the Desktop-only APK.
-        // Live Check for updates is on experimental-biometrics, not master.
-        looksgithub {
-            dimension 'distribution'
-            buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
-            buildConfigField 'boolean', 'ENABLE_SKINS', 'true'
         }
     }
 

@@ -2,6 +2,16 @@ import SwiftUI
 import UniformTypeIdentifiers
 import CryptoKit
 
+private struct MountedVolume: Identifiable {
+    let id = UUID()
+    let handle: OpaquePointer
+    let url: URL
+    let label: String
+    var dirPath: String
+    var entries: [VaultEntry]
+    var truncated: Bool
+}
+
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var containerURL: URL?
@@ -17,6 +27,11 @@ struct ContentView: View {
     @State private var importerPresented = false
     @State private var shareEncImporterPresented = false
     @State private var volumeHandle: OpaquePointer?
+    @State private var mountedVolumes: [MountedVolume] = []
+    @State private var activeMountIndex = 0
+    @State private var pendingOpenAnother = false
+    @State private var showOpenAnotherUnlock = false
+    @State private var transferMove: Bool? = nil
     @State private var dirPath = ""
     @State private var listTruncated = false
     @State private var incomingFile: URL?
@@ -72,7 +87,7 @@ struct ContentView: View {
         holdLock || wrapImporterPresented || unwrapImporterPresented || importerPresented
             || shareEncImporterPresented || keyfileImporterPresented
             || restoreHeaderPresented || copyFromDevicePresented || basketImporterPresented
-            || hiddenKeyfileImporterPresented
+            || hiddenKeyfileImporterPresented || showOpenAnotherUnlock || pendingOpenAnother
     }
 
     var body: some View {
@@ -119,8 +134,13 @@ struct ContentView: View {
                     containerURL = url
                     holdLock = false
                     status = "Selected \(url.lastPathComponent)"
+                    if pendingOpenAnother {
+                        pendingOpenAnother = false
+                        showOpenAnotherUnlock = true
+                    }
                 case .failure:
                     holdLock = false
+                    pendingOpenAnother = false
                 }
             }
             .fileImporter(
@@ -228,6 +248,42 @@ struct ContentView: View {
                 TextField("Name", text: $namePromptValue)
                 Button("Rename") { renameSelected(namePromptValue) }
                 Button("Cancel", role: .cancel) {}
+            }
+            .alert("Open another container", isPresented: $showOpenAnotherUnlock) {
+                SecureField("Password", text: $password)
+                    .neverSaveHistory()
+                TextField("PIM (0 = default)", text: $pim)
+                    .keyboardType(.numberPad)
+                Button("Open") {
+                    persistActiveMount()
+                    startOpenVolume()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This session can keep several volumes mounted. Copy to volume / Move to volume sends a file into the folder last opened on the other volume.")
+            }
+            .confirmationDialog(
+                transferMove == true ? "Move to volume" : "Copy to volume",
+                isPresented: Binding(
+                    get: { transferMove != nil },
+                    set: { if !$0 { transferMove = nil } }
+                )
+            ) {
+                ForEach(Array(mountedVolumes.enumerated().filter { $0.offset != activeMountIndex }), id: \.element.id) { _, dest in
+                    Button(dest.label) {
+                        let move = transferMove == true
+                        transferMove = nil
+                        guard let name = selectedNames.first,
+                              let entry = entries.first(where: { $0.name == name && !$0.isDir }) else {
+                            status = "Tap a file, then Copy to volume or Move to volume."
+                            return
+                        }
+                        transferBetweenVolumes(entry: entry, dest: dest, move: move)
+                    }
+                }
+                Button("Cancel", role: .cancel) { transferMove = nil }
+            } message: {
+                Text("The file lands in the folder last opened on that volume.")
             }
             .onChange(of: scenePhase) { phase in
                 if phase == .background && !holdingForPicker && !busy {
@@ -341,6 +397,41 @@ struct ContentView: View {
     private var mountedVolumeForm: some View {
         Form {
             Section("Mounted in this app") {
+                if mountedVolumes.count > 1 {
+                    Text("\(mountedVolumes.count) volumes mounted")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(mountedVolumes.enumerated()), id: \.element.id) { index, vol in
+                            HStack(spacing: 4) {
+                                Button(vol.label) { selectMount(index) }
+                                    .buttonStyle(.bordered)
+                                    .tint(index == activeMountIndex ? Color.accentColor : Color.secondary)
+                                Button {
+                                    dismountMountedAt(index)
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.secondary)
+                                .accessibilityLabel("Dismount \(vol.label)")
+                            }
+                        }
+                    }
+                }
+                Button("Open another container") {
+                    holdLock = true
+                    pendingOpenAnother = true
+                    importerPresented = true
+                }
+                if mountedVolumes.count > 1 {
+                    HStack {
+                        Button("Copy to volume") { transferMove = false }
+                        Button("Move to volume") { transferMove = true }
+                    }
+                }
                 if entries.isEmpty {
                     Text("This folder is empty. Tap a folder after Copy from device. FAT and exFAT folders are browsable.")
                         .font(.caption)
@@ -779,9 +870,6 @@ struct ContentView: View {
                 Text("Security tokens: PKCS#11 smart cards are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("Desktop leftovers: this is the full file-container port. These stay on a computer: mount as a drive (no FUSE), Select Device / Auto-Mount All Devices, system encryption, rescue disk, traveler disk, volume expander, Quick Format, dynamic sparse containers, favorite volumes, driver password cache, VeraCrypt background task, in-place partition encrypt/decrypt, hotkeys, language files, NTFS/ext, PKCS#11 tokens, and a File Provider browse of an unlocked volume. Phone volumes are FAT or exFAT file containers. Online help is not fetched while Stay offline. English UI only.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             Section("About / licenses") {
                 Text("“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)")
@@ -1082,12 +1170,24 @@ struct ContentView: View {
     }
 
     private func startOpenVolume() {
-        guard let path = containerURL?.path else {
+        guard let url = containerURL else {
             status = "Select a container first."
             return
         }
+        let path = url.path
         let text = useTextPassword ? password : ""
-        closeVolume()
+        if text.isEmpty && keyfileURLs.isEmpty {
+            status = "Type the volume password, or add a keyfile."
+            return
+        }
+        if mountedVolumes.count >= 8 {
+            status = "This session already has 8 volumes mounted. Dismount one first."
+            return
+        }
+        if mountedVolumes.contains(where: { $0.url.path == path }) {
+            status = "That container is already mounted. Switch to it in the volume row."
+            return
+        }
         beginWork("Opening volume…")
         let backup = useBackupHeader
         let readOnly = readOnlyOpen
@@ -1118,22 +1218,37 @@ struct ContentView: View {
                     status = openErrorMessage(error)
                     return
                 }
-                volumeHandle = handle
-                dirPath = ""
+                persistActiveMount()
                 switch VcMobileBridge.listDir(handle, path: "/") {
                 case .failure(let err):
                     VcMobileBridge.close(handle)
-                    volumeHandle = nil
                     status = listErrorMessage(err.rawValue)
-                    entries = []
-                    listTruncated = false
                 case .success(let listed):
                     let truncated = listed.contains { $0.name == "!truncated!" }
-                    entries = listed.filter { $0.name != "!truncated!" }
+                    let files = listed.filter { $0.name != "!truncated!" }
+                    mountedVolumes.append(
+                        MountedVolume(
+                            handle: handle,
+                            url: url,
+                            label: url.lastPathComponent,
+                            dirPath: "",
+                            entries: files,
+                            truncated: truncated
+                        )
+                    )
+                    activeMountIndex = mountedVolumes.count - 1
+                    volumeHandle = handle
+                    dirPath = ""
+                    entries = files
                     listTruncated = truncated
-                    status = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file."
-                    if protect { status = "Hidden volume is being protected against damage. " + status }
-                    if truncated { status += " Listing truncated at \(VC_LIST_UI_MAX) entries. Tap Load more." }
+                    selectedNames = []
+                    var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Tap Open on a folder, or Share on a file. Copy to volume moves a file into another mounted container."
+                    if mountedVolumes.count > 1 {
+                        msg = "\(mountedVolumes.count) volumes mounted. " + msg
+                    }
+                    if protect { msg = "Hidden volume is being protected against damage. " + msg }
+                    if truncated { msg += " Listing truncated at \(VC_LIST_UI_MAX) entries. Tap Load more." }
+                    status = msg
                 }
             }
         }
@@ -1171,6 +1286,7 @@ struct ContentView: View {
                 if name.hasPrefix("vcbio-") ||
                     name.hasPrefix("vc-in-") ||
                     name.hasPrefix("wrap-in-") ||
+                    name.hasPrefix("xfer-") ||
                     name == "vcport-biometric.key" {
                     wipeFile(url)
                 }
@@ -1179,14 +1295,136 @@ struct ContentView: View {
     }
 
     private func closeVolume() {
-        if let handle = volumeHandle {
-            VcMobileBridge.close(handle)
-            volumeHandle = nil
+        for vol in mountedVolumes {
+            VcMobileBridge.close(vol.handle)
         }
+        mountedVolumes = []
+        activeMountIndex = 0
+        volumeHandle = nil
         entries = []
         dirPath = ""
         listTruncated = false
         selectedNames = []
+    }
+
+    private func persistActiveMount() {
+        guard activeMountIndex < mountedVolumes.count else { return }
+        mountedVolumes[activeMountIndex].dirPath = dirPath
+        mountedVolumes[activeMountIndex].entries = entries
+        mountedVolumes[activeMountIndex].truncated = listTruncated
+    }
+
+    private func selectMount(_ index: Int) {
+        guard index < mountedVolumes.count else { return }
+        persistActiveMount()
+        activeMountIndex = index
+        let v = mountedVolumes[index]
+        volumeHandle = v.handle
+        dirPath = v.dirPath
+        entries = v.entries
+        listTruncated = v.truncated
+        selectedNames = []
+    }
+
+    private func dismountMountedAt(_ index: Int) {
+        persistActiveMount()
+        guard index < mountedVolumes.count else { return }
+        let victim = mountedVolumes.remove(at: index)
+        VcMobileBridge.close(victim.handle)
+        if mountedVolumes.isEmpty {
+            activeMountIndex = 0
+            volumeHandle = nil
+            entries = []
+            dirPath = ""
+            listTruncated = false
+            selectedNames = []
+            status = "Dismounted \(victim.label)."
+            return
+        }
+        let next: Int
+        if index < activeMountIndex {
+            next = max(0, activeMountIndex - 1)
+        } else if index == activeMountIndex {
+            next = min(activeMountIndex, mountedVolumes.count - 1)
+        } else {
+            next = activeMountIndex
+        }
+        activeMountIndex = next
+        let v = mountedVolumes[next]
+        volumeHandle = v.handle
+        dirPath = v.dirPath
+        entries = v.entries
+        listTruncated = v.truncated
+        selectedNames = []
+        status = "Dismounted \(victim.label). \(mountedVolumes.count) still mounted."
+    }
+
+    private func transferBetweenVolumes(entry: VaultEntry, dest: MountedVolume, move: Bool) {
+        guard let src = volumeHandle else {
+            status = "Open a volume first."
+            return
+        }
+        if entry.isDir {
+            status = "Open the folder, then copy a file inside it."
+            return
+        }
+        persistActiveMount()
+        beginWork(move ? "Moving \(entry.name) to \(dest.label)…" : "Copying \(entry.name) to \(dest.label)…")
+        let srcDir = dirPath
+        DispatchQueue.global(qos: .userInitiated).async {
+            let temp = FileManager.default.temporaryDirectory
+                .appendingPathComponent("xfer-\(Int(Date().timeIntervalSince1970 * 1000))-\(entry.name.replacingOccurrences(of: "/", with: "_"))")
+            try? FileManager.default.removeItem(at: temp)
+            let srcPath = joinDir(srcDir, entry.name)
+            let rcExport = VcMobileBridge.exportFile(src, name: srcPath, dest: temp.path)
+            if rcExport != 0 {
+                DispatchQueue.main.async {
+                    endWork()
+                    status = extractErrorMessage(entry.name, rcExport)
+                }
+                return
+            }
+            let destDir = dest.dirPath.isEmpty ? "/" : dest.dirPath
+            let rcImport = VcMobileBridge.importFile(dest.handle, destDir: destDir, src: temp.path, destName: entry.name)
+            var deleted = true
+            if rcImport == 0 && move {
+                deleted = VcMobileBridge.deleteFile(src, path: srcPath) == 0
+            }
+            wipeFile(temp)
+            DispatchQueue.main.async {
+                endWork()
+                if rcImport != 0 {
+                    status = importErrorMessage(entry.name, rcImport, handle: dest.handle)
+                    return
+                }
+                if move && !deleted {
+                    status = "Copied \(entry.name) into \(dest.label). Could not delete it from the source volume."
+                } else if move {
+                    status = "Moved \(entry.name) into \(dest.label)."
+                    selectedNames.remove(entry.name)
+                } else {
+                    status = "Copied \(entry.name) into \(dest.label)."
+                }
+                reloadDir()
+                persistActiveMount()
+                refreshMountedListing(dest)
+            }
+        }
+    }
+
+    private func refreshMountedListing(_ dest: MountedVolume) {
+        let path = dest.dirPath.isEmpty ? "/" : dest.dirPath
+        switch VcMobileBridge.listDir(dest.handle, path: path) {
+        case .failure:
+            break
+        case .success(let listed):
+            let truncated = listed.contains { $0.name == "!truncated!" }
+            let files = listed.filter { $0.name != "!truncated!" }
+            if let i = mountedVolumes.firstIndex(where: { $0.id == dest.id }) {
+                mountedVolumes[i].entries = files
+                mountedVolumes[i].truncated = truncated
+            }
+        }
     }
 
     /// Home / app switcher: close a mounted volume. Keep the Create wizard
@@ -1581,6 +1819,7 @@ struct ContentView: View {
             let files = listed.filter { $0.name != "!truncated!" }
             entries = append ? entries + files : files
             listTruncated = truncated
+            persistActiveMount()
             if truncated { status = "Folder listing truncated at \(VC_LIST_UI_MAX) entries. Tap Load more." }
         }
     }
@@ -1808,7 +2047,7 @@ struct ContentView: View {
         let destDir = dirPath.isEmpty ? "/" : dirPath
         let rc = VcMobileBridge.mkdir(handle, parent: destDir, name: trimmed)
         if rc != 0 {
-            status = importErrorMessage(trimmed, rc)
+            status = importErrorMessage(trimmed, rc, handle: handle)
             return
         }
         status = "Created folder \(trimmed)."
@@ -1827,7 +2066,7 @@ struct ContentView: View {
         }
         let rc = VcMobileBridge.renameFile(handle, path: joinDir(dirPath, old), newName: trimmed)
         if rc != 0 {
-            status = importErrorMessage(old, rc)
+            status = importErrorMessage(old, rc, handle: handle)
             return
         }
         selectedNames = [trimmed]
@@ -1848,7 +2087,7 @@ struct ContentView: View {
         let path = joinDir(dirPath, entry.name)
         let rc = entry.isDir ? VcMobileBridge.rmdir(handle, path: path) : VcMobileBridge.deleteFile(handle, path: path)
         if rc != 0 {
-            status = entry.isDir && rc == -3 ? "Folder \(path) is not empty." : importErrorMessage(entry.name, rc)
+            status = entry.isDir && rc == -3 ? "Folder \(path) is not empty." : importErrorMessage(entry.name, rc, handle: handle)
             return
         }
         selectedNames.remove(name)
@@ -1878,7 +2117,11 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 endWork()
                 if rc != 0 {
-                    status = "Could not wipe free space (code \(rc)). Read-only volumes refuse this."
+                    if VcMobileBridge.protectionTriggered(handle) {
+                        status = "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+                    } else {
+                        status = "Could not wipe free space (code \(rc)). Read-only volumes refuse this."
+                    }
                 } else {
                     status = "Wiped unused FAT clusters. Deleted file contents in free space are overwritten."
                     reloadDir()

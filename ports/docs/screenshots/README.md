@@ -6,6 +6,6 @@ They are not store mockups. Fastlane `phoneScreenshots/` stays empty until a phy
 
 No volume password, generated secret, or opened-folder listing is in these frames. Not unbreakable.
 
-Looks (this phone) live in the **Looks APKs** on GitHub Release `v0.3.1` (`VCPort-0.3.1-looks-preview.apk`, `VCPort-0.3.1-looks-github-preview.apk`; both offline on master), same `applicationId` as the Desktop-only APKs. Shots `05-skin-cyberpunk.png` … `08-skin-signal.png` are from that APK. Desktop (`01`–`04`) is the production FOSS UI. Installing Looks replaces the Desktop-only APK. The pick is stored on-device only.
+Original (`01`–`04`) is the production FOSS UI. Dark mode is `08-skin-signal.png`. The pick is stored on this phone only. Cyberpunk / Matrix / MAGI shots live under `archive/looks/screenshots/` and are not built.
 
 Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com

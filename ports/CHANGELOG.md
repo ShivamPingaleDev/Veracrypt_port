@@ -2,27 +2,18 @@
 
 ## Unreleased
 
-- Looks skins except Signal are quieter. Desktop chrome is calmer. The app stays in Recents as a blank card (`FLAG_SECURE`); it is not hidden from the task switcher. Home dismounts an open volume but keeps the Create wizard (generated outer and nested passwords, nested checkbox, cipher/KDF/PIM, basket, size) so you can paste Copy once into Notes and continue. That keep-on-Home is intentional: wiping the wizard on minimize made Copy once useless. Dismount and Panic wipe still clear those secrets. Copy once stays on the clipboard for 30 seconds; Panic wipe still clears it. The basket “at least” size includes the nested volume, and tapping the nested label toggles it. Create can generate several keyfiles with any extension and add them. Volume shows password, PIM, keyfiles, and mount options (backup header, read-only, TrueCrypt Mode, hidden-volume protection) without a More-factors fold. Fingerprint / Face ID unlock and in-app Check for updates are not on master; they live on `experimental-biometrics`. Production Android is the `foss` flavor (public source, no trackers, no INTERNET); there is no F-Droid store target.
-- Create size follows the file basket. KiB / MiB / GiB is a compact menu. Basket file size uses the Documents SIZE column, then the open file descriptor length, then `file://` length — not a 1 MiB guess when SIZE is missing. exFAT import/delete work inside a folder, not only the volume root. Switching Volume/Tools and back to Create does not wipe the randomness bar; it resets after a volume is created.
-- Set header KDF / add or remove keyfiles keep the current PIM when New PIM is left at 0. Change password still treats 0 as VeraCrypt default.
-- ARM64 AES uses the CPU crypto extension (NEON `vaeseq`) after `DetectArmFeatures()`. ARMv7 stays table AES with NEON. HMAC-SHA-512 is unchanged.
-- Wrap tab removed; leftover `.vcpw` decrypt stays on Tools. Create leads with the file basket. Size is KiB / MiB / GiB (2 MiB–64 GiB). Nested volumes get password, PIM, keyfiles, and generate. Session SHA-256 of basket files; `BASKET.sha256` is written inside the volume.
-- Create volumes as FAT or exFAT. exFAT if a file is over 4 GiB. USB/OTG opens a container file on the stick, not the whole disk.
-- Unlock: text password is primary, plus optional keyfiles. Fingerprint / Face ID is on `experimental-biometrics`.
-- File name is only a disguise; the extension is ignored.
-- Apple users sign the unsigned IPA themselves (AltStore / Xcode). How to keep the repos public: `PUBLIC.md`. GitHub README has real emulator UI shots (`docs/screenshots/`); Fastlane `phoneScreenshots/` stays empty until a physical phone capture.
-- Honest discovery only: GitHub topics + README snippet, no ad SDK, no analytics. See `PUBLIC.md`.
-- Author footnote: still in a five-year IT engineering degree (graduate summer 2027). Quiet README ask for teaching, internship, or work.
-- Looks APKs share `applicationId` with production: `assembleStyledRelease` (`VCPort-0.3.1-looks-preview.apk`) and `assembleLooksgithubRelease` (`VCPort-0.3.1-looks-github-preview.apk`). Both are offline on master (no INTERNET). Live Check for updates is on `experimental-biometrics`. Installing either Looks APK replaces the other Desktop/Looks APK. Production Android is the `foss` flavor, not an F-Droid listing.
-- Wrap, PIM, keyfile, and container-name fixes: wrap copies then Save-as; Lock clears PIM; custom disguise names stay; any file can be a keyfile (first 1 MiB); container label is the Files name, not `/proc/self/fd`.
-- Wrap keeps the password while Files is open (the picker used to look like leaving the app, which wiped the secret).
-- Create / Choose container / keyfiles also keep the session while Files is open. The selected file is the one you picked or saved (name shown, not `/proc/self/fd` or a cache copy). Home dismounts an open volume; the Create form stays so you can paste Copy once into Notes and continue.
-- Create volume Basket: pick several files, then Create volume copies them into the new container. Volume size grows to fit (max 64 GiB). Originals stay on the phone.
-- Create/Open with phone unlock selected shows the system PIN / fingerprint / face prompt. Dismount wipes passwords, RAM keyfiles, and decrypted copies; remembered Keystore/Keychain factors stay until Panic wipe.
-- Phone UI: same skins and honest copy, less essay. Volume / Create / Tools first; About and desktop leftovers live under Tools. Mounted folders keep Copy/Move on two rows.
-- GitHub README: Hughes quote first, phones first, Mac extra, Looks last, footnote, then “Cypherpunks write code.”
-- Host crypto-safety suite: AES-256 FIPS-197 known-answer, CTR partial blocks, `vc_secure_wipe`, wrap reject-before-Argon2, JNI/enclave mocks, ASan/UBSan. Optional libFuzzer harness `fuzz_wrap.cc`.
-- Host Linux CI links wrap/volume tests without SHA-NI objects or PCSC; overlay inventories refreshed.
+## 0.3.2
+
+Phone release: official VeraCrypt `src/` with a thin overlay, one FOSS APK, Original and Dark mode.
+
+- `src/` matches official VeraCrypt at the pin. Phone hunks use the same relative paths under `ports/overlay/src/` (`File.cpp`, `Token.cpp`, token headers). Official `Keyfile.cpp` is unchanged.
+- This repo is phones plus original VeraCrypt `src/`. Mac/Linux GUI extras from this fork are frozen under `archive/desktop/` and are not built.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.2.apk`). The Looks APKs (`styled` / `looksgithub`) are gone. The `github` flavor still builds and is also offline; it is not attached to the release.
+- Appearance is Original (VeraCrypt-like) and Dark mode. Cyberpunk, Matrix, and MAGI live under `archive/looks/`.
+- Several volumes can stay mounted in one session (up to 8). Copy to volume / Move to volume sends a file into the folder last opened on another mounted container. Toolbar Dismount still closes every volume and wipes secrets.
+- Fingerprint / Face ID unlock and in-app Check for updates are not on master; they live on `experimental-biometrics`. Production Android is the `foss` flavor (public source, no trackers, no INTERNET); there is no F-Droid store target.
+- The app stays in Recents as a blank card (`FLAG_SECURE`). Home dismounts an open volume but keeps the Create wizard so Copy once still works.
+- ARM64 AES uses the CPU crypto extension after `DetectArmFeatures()`. ARMv7 stays table AES with NEON. HMAC-SHA-512 is unchanged.
 
 ## 0.3.1
 

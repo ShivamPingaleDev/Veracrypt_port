@@ -50,25 +50,17 @@ namespace VeraCrypt
 	void VolumeLocationWizardPage::OnNoHistoryCheckBoxClick (wxCommandEvent& event)
 	{
 		UserPreferences prefs = Gui->GetPreferences();
-		if (!event.IsChecked())
+		prefs.SaveHistory = !event.IsChecked();
+		Gui->SetPreferences (prefs);
+
+		if (event.IsChecked())
 		{
-			if (!VolumeHistory::ConfirmEnable())
-			{
-				NoHistoryCheckBox->SetValue (true);
-				return;
-			}
-			prefs.SaveHistory = true;
-		}
-		else
-		{
-			prefs.SaveHistory = false;
 			try
 			{
 				VolumeHistory::Clear();
 			}
 			catch (exception &e) { Gui->ShowError (e); }
 		}
-		Gui->SetPreferences (prefs);
 	}
 
 	void VolumeLocationWizardPage::OnPageChanging (bool forward)
