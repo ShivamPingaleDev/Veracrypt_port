@@ -49,6 +49,20 @@ On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not s
 
 The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the phone apps.
 
+## iPhone — install (you sign it)
+
+Apple will not let us send you a finished app. You put it on the iPhone with **your Apple ID**. We never see that ID.
+
+1. On a computer, install [AltStore](https://altstore.io/) or [SideStore](https://sidestore.io/).
+2. Download `VCPort-0.3.7-unsigned-preview.ipa` from the [v0.3.7 release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.7).
+3. Open that file in AltStore or SideStore. When it asks, sign in with **your Apple ID**.
+4. On the iPhone: **Settings → General → VPN & Device Management** → tap your Apple ID → **Trust**.
+5. Open **VC Port**.
+
+A free Apple ID lasts **7 days**. Open AltStore or SideStore again before that so the app stays installed. A copy you sign will not work on someone else’s iPhone.
+
+If you have a Mac and Xcode: open the project, pick your name as Team, plug in the iPhone, press Run. More detail: [ios/README.md](ios/README.md).
+
 **Volume** — pick a locked file and type the password.
 
 Android: ![Volume](docs/screenshots/01-volume.png)

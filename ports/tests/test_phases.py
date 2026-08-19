@@ -376,7 +376,6 @@ class Phase9LegalVersionTests(unittest.TestCase):
         self.assertTrue(shots.is_dir(), "missing ports/docs/screenshots")
         names = [
             "01-volume.png",
-            "02-wrap.png",
             "03-create.png",
             "04-tools.png",
             "05-mounted.png",

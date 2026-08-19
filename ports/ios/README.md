@@ -1,5 +1,21 @@
 # VC Port for iOS
 
+## Install on your iPhone (simple)
+
+We do not put this app on the App Store. **You** sign it with **your Apple ID**. We never see that ID.
+
+1. On a computer, install [AltStore](https://altstore.io/) or [SideStore](https://sidestore.io/).
+2. Download `VCPort-0.3.7-unsigned-preview.ipa` from the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.7).
+3. Open that IPA in AltStore or SideStore and sign in with **your Apple ID**.
+4. On the iPhone: **Settings → General → VPN & Device Management** → tap your name → **Trust**.
+5. Open **VC Port**.
+
+A free Apple ID lasts 7 days. Open AltStore or SideStore again before it expires. A copy you sign will not work on someone else’s iPhone.
+
+If you have a Mac: open this folder in Xcode, pick your Team (your Apple ID), plug in the iPhone, press Run.
+
+---
+
 SwiftUI client (`VCPort`) that talks to the shared VeraCrypt volume core in `shared/`.
 
 The FOSS path is: build from source, then sideload with AltStore / SideStore, or submit to the App Store if you want. Details: [FOSS.md](../FOSS.md).

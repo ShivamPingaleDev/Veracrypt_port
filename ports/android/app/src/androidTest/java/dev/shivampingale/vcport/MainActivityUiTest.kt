@@ -55,7 +55,6 @@ class MainActivityUiTest {
 
         rule.onNodeWithTag("tab_create").performClick()
         rule.onNodeWithText("File basket").assertIsDisplayed()
-        captureShot("02-wrap.png")
 
         rule.onNodeWithTag("tab_create").performClick()
         rule.onNodeWithText("Encryption Algorithm").assertIsDisplayed()

@@ -76,8 +76,8 @@ fi
 xcrun simctl install "$UDID" "$APP"
 xcrun simctl launch "$UDID" dev.shivampingale.vcport
 mkdir -p "$SHOTS"
-xcrun simctl io "$UDID" screenshot "$SHOTS/ios-ipad-volume.png" >/dev/null 2>&1 || true
-if [ -f "$SHOTS/ios-ipad-volume.png" ]; then
-	echo "Wrote $SHOTS/ios-ipad-volume.png"
+xcrun simctl io "$UDID" screenshot "$SHOTS/ios-01-volume.png" >/dev/null 2>&1 || true
+if [ -f "$SHOTS/ios-01-volume.png" ]; then
+	echo "Wrote $SHOTS/ios-01-volume.png"
 fi
 echo "PASS  VC Port running on iPad Simulator $UDID"

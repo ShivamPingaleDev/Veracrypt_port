@@ -44,13 +44,14 @@ Do not say:
 
 ## Apple users sign their own
 
-There is no Apple-signed VC Port on the App Store in this project. Each person:
+There is no Apple-signed VC Port on the App Store in this project. In plain steps:
 
-1. Downloads the unsigned IPA **or** builds `ios/` from source.
-2. Signs it with **their** Apple ID in AltStore / SideStore, or with their Team in Xcode.
-3. Trusts the developer cert on the iPhone.
+1. Install AltStore or SideStore on a computer.
+2. Download the unsigned IPA from the GitHub Release (`VCPort-0.3.7-unsigned-preview.ipa`).
+3. Open it there and sign in with **your Apple ID**.
+4. On the iPhone: Settings → General → VPN & Device Management → Trust.
 
-A signature you create will not install on someone else’s phone. Do not fill AltStore `downloadURL` with the unsigned zip.
+A signature you create will not install on someone else’s phone. Do not fill AltStore `downloadURL` with the unsigned zip. More detail: [ios/README.md](ios/README.md).
 
 ## How to keep it in public (without ads)
 
