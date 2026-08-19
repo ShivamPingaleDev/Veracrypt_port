@@ -16,27 +16,36 @@ This app does the next-best thing:
 1. You pick the locked file. Any name is fine (`.hc`, `.jpg`, …). The name is only a disguise.
 2. You type the password (and PIM / keyfiles if you use them). Nothing is stored.
 3. The app unlocks the file in RAM and shows the folders on the **Mounted** tab. That is not a system drive — only this app can see it.
-4. You copy files in or out. The file on disk stays locked the whole time.
+4. You copy files in or out (one or several; from the phone, into the volume, or between two open volumes). The file on disk stays locked. **Files** / **Files.app** cannot browse the unlocked folder — Android and iOS do not let this app attach a drive letter.
 5. **Dismount**, Home, or **Panic wipe** closes it and clears secrets on this phone. The locked file itself is not deleted.
 
 **Create** makes a new locked file. After you save it, type the password again to open it. Same password opens it on a PC or Mac.
 
 A compelled password still wins. Prefer a long password and a keyfile.
 
+## License (why TrueCrypt 3.0 is here)
+
+This project did **not** pick abandoned TrueCrypt as a product. The volume engine is **VeraCrypt**. VeraCrypt is a TrueCrypt fork, so that core **inherits** dual license **Apache-2.0 and TrueCrypt License 3.0**. Phone UI code is Apache-2.0.
+
+TrueCrypt License 3.0 is **not** OSI / FSF / Debian-free. Shipping the core still requires it: public source, TrueCrypt attribution, and you may not call this app VeraCrypt or TrueCrypt. Dropping that license would mean dropping VeraCrypt compatibility.
+
+See [FOSS.md](FOSS.md).
+
 ## Phones (the main thing)
 
 **Android** and **iPhone**. That is what this project is for.
 
 - Open a locked file and look at the folders inside
-- Keep several volumes mounted and move files between them
+- Keep several volumes mounted and copy or move files between them
+- Copy or move several files between the phone and an open volume
 - Make a new locked file
 - Send the locked file as-is (no password on the send)
-- Stay offline
+- Stay offline (this build has no `INTERNET` permission)
 - Wipe this phone’s secrets if you need to
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-**0.3.6 is a stable alpha.** Copies are on the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.6). GitHub APKs stay debug-signed; the iPhone IPA is unsigned. Not store files. Installing one Android copy replaces the others.
+**0.3.6 is a stable alpha**, not 1.0, not a store build. Copies: [GitHub Release v0.3.6](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.6). The APK there is a **debug-signed preview**. The IPA is **unsigned**. Production is a FOSS APK you build and sign with your own keystore, plus an IPA you sign with your Team ID. Installing one Android copy replaces the others.
 
 The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the phone apps.
 
@@ -52,7 +61,7 @@ The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://g
 
 ![Mounted](docs/screenshots/05-mounted.png)
 
-**Tools** — wrap a file, change the volume password, appearance.
+**Tools** — change the volume password, headers, appearance. No wrap UI on the phones.
 
 ![Tools](docs/screenshots/04-tools.png)
 

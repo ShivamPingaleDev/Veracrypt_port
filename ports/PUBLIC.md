@@ -20,8 +20,9 @@ The app is **VC Port**. It is a derived work. It is **not named VeraCrypt**. It 
 Say:
 
 - “VC Port opens VeraCrypt-compatible file containers on Android and iPhone.”
-- “VC Port 0.3.6 is a stable alpha.”
+- “VC Port 0.3.6 is a stable alpha. GitHub APKs are debug-signed previews; you sign production.”
 - “Offline by default. This build has no INTERNET. iPhone users sign the unsigned IPA themselves.”
+- “The volume core is VeraCrypt, so TrueCrypt License 3.0 is inherited. That is not a choice of abandoned TrueCrypt.”
 
 Do not say:
 

@@ -11,3 +11,5 @@
 7. Do not edit official `src/` for phones. Put replacements in `ports/overlay/src/` and run `scripts/refresh-overlay.sh`. After a VeraCrypt merge, run `scripts/check-upstream-layout.sh`. See [UPSTREAM.md](UPSTREAM.md).
 8. Run `ports/tests/run-all.sh` before a release. See [tests/TESTING.md](tests/TESTING.md). That suite does not replace a real-device volume mount.
 9. Do not open drive-by pull requests on official VeraCrypt (`veracrypt/VeraCrypt`) to burn model quota. If an overlay fix belongs upstream, send one small human-reviewed patch (the macOS `File.cpp` `sys/disk.h` include is the current candidate).
+10. The volume core stays under TrueCrypt License 3.0 **and** Apache-2.0. That is inherited from VeraCrypt, not a product choice of abandoned TrueCrypt. Do not try to relicense the core to drop TrueCrypt 3.0 and keep `.hc` compatibility. TrueCrypt 3.0 is not OSI / Debian-free; say so if you package this.
+11. Host check before a PR: `python3 -m unittest ports.tests.test_contracts ports.tests.test_phases`. Small patches get a human reply. Open with one file when you can.

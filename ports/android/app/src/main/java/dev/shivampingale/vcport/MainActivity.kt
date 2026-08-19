@@ -558,6 +558,7 @@ class MainActivity : AppCompatActivity() {
                 var pendingExportFile by remember { mutableStateOf<File?>(null) }
                 var pendingSaveName by remember { mutableStateOf("") }
                 var pendingSaveMove by remember { mutableStateOf(false) }
+                var pendingExportNames by remember { mutableStateOf(listOf<String>()) }
                 var pendingFromDeviceMove by remember { mutableStateOf(false) }
                 var showOpenAnother by remember { mutableStateOf(false) }
                 var transferMove by remember { mutableStateOf<Boolean?>(null) }
@@ -733,13 +734,14 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 val copyFromDevicePicker = rememberLauncherForActivityResult(
-                    ActivityResultContracts.OpenDocument()
-                ) { uri: Uri? ->
-                    if (uri != null) {
+                    ActivityResultContracts.OpenMultipleDocuments()
+                ) { uris: List<Uri> ->
+                    if (uris.isNotEmpty()) {
                         importFromDevice(
                             handle = handle,
                             dirPath = dirPath,
-                            uri = uri,
+                            uris = uris,
+                            existingNames = entries.filter { !it.isDir }.map { it.name }.toSet(),
                             move = pendingFromDeviceMove,
                             onEntries = { entries = it },
                             onStatus = { status = it }
@@ -763,6 +765,22 @@ class MainActivity : AppCompatActivity() {
                                 onStatus = { status = it }
                             )
                         }
+                    }
+                }
+                val saveToFolderPicker = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocumentTree()
+                ) { tree: Uri? ->
+                    val names = pendingExportNames
+                    if (tree != null && names.isNotEmpty()) {
+                        exportManyToDevice(
+                            handle = handle,
+                            dirPath = dirPath,
+                            files = entries.filter { it.name in names && !it.isDir },
+                            treeUri = tree,
+                            move = pendingSaveMove,
+                            onEntries = { entries = it },
+                            onStatus = { status = it }
+                        )
                     }
                 }
 
@@ -985,9 +1003,8 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 },
-                                onShare = { entry ->
-                                    selectedNames = setOf(entry.name)
-                                    shareVaultFiles(handle, dirPath, listOf(entry)) { status = it }
+                                onShare = { files ->
+                                    shareVaultFiles(handle, dirPath, files) { status = it }
                                 },
                                 onCopyFromDevice = {
                                     beginShare()
@@ -1000,25 +1017,35 @@ class MainActivity : AppCompatActivity() {
                                     copyFromDevicePicker.launch(arrayOf("*/*"))
                                 },
                                 onCopyToDevice = {
-                                    val entry = entries.firstOrNull { it.name in selectedNames && !it.isDir }
-                                    if (entry == null) {
-                                        status = "Tap a file in the volume, then Copy to device."
+                                    val files = entries.filter { it.name in selectedNames && !it.isDir }
+                                    if (files.isEmpty()) {
+                                        status = "Tap one or more files in the volume, then Copy to device."
                                     } else {
                                         beginShare()
-                                        pendingSaveName = entry.name
                                         pendingSaveMove = false
-                                        saveToDevicePicker.launch(entry.name)
+                                        if (files.size == 1) {
+                                            pendingSaveName = files[0].name
+                                            saveToDevicePicker.launch(files[0].name)
+                                        } else {
+                                            pendingExportNames = files.map { it.name }
+                                            saveToFolderPicker.launch(null)
+                                        }
                                     }
                                 },
                                 onMoveToDevice = {
-                                    val entry = entries.firstOrNull { it.name in selectedNames && !it.isDir }
-                                    if (entry == null) {
-                                        status = "Tap a file in the volume, then Move to device."
+                                    val files = entries.filter { it.name in selectedNames && !it.isDir }
+                                    if (files.isEmpty()) {
+                                        status = "Tap one or more files in the volume, then Move to device."
                                     } else {
                                         beginShare()
-                                        pendingSaveName = entry.name
                                         pendingSaveMove = true
-                                        saveToDevicePicker.launch(entry.name)
+                                        if (files.size == 1) {
+                                            pendingSaveName = files[0].name
+                                            saveToDevicePicker.launch(files[0].name)
+                                        } else {
+                                            pendingExportNames = files.map { it.name }
+                                            saveToFolderPicker.launch(null)
+                                        }
                                     }
                                 },
                                 onNewFolder = {
@@ -2479,29 +2506,11 @@ class MainActivity : AppCompatActivity() {
         val name = uniqueDestName(display, usedNames)
         var cache: File? = null
         return try {
-            var rc: Int? = null
-            try {
-                contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                    if (pfd.statSize >= 0L) {
-                        rc = NativeBridge.importFile(handle, "/", "/proc/self/fd/${pfd.fd}", name)
-                    }
-                }
-            } catch (_: Exception) {
-                rc = null
-            }
-            if (rc == null || rc == -1) {
-                val outFile = File(cacheDir, "basket-${System.nanoTime()}-$name")
-                cache = outFile
-                val input = KeyfileIo.openReadable(this, uri)
-                    ?: return "Could not read $display. Pick it again from Files."
-                input.use { src ->
-                    outFile.outputStream().use { dest ->
-                        copyStreamProgress(src, dest, uriLength(uri), "Copying $name into volume")
-                    }
-                }
-                rc = NativeBridge.importFile(handle, "/", outFile.absolutePath, name)
-            }
-            if (rc == 0) null else importErrorMessage(name, rc ?: -1, handle)
+            val outFile = copyUriForNativeImport(uri, name, "Copying $name into volume")
+                ?: return "Could not read $display. Pick it again from Files."
+            cache = outFile
+            val rc = NativeBridge.importFile(handle, "/", outFile.absolutePath, name)
+            if (rc == 0) null else importErrorMessage(name, rc, handle)
         } catch (_: Exception) {
             "Could not copy $display into the volume."
         } finally {
@@ -2528,6 +2537,26 @@ class MainActivity : AppCompatActivity() {
                 last = pct
                 NativeBridge.setProgress(pct, phase)
             }
+        }
+    }
+
+    /** Native File::Open cannot reopen a SAF `/proc/self/fd/N` path. Copy first. */
+    private fun copyUriForNativeImport(uri: Uri, name: String, phase: String): File? {
+        val input = KeyfileIo.openReadable(this, uri) ?: return null
+        val outFile = File(cacheDir, "from-device-${System.nanoTime()}-${ShareHelper.safeName(name)}")
+        return try {
+            input.use { src ->
+                outFile.outputStream().use { dest ->
+                    copyStreamProgress(src, dest, uriLength(uri), phase)
+                }
+            }
+            if (outFile.isFile) outFile else {
+                outFile.delete()
+                null
+            }
+        } catch (_: Exception) {
+            outFile.delete()
+            null
         }
     }
 
@@ -3124,13 +3153,14 @@ class MainActivity : AppCompatActivity() {
     /**
      * Home / Dismount closes SAF descriptors. `/proc/self/fd/N` is then a dead
      * path, and native open reports "Could not read the container file."
-     * Copy into cache so Open still has a real file.
+     * Copy into cache so Open still has a real file. Never pass a proc fd path
+     * to VeraCrypt File::Open.
      */
     private fun ensureContainerPath(path: String, uri: Uri?): String {
         if (containerPathUsable(path)) return path
         if (uri != null) {
             val bound = bindContainer(uri)
-            if (containerPathUsable(bound) || bound.startsWith("/proc/self/fd/")) return bound
+            if (containerPathUsable(bound)) return bound
         }
         return ""
     }
@@ -3141,35 +3171,7 @@ class MainActivity : AppCompatActivity() {
             val p = uri.path
             if (!p.isNullOrEmpty() && containerPathUsable(p)) return p
         }
-        val copied = copyToCache(uri)
-        if (copied.isNotEmpty()) return copied
-        val writable = bindContainerFd(uri, "rw")
-        if (writable.isNotEmpty()) return writable
-        return bindContainerFd(uri, "r")
-    }
-
-    private fun bindContainerFd(uri: Uri, mode: String): String {
-        return try {
-            val pfd = contentResolver.openFileDescriptor(uri, mode)
-            if (pfd != null && pfd.statSize > 0L && nativeCanOpenFd(pfd.fd)) {
-                pendingContainerPfd = pfd
-                "/proc/self/fd/${pfd.fd}"
-            } else {
-                pfd?.close()
-                ""
-            }
-        } catch (_: Exception) {
-            ""
-        }
-    }
-
-    /** VeraCrypt File::Open reopens the path. Many SAF fds cannot be reopened. */
-    private fun nativeCanOpenFd(fd: Int): Boolean {
-        return try {
-            java.io.RandomAccessFile("/proc/self/fd/$fd", "r").use { it.length() > 0L }
-        } catch (_: Exception) {
-            false
-        }
+        return copyToCache(uri)
     }
 
     private fun openVolumeWithFactors(
@@ -3545,7 +3547,8 @@ class MainActivity : AppCompatActivity() {
     private fun importFromDevice(
         handle: Long,
         dirPath: String,
-        uri: Uri,
+        uris: List<Uri>,
+        existingNames: Set<String>,
         move: Boolean,
         onEntries: (List<VaultEntry>) -> Unit,
         onStatus: (String) -> Unit
@@ -3554,77 +3557,58 @@ class MainActivity : AppCompatActivity() {
             onStatus("Open a volume first.")
             return
         }
-        beginWork(if (move) "Moving from device…" else "Copying from device…")
+        if (uris.isEmpty()) return
+        val verb = if (move) "Moving" else "Copying"
+        beginWork(
+            if (uris.size == 1) "$verb from device…"
+            else "$verb ${uris.size} files from device…"
+        )
         Thread {
-            var cache: File? = null
-            try {
-                val display = ShareHelper.displayName(this, uri) ?: "file"
-                val name = ShareHelper.safeName(display)
-                val destDir = if (dirPath.isEmpty()) "/" else dirPath
-                var rc: Int? = null
+            val used = existingNames.toMutableSet()
+            var copied = 0
+            var moved = 0
+            var lastError: String? = null
+            val destDir = if (dirPath.isEmpty()) "/" else dirPath
+            for (uri in uris) {
+                var cache: File? = null
                 try {
-                    contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                        if (pfd.statSize >= 0L) {
-                            NativeBridge.setProgress(0, "Copying into volume")
-                            rc = NativeBridge.importFile(
-                                handle,
-                                destDir,
-                                "/proc/self/fd/${pfd.fd}",
-                                name
-                            )
-                        }
+                    val display = ShareHelper.displayName(this, uri) ?: "file"
+                    val name = uniqueDestName(display, used)
+                    val outFile = copyUriForNativeImport(uri, name, "Reading $name")
+                    if (outFile == null) {
+                        lastError = "Could not read $display. Pick it again from Files."
+                        continue
                     }
-                } catch (_: Exception) {
-                    rc = null
-                }
-                if (rc == null || rc == -1) {
-                    val outFile = File(cacheDir, "from-device-${System.nanoTime()}-$name")
                     cache = outFile
-                    val input = contentResolver.openInputStream(uri)
-                    if (input == null) {
-                        runOnUiThread {
-                            endWork()
-                            onStatus("Could not read that file from the device.")
-                        }
-                        return@Thread
+                    val rc = NativeBridge.importFile(handle, destDir, outFile.absolutePath, name)
+                    if (rc != 0) {
+                        lastError = importErrorMessage(name, rc, handle)
+                        continue
                     }
-                    input.use { src ->
-                        outFile.outputStream().use { dest ->
-                            copyStreamProgress(src, dest, uriLength(uri), "Reading from device")
-                        }
-                    }
-                    rc = NativeBridge.importFile(handle, destDir, outFile.absolutePath, name)
+                    copied++
+                    if (move && tryDeleteDocument(uri)) moved++
+                } catch (_: Exception) {
+                    lastError = "Could not copy that file into the volume."
+                } finally {
+                    cache?.delete()
                 }
-                var deletedOriginal = false
-                if (rc == 0 && move) {
-                    deletedOriginal = tryDeleteDocument(uri)
-                }
-                val result = rc ?: -1
-                runOnUiThread {
-                    endWork()
+            }
+            runOnUiThread {
+                endWork()
+                onStatus(
                     when {
-                        result != 0 -> onStatus(importErrorMessage(name, result, handle))
-                        move && !deletedOriginal -> {
-                            onStatus("Copied $name into the volume. Could not delete the original; remove it in Files if you meant a move.")
-                            loadDir(handle, dirPath, onEntries, onStatus, quiet = true)
-                        }
-                        move -> {
-                            onStatus("Moved $name into the volume.")
-                            loadDir(handle, dirPath, onEntries, onStatus, quiet = true)
-                        }
-                        else -> {
-                            onStatus("Copied $name from the device into this folder.")
-                            loadDir(handle, dirPath, onEntries, onStatus, quiet = true)
-                        }
+                        lastError != null && copied == 0 -> lastError
+                        move && moved < copied ->
+                            "Copied $copied file(s) into the volume. Could not delete the original; remove them in Files if you meant a move."
+                        move && copied == uris.size ->
+                            "Moved $copied file(s) into the volume."
+                        copied == uris.size ->
+                            "Copied $copied file(s) from the device into this folder."
+                        else ->
+                            "Copied $copied of ${uris.size} file(s) into the volume. $lastError"
                     }
-                }
-            } catch (_: Exception) {
-                runOnUiThread {
-                    endWork()
-                    onStatus("Could not copy that file into the volume.")
-                }
-            } finally {
-                cache?.delete()
+                )
+                if (copied > 0) loadDir(handle, dirPath, onEntries, onStatus, quiet = true)
             }
         }.start()
     }
@@ -3693,6 +3677,97 @@ class MainActivity : AppCompatActivity() {
                 }
             } finally {
                 dest.delete()
+            }
+        }.start()
+    }
+
+    private fun createDocumentInTree(treeUri: Uri, name: String): Uri? {
+        return try {
+            val docId = DocumentsContract.getTreeDocumentId(treeUri)
+            val parent = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+            DocumentsContract.createDocument(
+                contentResolver,
+                parent,
+                "application/octet-stream",
+                name
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun exportManyToDevice(
+        handle: Long,
+        dirPath: String,
+        files: List<VaultEntry>,
+        treeUri: Uri,
+        move: Boolean,
+        onEntries: (List<VaultEntry>) -> Unit,
+        onStatus: (String) -> Unit
+    ) {
+        if (!NativeBridge.isOpen(handle)) {
+            onStatus("Open a volume first.")
+            return
+        }
+        val toCopy = files.filter { !it.isDir }
+        if (toCopy.isEmpty()) {
+            onStatus("Tap one or more files in the volume, then Copy to device.")
+            return
+        }
+        val verb = if (move) "Moving" else "Copying"
+        beginWork("$verb ${toCopy.size} files to device…")
+        Thread {
+            var copied = 0
+            var moved = 0
+            var lastError: String? = null
+            for (entry in toCopy) {
+                val dest = File(cacheDir, "to-device-${System.nanoTime()}-${ShareHelper.safeName(entry.name)}")
+                try {
+                    val volumePath = joinDir(dirPath, entry.name)
+                    val rc = NativeBridge.exportFile(handle, volumePath, dest.absolutePath)
+                    if (rc != 0 || !dest.exists()) {
+                        lastError = extractErrorMessage(entry.name, rc)
+                        continue
+                    }
+                    val outUri = createDocumentInTree(treeUri, entry.name)
+                    if (outUri == null) {
+                        lastError = "Could not save ${entry.name} in that folder."
+                        continue
+                    }
+                    val wrote = contentResolver.openOutputStream(outUri)?.use { out ->
+                        dest.inputStream().use { input ->
+                            copyStreamProgress(input, out, dest.length(), "Saving ${entry.name}")
+                        }
+                        true
+                    } ?: false
+                    if (!wrote) {
+                        lastError = "Could not save ${entry.name} on the device."
+                        continue
+                    }
+                    copied++
+                    if (move && NativeBridge.deleteFile(handle, volumePath) == 0) moved++
+                } catch (_: Exception) {
+                    lastError = "Could not copy ${entry.name} to the device."
+                } finally {
+                    dest.delete()
+                }
+            }
+            runOnUiThread {
+                endWork()
+                onStatus(
+                    when {
+                        lastError != null && copied == 0 -> lastError
+                        move && moved < copied ->
+                            "Copied $copied file(s) to the device, but could not remove ${copied - moved} from the volume."
+                        move && copied == toCopy.size ->
+                            "Moved $copied file(s) to the device."
+                        copied == toCopy.size ->
+                            "Copied $copied file(s) to the device."
+                        else ->
+                            "Copied $copied of ${toCopy.size} file(s) to the device. $lastError"
+                    }
+                )
+                if (move && moved > 0) loadDir(handle, dirPath, onEntries, onStatus, quiet = true)
             }
         }.start()
     }
@@ -4078,7 +4153,7 @@ private fun VaultPane(
     onUp: () -> Unit,
     onGoToPath: (String) -> Unit,
     onOpen: (VaultEntry) -> Unit,
-    onShare: (VaultEntry) -> Unit,
+    onShare: (List<VaultEntry>) -> Unit,
     onCopyFromDevice: () -> Unit,
     onMoveFromDevice: () -> Unit,
     onCopyToDevice: () -> Unit,
@@ -4103,7 +4178,7 @@ private fun VaultPane(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
         )
         Text(
-            "Slots are this session only. Not a system drive. Select files, then Copy to volume or Move to volume.",
+            "Slots are this session only. Not a system drive. Select files, then Copy to volume / Copy to device, or Copy from device."
             style = MaterialTheme.typography.bodySmall,
             color = colors.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
@@ -4178,7 +4253,7 @@ private fun VaultPane(
                         text = { Text("Share decrypted") },
                         onClick = {
                             folderMenu = false
-                            entries.firstOrNull { it.name in selectedNames && !it.isDir }?.let(onShare)
+                            onShare(entries.filter { it.name in selectedNames && !it.isDir })
                         }
                     )
                 }
@@ -4300,7 +4375,7 @@ private fun VaultPane(
                     if (!live) {
                         "Open volume on the Volume tab, or tap an empty slot. This is not a system drive."
                     } else {
-                        "Tap a folder to open it, or Copy from device to add a file. Copy to device writes a file Files can open."
+                        "Tap a folder to open it, or Copy from device to add files. Copy to device writes files Files can open."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant

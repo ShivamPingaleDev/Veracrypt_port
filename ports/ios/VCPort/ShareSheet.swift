@@ -25,12 +25,12 @@ enum SystemShare {
 
 private final class FilesExportController: NSObject, UIDocumentPickerDelegate {
     static var current: FilesExportController?
-    let onFinish: (URL?) -> Void
-    init(onFinish: @escaping (URL?) -> Void) {
+    let onFinish: ([URL]?) -> Void
+    init(onFinish: @escaping ([URL]?) -> Void) {
         self.onFinish = onFinish
     }
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-        onFinish(urls.first)
+        onFinish(urls)
         FilesExportController.current = nil
     }
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
@@ -41,13 +41,17 @@ private final class FilesExportController: NSObject, UIDocumentPickerDelegate {
 
 enum SystemFiles {
     static func exportCopy(url: URL, onFinish: @escaping (URL?) -> Void) {
+        exportCopy(urls: [url]) { saved in onFinish(saved?.first) }
+    }
+
+    static func exportCopy(urls: [URL], onFinish: @escaping ([URL]?) -> Void) {
         if VcPortTesting.shared.skipSystemPickers {
             onFinish(nil)
             return
         }
         let controller = FilesExportController(onFinish: onFinish)
         FilesExportController.current = controller
-        let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+        let picker = UIDocumentPickerViewController(forExporting: urls, asCopy: true)
         picker.delegate = controller
         guard let root = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })

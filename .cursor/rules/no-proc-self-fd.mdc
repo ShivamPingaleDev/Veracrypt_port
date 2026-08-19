@@ -1,0 +1,22 @@
+---
+description: Never use /proc/self/fd as a VeraCrypt native Open path
+globs: ports/android/**/*.kt,ports/shared/**/*.{cpp,h},ports/tests/**/*.py
+alwaysApply: true
+---
+
+# No `/proc/self/fd` native paths
+
+VeraCrypt `File::Open` does `open(path)`. Android SAF only gives a `ParcelFileDescriptor`. A `/proc/self/fd/N` path dies when:
+
+- Home / `onStop` closes the descriptor
+- Dismount / header tools close then reopen the volume
+- SELinux denies reopen even while Java still holds the PFD
+
+## Required
+
+- Container Open goes through `ensureContainerPath` → `copyToCache` (or a real `file://` path).
+- `containerPathUsable` must return false for empty paths and any `/proc/self/fd/` path.
+- Payload import (`importFromDevice`, `importUriIntoVolume`) copies the URI into cache, then passes that filesystem path to `NativeBridge.importFile`. Do not pass `/proc/self/fd/${pfd.fd}` to native.
+- Do not add `bindContainerFd` or store a proc fd in `pathState`.
+
+Host tests in `ports/tests/test_contracts.py` (`test_choose_container_keeps_session_and_shows_name`, `test_copy_move_device_files_on_android_and_ios`) must keep failing if fd paths come back.

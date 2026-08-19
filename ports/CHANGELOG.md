@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Copy from device / Move from device can pick several files. Copy to device / Move to device send every selected file (Android: a folder in Files when more than one is selected).
+- Native open no longer uses `/proc/self/fd`. Payload import copies into cache first so a dead SAF descriptor cannot fail Open or copy.
+
 ## 0.3.6
 
 Stable alpha: Open a saved container after Home or closing the app.

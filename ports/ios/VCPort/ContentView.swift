@@ -220,10 +220,14 @@ struct ContentView: View {
                     status = "Nested keyfile(s) added. First 1 MiB, same as VeraCrypt."
                 }
             }
-            .fileImporter(isPresented: $copyFromDevicePresented, allowedContentTypes: [.item, .data]) { result in
-                if case .success(let url) = result {
-                    _ = url.startAccessingSecurityScopedResource()
-                    importFromDevice(url, move: moveFromDevice)
+            .fileImporter(
+                isPresented: $copyFromDevicePresented,
+                allowedContentTypes: [.item, .data],
+                allowsMultipleSelection: true
+            ) { result in
+                if case .success(let urls) = result {
+                    urls.forEach { _ = $0.startAccessingSecurityScopedResource() }
+                    importFromDevice(urls, move: moveFromDevice)
                 }
             }
             .alert("New folder", isPresented: $newFolderPresented) {
@@ -393,7 +397,7 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Text("Slots are this session only. Not a system drive. Select files, then Copy to volume or Move to volume.")
+                Text("Slots are this session only. Not a system drive. Select files, then Copy to volume / Copy to device, or Copy from device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
@@ -459,7 +463,7 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else if entries.isEmpty {
-                    Text("This folder is empty. Tap a folder after Copy from device. FAT and exFAT folders are browsable.")
+                    Text("This folder is empty. Tap a folder after Copy from device. FAT and exFAT folders are browsable. Copy from device can pick several files.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -567,9 +571,8 @@ struct ContentView: View {
                     Button("Delete") { deleteSelected() }
                     Button("Properties") { showEntryProperties() }
                     Button("Share decrypted") {
-                        if let entry = entries.first(where: { selectedNames.contains($0.name) && !$0.isDir }) {
-                            shareVaultFile(entry)
-                        }
+                        let files = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
+                        shareVaultFiles(files)
                     }
                 }
             }
@@ -1043,8 +1046,8 @@ struct ContentView: View {
 
     private func shareInFrontDecrypted() {
         let selected = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
-        if volumeHandle != nil, let first = selected.first {
-            shareVaultFile(first)
+        if volumeHandle != nil, !selected.isEmpty {
+            shareVaultFiles(selected)
             return
         }
         if let live = lastPlain.first, FileManager.default.fileExists(atPath: live.path) {
@@ -1802,88 +1805,104 @@ struct ContentView: View {
         forgetUnlock()
     }
 
-    private func shareVaultFile(_ entry: VaultEntry) {
+    private func shareVaultFiles(_ files: [VaultEntry]) {
         guard let handle = volumeHandle else {
             status = "Open a volume first."
             return
         }
-        let volumePath = joinDir(dirPath, entry.name)
-        beginWork("Preparing \(entry.name)…")
+        let toShare = files.filter { !$0.isDir }
+        if toShare.isEmpty {
+            status = "Tap one or more files in the volume, then Share decrypted."
+            return
+        }
+        beginWork("Preparing \(toShare.count) decrypted file(s)…")
         DispatchQueue.global(qos: .userInitiated).async {
-            let dest = FileManager.default.temporaryDirectory
-                .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
-            let rc = VcMobileBridge.exportFile(handle, name: volumePath, dest: dest.path)
-            DispatchQueue.main.async {
-                endWork()
+            var dests: [URL] = []
+            for entry in toShare {
+                let dest = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
+                try? FileManager.default.removeItem(at: dest)
+                let rc = VcMobileBridge.exportFile(handle, name: joinDir(dirPath, entry.name), dest: dest.path)
                 if rc != 0 {
-                    status = extractErrorMessage(entry.name, rc)
+                    DispatchQueue.main.async {
+                        endWork()
+                        status = extractErrorMessage(entry.name, rc)
+                    }
                     return
                 }
-                status = "Share \(entry.name) with WhatsApp, Mail, Drive, or any app."
-                lastPlain = [dest]
-                SystemShare.present(items: [dest])
+                dests.append(dest)
+            }
+            DispatchQueue.main.async {
+                endWork()
+                lastPlain = dests
+                status = "Share \(dests.map(\.lastPathComponent).joined(separator: ", ")) with WhatsApp, Mail, Drive, or any app."
+                SystemShare.present(items: dests)
             }
         }
     }
 
-    private func importFromDevice(_ url: URL, move: Bool) {
+    private func importFromDevice(_ urls: [URL], move: Bool) {
         guard let handle = volumeHandle else {
             status = "Open a volume first."
             return
         }
-        beginWork(move ? "Moving from device…" : "Copying from device…")
+        if urls.isEmpty { return }
+        let verb = move ? "Moving" : "Copying"
+        beginWork(urls.count == 1 ? "\(verb) from device…" : "\(verb) \(urls.count) files from device…")
         let destDir = dirPath.isEmpty ? "/" : dirPath
+        var used = Set(entries.filter { !$0.isDir }.map(\.name))
         DispatchQueue.global(qos: .userInitiated).async {
-            let name = url.lastPathComponent
-            var temp: URL?
-            let srcPath: String
-            if url.isFileURL {
-                srcPath = url.path
-            } else {
-                let dest = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("from-device-\(Int(Date().timeIntervalSince1970))-\(name)")
-                do {
-                    try? FileManager.default.removeItem(at: dest)
-                    try FileManager.default.copyItem(at: url, to: dest)
-                    temp = dest
-                    srcPath = dest.path
-                } catch {
-                    DispatchQueue.main.async {
-                        endWork()
-                        status = "Could not read that file from the device."
+            var copied = 0
+            var moved = 0
+            var lastError: String?
+            for url in urls {
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer {
+                    if accessed { url.stopAccessingSecurityScopedResource() }
+                }
+                let name = uniqueDestName(url.lastPathComponent, used: &used)
+                var temp: URL?
+                let srcPath: String
+                if url.isFileURL, FileManager.default.isReadableFile(atPath: url.path) {
+                    srcPath = url.path
+                } else if let copiedUrl = copyScopedFile(url) {
+                    temp = copiedUrl
+                    srcPath = copiedUrl.path
+                } else {
+                    lastError = "Could not read \(url.lastPathComponent). Pick it again from Files."
+                    continue
+                }
+                let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
+                if let temp {
+                    try? FileManager.default.removeItem(at: temp)
+                }
+                if rc != 0 {
+                    lastError = importErrorMessage(name, rc, handle: handle)
+                    continue
+                }
+                copied += 1
+                if move {
+                    do {
+                        try FileManager.default.removeItem(at: url)
+                        moved += 1
+                    } catch {
                     }
-                    return
                 }
             }
-            let hex = sha256Path(srcPath)
-            let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
-            var deletedOriginal = false
-            if rc == 0 && move {
-                do {
-                    try FileManager.default.removeItem(at: url)
-                    deletedOriginal = true
-                } catch {
-                    deletedOriginal = false
-                }
-            }
-            if let temp {
-                try? FileManager.default.removeItem(at: temp)
-            }
-            let proof = hex.map { " SHA-256 \(shortHex($0)) (session only)." } ?? ""
             DispatchQueue.main.async {
                 endWork()
-                if rc != 0 {
-                    status = importErrorMessage(name, rc, handle: handle)
-                    return
-                }
-                if move && !deletedOriginal {
-                    status = "Copied \(name) into the volume. Could not delete the original; remove it in Files if you meant a move.\(proof)"
-                } else if move {
-                    status = "Moved \(name) into the volume.\(proof)"
+                if lastError != nil && copied == 0 {
+                    status = lastError ?? "Could not copy that file into the volume."
+                } else if move && moved < copied {
+                    status = "Copied \(copied) file(s) into the volume. Could not delete the original; remove it in Files if you meant a move."
+                } else if move && copied == urls.count {
+                    status = "Moved \(copied) file(s) into the volume."
+                } else if copied == urls.count {
+                    status = "Copied \(copied) file(s) from the device into this folder."
                 } else {
-                    status = "Copied \(name) from the device into this folder.\(proof)"
+                    status = "Copied \(copied) of \(urls.count) file(s) into the volume. \(lastError ?? "")"
                 }
-                reloadDir()
+                if copied > 0 { reloadDir() }
             }
         }
     }
@@ -1893,50 +1912,67 @@ struct ContentView: View {
             status = "Open a volume first."
             return
         }
-        guard let name = selectedNames.first,
-              let entry = entries.first(where: { $0.name == name && !$0.isDir }) else {
+        let files = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
+        guard !files.isEmpty else {
             status = move
-                ? "Tap a file in the volume, then Move to device."
-                : "Tap a file in the volume, then Copy to device."
+                ? "Tap one or more files in the volume, then Move to device."
+                : "Tap one or more files in the volume, then Copy to device."
             return
         }
-        exportToDevice(entry, move: move)
+        exportToDevice(files, move: move)
     }
 
-    private func exportToDevice(_ entry: VaultEntry, move: Bool) {
+    private func exportToDevice(_ files: [VaultEntry], move: Bool) {
         guard let handle = volumeHandle else {
             status = "Open a volume first."
             return
         }
-        let volumePath = joinDir(dirPath, entry.name)
-        beginWork(move ? "Moving \(entry.name) to device…" : "Copying \(entry.name) to device…")
+        let verb = move ? "Moving" : "Copying"
+        beginWork(files.count == 1 ? "\(verb) \(files[0].name) to device…" : "\(verb) \(files.count) files to device…")
         DispatchQueue.global(qos: .userInitiated).async {
-            let dest = FileManager.default.temporaryDirectory
-                .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
-            try? FileManager.default.removeItem(at: dest)
-            let rc = VcMobileBridge.exportFile(handle, name: volumePath, dest: dest.path)
-            DispatchQueue.main.async {
-                endWork()
+            var dests: [(VaultEntry, URL)] = []
+            for entry in files {
+                let dest = FileManager.default.temporaryDirectory
+                    .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
+                try? FileManager.default.removeItem(at: dest)
+                let rc = VcMobileBridge.exportFile(handle, name: joinDir(dirPath, entry.name), dest: dest.path)
                 if rc != 0 {
-                    status = extractErrorMessage(entry.name, rc)
+                    DispatchQueue.main.async {
+                        endWork()
+                        status = extractErrorMessage(entry.name, rc)
+                    }
                     return
                 }
-                SystemFiles.exportCopy(url: dest) { saved in
+                dests.append((entry, dest))
+            }
+            DispatchQueue.main.async {
+                endWork()
+                SystemFiles.exportCopy(urls: dests.map(\.1)) { saved in
                     if saved == nil {
-                        status = "Cancelled saving \(entry.name)."
+                        status = files.count == 1
+                            ? "Cancelled saving \(files[0].name)."
+                            : "Cancelled saving \(files.count) files."
                         return
                     }
                     if move {
-                        let dlt = VcMobileBridge.deleteFile(handle, path: volumePath)
-                        if dlt == 0 {
-                            status = "Moved \(entry.name) to the device."
-                            selectedNames.remove(entry.name)
+                        var deleted = 0
+                        for (entry, _) in dests {
+                            if VcMobileBridge.deleteFile(handle, path: joinDir(dirPath, entry.name)) == 0 {
+                                selectedNames.remove(entry.name)
+                                deleted += 1
+                            }
+                        }
+                        if deleted == dests.count {
+                            status = "Moved \(dests.count) file(s) to the device."
                             reloadDir()
                         } else {
-                            status = "Copied \(entry.name) to the device, but could not remove it from the volume."
+                            status = "Copied \(dests.count) file(s) to the device, but could not remove \(dests.count - deleted) from the volume."
+                            if deleted > 0 { reloadDir() }
                         }
                     } else {
-                        status = "Copied \(entry.name) to the device."
+                        status = dests.count == 1
+                            ? "Copied \(dests[0].0.name) to the device."
+                            : "Copied \(dests.count) files to the device."
                     }
                 }
             }
