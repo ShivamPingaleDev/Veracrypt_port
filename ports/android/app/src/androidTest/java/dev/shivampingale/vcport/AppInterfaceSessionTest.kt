@@ -96,12 +96,7 @@ class AppInterfaceSessionTest {
 
         rule.onAllNodesWithText("Generate strong password").onFirst().performScrollTo().performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("copy_once").performScrollTo().performClick()
-        rule.waitForIdle()
-        val clip = ctx.getSystemService(android.content.ClipboardManager::class.java)
-        val basketPassword = clip.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()
-        assertNotNull(basketPassword)
-        assertEquals(64, basketPassword!!.length)
+        val basketPassword = passwordAfterCopyOnce(hidden = false)
         File(work, "basket-password.txt").writeText(basketPassword)
 
         rule.onNodeWithTag("create_generate_keyfile").performScrollTo().performClick()
@@ -128,11 +123,7 @@ class AppInterfaceSessionTest {
         scribbleUntilFull()
         rule.onAllNodesWithText("Generate strong password").onFirst().performScrollTo().performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("copy_once").performScrollTo().performClick()
-        rule.waitForIdle()
-        val outerPassword = clip.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()
-        assertNotNull(outerPassword)
-        assertEquals(64, outerPassword!!.length)
+        val outerPassword = passwordAfterCopyOnce(hidden = false)
         assertTrue(outerPassword != basketPassword)
 
         rule.onNodeWithTag("create_hidden").performScrollTo().performClick()
@@ -142,11 +133,7 @@ class AppInterfaceSessionTest {
         }
         rule.onNodeWithText("Generate nested password").performScrollTo().performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("copy_nested_once").performScrollTo().performClick()
-        rule.waitForIdle()
-        val nestedPassword = clip.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()
-        assertNotNull(nestedPassword)
-        assertEquals(64, nestedPassword!!.length)
+        val nestedPassword = passwordAfterCopyOnce(hidden = true)
         assertTrue(nestedPassword != outerPassword)
         File(work, "nested-passwords.txt").writeText("$outerPassword\n$nestedPassword")
 
@@ -566,6 +553,28 @@ class AppInterfaceSessionTest {
         rule.onNodeWithText("Check for updates").assertDoesNotExist()
         rule.onNodeWithText("Panic wipe").assertIsDisplayed()
         Hardening.wipeDir(work)
+    }
+
+    private fun passwordAfterCopyOnce(hidden: Boolean): String {
+        rule.waitUntil(12_000) {
+            val pw = if (hidden) {
+                rule.activity.testingCreateHiddenPassword()
+            } else {
+                rule.activity.testingCreatePassword()
+            }
+            pw.length == 64
+        }
+        val tag = if (hidden) "copy_nested_once" else "copy_once"
+        rule.onNodeWithTag(tag).performScrollTo().performClick()
+        rule.waitForIdle()
+        waitStatus("Copied", 8_000)
+        val pw = if (hidden) {
+            rule.activity.testingCreateHiddenPassword()
+        } else {
+            rule.activity.testingCreatePassword()
+        }
+        assertEquals("Generate must leave a 64-character password in the Create field", 64, pw.length)
+        return pw
     }
 
     private fun waitStatus(substring: String, timeoutMs: Long) {

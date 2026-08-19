@@ -206,6 +206,12 @@ class MainActivity : AppCompatActivity() {
 
     /** Instrumented tests add basket files without the system picker. */
     @androidx.annotation.VisibleForTesting
+    fun testingCreatePassword(): String = createPasswordState.value
+
+    @androidx.annotation.VisibleForTesting
+    fun testingCreateHiddenPassword(): String = createHiddenPasswordState.value
+
+    @androidx.annotation.VisibleForTesting
     fun testingAddBasketFiles(files: List<File>) {
         val uris = files.map { Uri.fromFile(it) }
         runOnUiThread {

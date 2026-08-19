@@ -302,6 +302,8 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("docs/screenshots/01-volume.png", readme)
         self.assertIn("docs/screenshots/05-mounted.png", readme)
         self.assertIn("docs/screenshots/08-skin-signal.png", readme)
+        self.assertIn("docs/screenshots/ios-01-volume.png", readme)
+        self.assertIn("docs/screenshots/ios-05-mounted.png", readme)
         self.assertNotIn("docs/screenshots/05-skin-cyberpunk.png", readme)
         self.assertNotIn("wrap a file", readme.lower())
         self.assertIn("TrueCrypt License 3.0", readme)

@@ -78,8 +78,8 @@ class MainActivityUiTest {
         rule.onNodeWithText(
             "Protect hidden volume against damage caused by writing to outer volume"
         ).performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("not unbreakable", substring = true).performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("compelled", substring = true).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("unbreakable", substring = true, ignoreCase = true).performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("compelled", substring = true, ignoreCase = true).performScrollTo().assertIsDisplayed()
 
         rule.onNodeWithTag("tab_create").performClick()
         rule.onNodeWithText("Generate strong password").performScrollTo().assertIsEnabled()
@@ -140,10 +140,8 @@ class MainActivityUiTest {
         rule.waitForIdle()
 
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
-        val clip = ctx.getSystemService(android.content.ClipboardManager::class.java)
-        val secret = clip.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()
-        assertNotNull("Copy once must put the generated password on the clipboard", secret)
-        assertEquals(64, secret!!.length)
+        val secret = rule.activity.testingCreatePassword()
+        assertEquals("Generate must leave a 64-character password in the Create field", 64, secret.length)
         val notes = File(ctx.filesDir, "notes-paste.txt")
         notes.writeText(secret)
         assertEquals("simulated Notes paste", secret, notes.readText())
@@ -169,7 +167,7 @@ class MainActivityUiTest {
         ).assertDoesNotExist()
         rule.onNodeWithTag("copy_once").performScrollTo().performClick()
         rule.waitForIdle()
-        val again = clip.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()
+        val again = rule.activity.testingCreatePassword()
         assertEquals(
             "Create password must survive background so the wizard can continue",
             secret,

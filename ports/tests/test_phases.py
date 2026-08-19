@@ -381,6 +381,10 @@ class Phase9LegalVersionTests(unittest.TestCase):
             "04-tools.png",
             "05-mounted.png",
             "08-skin-signal.png",
+            "ios-01-volume.png",
+            "ios-03-create.png",
+            "ios-04-tools.png",
+            "ios-05-mounted.png",
         ]
         for name in names:
             path = shots / name

@@ -51,19 +51,23 @@ The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://g
 
 **Volume** — pick a locked file and type the password.
 
-![Volume](docs/screenshots/01-volume.png)
+Android: ![Volume](docs/screenshots/01-volume.png)
+iPhone: ![Volume iPhone](docs/screenshots/ios-01-volume.png)
 
 **Create** — make a new locked file.
 
-![Create](docs/screenshots/03-create.png)
+Android: ![Create](docs/screenshots/03-create.png)
+iPhone: ![Create iPhone](docs/screenshots/ios-03-create.png)
 
 **Mounted** — folders inside. Slots are this session only. Not a system drive.
 
-![Mounted](docs/screenshots/05-mounted.png)
+Android: ![Mounted](docs/screenshots/05-mounted.png)
+iPhone: ![Mounted iPhone](docs/screenshots/ios-05-mounted.png)
 
 **Tools** — change the volume password, headers, appearance. No wrap UI on the phones.
 
-![Tools](docs/screenshots/04-tools.png)
+Android: ![Tools](docs/screenshots/04-tools.png)
+iPhone: ![Tools iPhone](docs/screenshots/ios-04-tools.png)
 
 ## Appearance (least important)
 

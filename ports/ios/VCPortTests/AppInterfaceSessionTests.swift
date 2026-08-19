@@ -423,6 +423,65 @@ final class AppInterfaceSessionTests: XCTestCase {
         try? FileManager.default.removeItem(at: work)
     }
 
+    /// Empty tabs only: no password, no open folder listing. For GitHub README.
+    func testPublishTabScreenshots() {
+        continueAfterFailure = false
+        waitReady()
+        let t = VcPortTesting.shared
+        let dir = shotDir()
+
+        onMain { t.selectTab(0) }
+        pump(0.8)
+        saveShot(dir, "ios-01-volume.png")
+
+        onMain { t.selectTab(1) }
+        pump(0.8)
+        saveShot(dir, "ios-03-create.png")
+
+        onMain { t.selectTab(2) }
+        pump(0.8)
+        saveShot(dir, "ios-04-tools.png")
+
+        onMain { t.selectTab(3) }
+        pump(0.8)
+        saveShot(dir, "ios-05-mounted.png")
+    }
+
+    private func shotDir() -> URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let dir = docs.appendingPathComponent("github-shots", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    private func saveShot(_ dir: URL, _ name: String) {
+        let image = onMainValue { () -> UIImage? in
+            let window = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+                .first { $0.isKeyWindow }
+            guard let window else { return nil }
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = window.screen.scale
+            format.opaque = true
+            let renderer = UIGraphicsImageRenderer(bounds: window.bounds, format: format)
+            return renderer.image { _ in
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            }
+        }
+        XCTAssertNotNil(image, "no key window for \(name)")
+        guard let data = image?.pngData() else {
+            XCTFail("png \(name)")
+            return
+        }
+        XCTAssertGreaterThan(data.count, 20_000, "\(name) too small")
+        do {
+            try data.write(to: dir.appendingPathComponent(name))
+        } catch {
+            XCTFail("write \(name): \(error)")
+        }
+    }
+
     private func waitReady() {
         let deadline = Date().addingTimeInterval(20)
         while Date() < deadline {

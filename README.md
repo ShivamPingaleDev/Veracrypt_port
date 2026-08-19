@@ -49,19 +49,23 @@ On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not s
 
 **Volume** — pick a locked file and type the password.
 
-![Volume](ports/docs/screenshots/01-volume.png)
+Android: ![Volume](ports/docs/screenshots/01-volume.png)
+iPhone: ![Volume iPhone](ports/docs/screenshots/ios-01-volume.png)
 
 **Create** — make a new locked file.
 
-![Create](ports/docs/screenshots/03-create.png)
+Android: ![Create](ports/docs/screenshots/03-create.png)
+iPhone: ![Create iPhone](ports/docs/screenshots/ios-03-create.png)
 
 **Mounted** — folders inside. Slots are this session only. Not a system drive.
 
-![Mounted](ports/docs/screenshots/05-mounted.png)
+Android: ![Mounted](ports/docs/screenshots/05-mounted.png)
+iPhone: ![Mounted iPhone](ports/docs/screenshots/ios-05-mounted.png)
 
 **Tools** — change the volume password, headers, appearance. No wrap UI on the phones.
 
-![Tools](ports/docs/screenshots/04-tools.png)
+Android: ![Tools](ports/docs/screenshots/04-tools.png)
+iPhone: ![Tools iPhone](ports/docs/screenshots/ios-04-tools.png)
 
 How to build the phones: [PORTING.md](PORTING.md). Official VeraCrypt `src/` is in this folder so volumes stay compatible. On a computer, use official VeraCrypt — this project does not ship a PC or Mac app.
 
