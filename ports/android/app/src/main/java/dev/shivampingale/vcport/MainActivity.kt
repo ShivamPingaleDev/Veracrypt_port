@@ -4183,7 +4183,7 @@ private fun VaultPane(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
         )
         Text(
-            "Slots are this session only. Not a system drive. Select files, then Copy to volume / Copy to device, or Copy from device."
+            "Slots are this session only. Not a system drive. Select files, then Copy to volume / Copy to device, or Copy from device.",
             style = MaterialTheme.typography.bodySmall,
             color = colors.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
