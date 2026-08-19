@@ -1,0 +1,1 @@
+VC Port 0.3.7 stable alpha: shorter About in the apps; copy several files to or from a volume; Open after Home without a dead Files descriptor. Session tests still cover the app interface. GitHub APKs stay debug-signed previews. Not unbreakable.

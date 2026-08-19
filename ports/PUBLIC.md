@@ -20,7 +20,7 @@ The app is **VC Port**. It is a derived work. It is **not named VeraCrypt**. It 
 Say:
 
 - “VC Port opens VeraCrypt-compatible file containers on Android and iPhone.”
-- “VC Port 0.3.6 is a stable alpha. GitHub APKs are debug-signed previews; you sign production.”
+- “VC Port 0.3.7 is a stable alpha. GitHub APKs are debug-signed previews; you sign production.”
 - “Offline by default. This build has no INTERNET. iPhone users sign the unsigned IPA themselves.”
 - “The volume core is VeraCrypt, so TrueCrypt License 3.0 is inherited. That is not a choice of abandoned TrueCrypt.”
 
@@ -37,8 +37,8 @@ Do not say:
 | What | Where |
 | --- | --- |
 | Source | Both public repos above |
-| Android (stable alpha) | GitHub Release `v0.3.6` — one debug-signed FOSS APK (`VCPort-0.3.6.apk`) |
-| iPhone (stable alpha) | GitHub Release `v0.3.6` unsigned IPA (`VCPort-0.3.6-unsigned-preview.ipa`). Sign it yourself (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)). |
+| Android (stable alpha) | GitHub Release `v0.3.7` — one debug-signed FOSS APK (`VCPort-0.3.7.apk`) |
+| iPhone (stable alpha) | GitHub Release `v0.3.7` unsigned IPA (`VCPort-0.3.7-unsigned-preview.ipa`). Sign it yourself (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)). |
 | AltStore JSON | `ios/altstore/source.json` — `downloadURL` stays **empty** until a signed IPA exists |
 | UI shots | [docs/screenshots/](docs/screenshots/) (real emulator UI; FLAG_SECURE still blocks `adb screencap`) |
 
@@ -100,7 +100,7 @@ Do not open drive-by issues on `veracrypt/VeraCrypt` to advertise. Do not paste 
 
 ### More that is not ads
 
-- Keep releases tagged (`v0.3.6`) so “VC Port 0.3.6” is a stable URL.
+- Keep releases tagged (`v0.3.7`) so “VC Port 0.3.7” is a stable URL.
 - Keep screenshots in [docs/screenshots/](docs/screenshots/) — GitHub uses them as social preview.
 - Fastlane short/full description is listing copy; same rules (not named VeraCrypt, not unbreakable).
 - A personal site is optional. If you add one, static HTML only, no analytics, link both git repos and `License.txt`.

@@ -486,7 +486,7 @@ class FunctionalTests(unittest.TestCase):
 class SmokeSanityTests(unittest.TestCase):
     def test_version_json_parses(self) -> None:
         v = json.loads(read("ports/version.json"))
-        self.assertEqual(v["port_version"], "0.3.6")
+        self.assertEqual(v["port_version"], "0.3.7")
         self.assertEqual(len(v["upstream_commit"]), 40)
 
     def test_pin_file_matches_json(self) -> None:

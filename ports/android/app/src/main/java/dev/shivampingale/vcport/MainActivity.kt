@@ -1852,18 +1852,23 @@ class MainActivity : AppCompatActivity() {
                                                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                                                 color = colors.onSurfaceVariant
                                             )
+                                            Text(
+                                                "“Cypherpunks write code.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)",
+                                                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                                                color = colors.onSurfaceVariant
+                                            )
                                             VcHint("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
-                                            VcHint("VC Port original code is Apache License 2.0. The volume core is VeraCrypt (Apache 2.0 / TrueCrypt License 3.0). You may not call this app VeraCrypt. There is no key escrow and no intelligence or police backdoor. A nation-state implant still wins. Not unbreakable.")
-                                            VcHint("Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
-                                            VcHint("Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.")
+                                            VcHint("Apache-2.0 / TrueCrypt License 3.0. Not named VeraCrypt. Not unbreakable.")
+                                            VcHint("https://github.com/ShivamPingaleDev/Veracrypt_port")
+                                            VcHint("Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
+                                            VcHint("The app does not install itself.")
                                             VcHint(SourcePin.describeBuild())
-                                            VcHint("No ads, analytics, crash reporters, or INTERNET permission. Passwords stay on this device. Updates come from a rebuild of this source. The app does not install itself. Merge with scripts/sync-upstream.sh and rebuild.")
                                         }
                                     }
                                     else -> {
                                         VcCard {
                                             Text("VeraCrypt-compatible. This build has no network.")
-                                            VcHint("Stay offline by default. A compelled password still wins — prefer a long password and a keyfile. This is not unbreakable.")
+                                            VcHint("Stay offline. A compelled password still wins. Not unbreakable.")
                                             Button(
                                                 onClick = {
                                                     holdLockForPicker()

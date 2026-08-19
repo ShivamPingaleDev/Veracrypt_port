@@ -2,8 +2,14 @@
 
 ## Unreleased
 
+## 0.3.7
+
+Stable alpha: shorter in-app About; several-file copy; Open after Home without `/proc/self/fd`.
+
+- About keeps both Eric Hughes quotes, TrueCrypt attribution, GitHub URL, name, and email. Author footnote stays in the README, not the app.
 - Copy from device / Move from device can pick several files. Copy to device / Move to device send every selected file (Android: a folder in Files when more than one is selected).
-- Native open no longer uses `/proc/self/fd`. Payload import copies into cache first so a dead SAF descriptor cannot fail Open or copy.
+- Native open no longer uses `/proc/self/fd`. Payload import copies into cache first.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.7.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.7-unsigned-preview.ipa`). Same `applicationId` as 0.3.6; it replaces the old install. Still alpha (not 1.0, not a store build).
 
 ## 0.3.6
 

@@ -131,8 +131,8 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertNotIn("TrustedNet", checker)
         self.assertNotIn("Check for updates", main)
         self.assertIn("does not install itself", main)
-        self.assertIn("sync-upstream.sh", main)
         self.assertIn("SourcePin.describeBuild", main)
+        self.assertIn("sync-upstream.sh", read("ports/UPSTREAM.md"))
         self.assertFalse(
             resolve("ports/android/app/src/main/java/dev/shivampingale/vcport/TrustedNet.kt").exists()
         )
@@ -194,7 +194,7 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("never downloads or installs", pin)
         self.assertIn("SourcePin.describeBuild", view)
         self.assertIn("does not install itself", view)
-        self.assertIn("sync-upstream.sh", view)
+        self.assertIn("sync-upstream.sh", read("ports/UPSTREAM.md"))
 
     def test_official_veracrypt_pin_script(self) -> None:
         import subprocess
@@ -599,16 +599,21 @@ class AndroidHighThreatTests(unittest.TestCase):
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         self.assertIn("compelled", main.lower())
         self.assertIn("not unbreakable", main.lower())
-        self.assertIn("no key escrow", main.lower())
-        self.assertIn("nation-state implant still wins", main.lower())
+        threat = read("ports/THREAT-MODEL.md")
+        self.assertIn("no key escrow", threat.lower())
+        self.assertIn("They still win", threat)
 
     def test_about_has_cypherpunk_quote(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         for blob in (main, view):
             self.assertIn("We must defend our own privacy if we expect to have any", blob)
+            self.assertIn("Cypherpunks write code", blob)
             self.assertIn("Eric Hughes", blob)
-            self.assertIn("Cypherpunk", blob)
+            self.assertIn("https://github.com/ShivamPingaleDev/Veracrypt_port", blob)
+            self.assertIn("shivampingaledev@proton.me", blob)
+            self.assertNotIn("programming noob", blob.lower())
+            self.assertNotIn("internship", blob.lower())
 
     def test_never_save_history_is_default(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
@@ -671,9 +676,10 @@ class IosHighThreatTests(unittest.TestCase):
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("compelled", view.lower())
         self.assertIn("not unbreakable", view.lower())
-        self.assertIn("no key escrow", view.lower())
-        self.assertIn("nation-state implant still wins", view.lower())
         self.assertIn("Panic", view)
+        threat = read("ports/THREAT-MODEL.md")
+        self.assertIn("no key escrow", threat.lower())
+        self.assertIn("They still win", threat)
 
     def test_never_save_history_is_default(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")
