@@ -12,6 +12,8 @@ There is **one app**: **VC Port**. GitHub has two names for the same work:
 - **[Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port)** — use this. Full source and the APK / IPA.
 - **[VCPort](https://github.com/ShivamPingaleDev/VCPort)** — only the phone folders, no VeraCrypt `src/`. Not a second app. Do not install from there.
 
+Commit list: [ports/HISTORY.md](ports/HISTORY.md).
+
 The repo is named Veracrypt_port because the volume engine is VeraCrypt source. The app on the phone is still called VC Port.
 
 ## How it works

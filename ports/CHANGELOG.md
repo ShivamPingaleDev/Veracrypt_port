@@ -1,6 +1,10 @@
 # VC Port changelog
 
+Release notes by version. The git commit list from Veracrypt_port is in [HISTORY.md](HISTORY.md).
+
 ## Unreleased
+
+- [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
 ## 0.3.7
 

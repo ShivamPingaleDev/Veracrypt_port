@@ -333,6 +333,10 @@ class Phase9LegalVersionTests(unittest.TestCase):
         self.assertIn("not unbreakable", notes.read_text(encoding="utf-8").lower())
         self.assertIn("stable alpha", notes.read_text(encoding="utf-8").lower())
         self.assertIn("stable alpha", read("ports/CHANGELOG.md").lower())
+        self.assertIn("HISTORY.md", read("ports/CHANGELOG.md"))
+        hist = read("ports/HISTORY.md")
+        self.assertIn("github.com/ShivamPingaleDev/Veracrypt_port/commit/", hist)
+        self.assertIn("Ship VC Port 0.3.7", hist)
         self.assertIn("stable alpha", v["notes"].lower())
 
     def test_about_and_contact_on_every_surface(self) -> None:

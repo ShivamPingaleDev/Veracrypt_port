@@ -12,6 +12,8 @@ There is **one app**: **VC Port**. GitHub has two names for the same work:
 - **[Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port)** — use this. Full source and the APK / IPA.
 - **This VCPort repo** — only the phone folders. Not a second app. Do not install from here.
 
+Commit list from Veracrypt_port: [HISTORY.md](HISTORY.md).
+
 ## How it works
 
 A locked file (a *volume*) is just a file on disk. On a computer, VeraCrypt can attach it as a drive letter. A phone cannot do that.

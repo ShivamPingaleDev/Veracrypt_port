@@ -1,0 +1,78 @@
+# Commit history (from Veracrypt_port)
+
+This is **one app** (VC Port). The real git history lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). VCPort is a copy of the phone folders, so its own `git log` is shorter.
+
+Newest first. Same work as the [changelog](CHANGELOG.md).
+
+- [`96856bb0`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/96856bb0af5fec51d3e7ee51bca047075e80b375) 2026-08-20 — Say plainly that Veracrypt_port and VCPort are one app, not two.
+- [`463807bf`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/463807bf89316621765f01779bffb20d447c6ba3) 2026-08-20 — Drop the old wrap screenshot and add plain iPhone install steps.
+- [`1fc087cb`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/1fc087cb676bac1b8268f42c06356f481eb7018f) 2026-08-20 — Publish current Android and iPhone tab shots for the 0.3.7 README.
+- [`1558d6a8`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/1558d6a881dc9b9354989012556d859f8a0bcf98) 2026-08-19 — Fix the missing comma so the Android 0.3.7 APK compiles.
+- [`684e3881`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/684e388122bcdd1608ce4b5a1ef007d57aa0aca3) 2026-08-19 — Ship VC Port 0.3.7 with a short About screen: both quotes, GitHub URL, name, and email.
+- [`2e7a4583`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/2e7a4583cb2d961592b36be71dff2a5796693133) 2026-08-19 — Tell the truth on GitHub: TrueCrypt 3.0 is inherited, GitHub APKs are previews, and several-file copy does not use /proc/self/fd.
+- [`04584d37`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/04584d3713857b91599b842239cd0427478e1804) 2026-08-19 — Call VC Port 0.3.6 a stable alpha now that Open survives a dead Files descriptor.
+- [`8fb7822f`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/8fb7822feb1507d3c2345e444a8fd16976cc50eb) 2026-08-19 — Ship VC Port 0.3.6 so Open survives Home and a dead Files descriptor.
+- [`2d49d26d`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/2d49d26d8213290647ce8ed90af9106b6ca455c9) 2026-08-19 — Ship VC Port 0.3.5 with wrap gone and a wiped Volume form after Open.
+- [`8b70dc8b`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/8b70dc8bb085836099476ee28d188352fe3b4162) 2026-08-19 — Build Android and iOS phone ports in parallel.
+- [`5c395e1f`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/5c395e1ffb91771cc2c28df8e973f5ef66a69ac5) 2026-08-19 — Ship VC Port 0.3.4 with session-test fixes on Android and iOS.
+- [`bf524318`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/bf524318e2b6b021f2f7d14aeece122fe941b832) 2026-08-19 — Ship VC Port 0.3.3 with a Mounted tab and a save/open fix.
+- [`7e7862ae`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/7e7862aedff83d2560d5e47145c520c4ea3be04a) 2026-08-18 — Fix host CI by loading the archive tests and resolving paths from ports/tests.
+- [`f569b5a3`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/f569b5a3fa0f7d2c53b96a0d135b1545cbcbb6d1) 2026-08-18 — Keep official VeraCrypt src on a phone overlay and ship VC Port 0.3.2 as one FOSS APK.
+- [`42fe01d9`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/42fe01d93d092cd11bdb5501f92bdb40c5c7fd2c) 2026-08-18 — Drop the F-Droid store target and keep a FOSS production flavor.
+- [`5d5045b9`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/5d5045b92863e1a4772c81bb4d299c2d7059caaf) 2026-08-18 — Drop in-app Check for updates from master.
+- [`a3fe5e54`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/a3fe5e54d83a3df181de02ff763a1595310fd6c1) 2026-08-18 — Drop phone biometrics from master and show desktop volume options.
+- [`cae333d7`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/cae333d7386f6eef1001b9b2aed1572f8c7c4e9b) 2026-08-18 — Keep Recents visible and keep nested Create after Home.
+- [`4b5ff0e4`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/4b5ff0e467ce140c2796642f9944b576d65fd645) 2026-08-18 — Keep Create after Home, turn on ARM AES, and cover header restore.
+- [`f1cc6fea`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/f1cc6feaec1ae845e16bd124f94bc6e472d01700) 2026-08-18 — Lead Create with a file basket, add in-app exFAT, and keep the volume password primary.
+- [`ba43e8a9`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/ba43e8a900acda763c24f74818605cfbe4947ff7) 2026-08-18 — Pack a file basket into a new volume from Create.
+- [`d9b48d5b`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/d9b48d5b319a9ff6484e110e4016da0e160a35c9) 2026-08-18 — Keep wrap, create, and container picks while Files is open.
+- [`446dd5e1`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/446dd5e12c2c116db6711b829a2fa82626998744) 2026-08-18 — Tell the GitHub README in plain language, phones first.
+- [`9e97f57c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/9e97f57cc1d544228ae4929b4787790869eb7aac) 2026-08-18 — Clear phone UI clutter while keeping skins and honest copy.
+- [`8cc2032a`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/8cc2032ac9a9a71dae035382eb1b888a71a8a92c) 2026-08-18 — Add ASan crypto-safety tests, JNI mocks, and a wrap fuzzer.
+- [`2290e629`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/2290e6291b431c66f9a4e4aed130cb4b48f2d3ed) 2026-08-18 — Show phone unlock on create/open and wipe secrets on dismount.
+- [`595bd1cd`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/595bd1cd19848e9a957a6ba49b664c04c53aab3b) 2026-08-17 — Fix wrap save, session PIM, disguise names, and keyfile reads.
+- [`d7ade88c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/d7ade88ce12e2dd39fa817c401a0a6fd5517a068) 2026-08-17 — Refresh the overlay Keyfile snapshot so CI matches the pin.
+- [`7a323bee`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/7a323beeea154ef39cd32efd2200ad13d4fd8328) 2026-08-17 — Draw Looks wallpaper on its own layer so MAGI and Matrix stay smoother.
+- [`0e310692`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/0e3106929fdd607c541020269d8d186906da2f0f) 2026-08-17 — Ship Looks both offline and with tap-to-check source updates.
+- [`17cb879e`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/17cb879ef38a77dd23e0d895f68f8d99b5182c16) 2026-08-17 — Harden Android JNI with RELRO and PAC only on ARMv8 AES/SHA C units.
+- [`e120466e`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/e120466e16a4473b3308ffff6466f5ec4332f8a7) 2026-08-17 — Give Looks MAGI/Unit-01 chrome through cards, tabs, and bars.
+- [`de4d28fa`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/de4d28fabcce321241b5764d06321baff25a9ef9) 2026-08-17 — Fix Linux host CI for wrap/volume and show Looks shots on GitHub.
+- [`a313ab7b`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/a313ab7b4a1e6be61b2a42a54a6dc862da93f376) 2026-08-17 — Put Looks on the v0.3.1 GitHub Release as a same-package APK.
+- [`717ae54f`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/717ae54f089eb513cbb715cfc9e2d0a84199ba1b) 2026-08-17 — Keep the store Android app Desktop-only and ship Looks as its own package.
+- [`f16df044`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/f16df0441ee9ac63c374461bfe91505b1a343999) 2026-08-16 — Correct the author footnote and add a quiet internship note.
+- [`c67a439e`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/c67a439e32039de1590d7e137b1e19e0d6214a01) 2026-08-16 — Document self-sign for Apple users and add real emulator UI shots.
+- [`c0a03347`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/c0a03347f2ebb3ca04358e51539c18eb65132ef4) 2026-08-16 — Fix iOS Release compile so an unsigned 0.3.1 IPA can ship.
+- [`c997f8f1`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/c997f8f180a2da70374ab667a5b56d3ec3989d9d) 2026-08-16 — Make the Phase 10 hash-write test dirty the tree itself.
+- [`c873ac3c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/c873ac3cb4df10acee96ce333cc4d275bd18d1c0) 2026-08-16 — Ship VC Port 0.3.1 with emulator coverage and ARM/XTS speedups.
+- [`f55f0e8d`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/f55f0e8df5fdae6fb017d3c4a35fba0ebf400ab7) 2026-08-16 — Add VeraCrypt hidden-volume write protection on the phones.
+- [`22d071cf`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/22d071cf8c75433ddac250b7e0dac41e17dabfa4) 2026-08-16 — Show named work on screen and drop unused mobile chrome.
+- [`309c459b`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/309c459b61fc6a792f888f606fa6c7969fd155aa) 2026-08-16 — Add a footnote that the author is a beginner and open to advice.
+- [`b5b0d7fb`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/b5b0d7fbc4a0e20e33294c8db31c7c9984cd8e3f) 2026-08-16 — Document that the mobile-only VCPort GitHub repo is public.
+- [`e8f8f356`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/e8f8f3569b7912ea0c45bf7a134d2657fee83b7c) 2026-08-16 — Record Shivam Mangesh Pingale as author with both contact addresses.
+- [`553c7d4c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/553c7d4c4a5a469a85f72cbd4877c62d725fc08c) 2026-08-16 — Fix Android x86 NDK linking and iOS Xcode 26 compile so mobile packages build.
+- [`15b0b92e`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/15b0b92e315e7e1c600fa41a4b59d7a5834a02c0) 2026-08-16 — Run the same host tests in Veracrypt_port and the mobile-only VCPort tree.
+- [`baa1d39d`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/baa1d39df95b408041a9d719c7b1e0ea84a1a6aa) 2026-08-16 — Make volume history hard to enable and never write it to disk.
+- [`13721a22`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/13721a226ee12041c8696f4e4073b83335deeedd) 2026-08-16 — Keep Remember off and block password history; nation-state APTs stay out of scope.
+- [`6ab2f608`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/6ab2f608a5ed6896fbc52270d04ac81231073ff5) 2026-08-16 — Ship FAT tools, an official VeraCrypt pin, and a fail-closed update window.
+- [`a72ed06b`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/a72ed06b7f4c79e0ba6229ac40df80c861795545) 2026-08-16 — Add a 10-phase host test runner so CI covers the pre-public cycle.
+- [`b1eb9366`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/b1eb936658779b7455c6d3b284420c3874907329) 2026-08-16 — Refresh overlay inventories to include the macOS File.cpp host-build fix.
+- [`d44efc4c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/d44efc4c8bf38a43ddf41160aca3eaaeb213e438) 2026-08-16 — Ship VC Port 0.3.0 after the pre-public hardening cycle.
+- [`fe066b7d`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/fe066b7d5a7a8f37a7e26c64117b489bbdf643fa) 2026-08-16 — Add public contact emails for Shivam Mangesh Pingale.
+- [`89402331`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/8940233146c6d7997df2ed8ccffcea2783fe8271) 2026-08-16 — Use the full legal name Shivam Mangesh Pingale in copyright notices.
+- [`63eab47d`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/63eab47d89e25cbf9d27d935397dc56f31761f1b) 2026-08-16 — Declare Apache-2.0 / TrueCrypt 3.0 licensing and land remaining port work.
+- [`6153a90e`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/6153a90ea71c11ebc935911c9f172cab0312acd4) 2026-08-16 — Fix NDK and Linux CI so VC Port APKs can actually build.
+- [`3ad6ca3c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/3ad6ca3c80f99b3979de4fe5e36724678f544d55) 2026-08-16 — Harden VC Port 0.2.1 for a seized-device threat model.
+- [`01a59ab5`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/01a59ab500bc25f2447f64d7448b9c25d533864b) 2026-08-16 — Release VC Port 0.2.0 with F-Droid builds and a full unlock-factor mix.
+- [`5da3bb10`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/5da3bb104116f5d95c5382cbe5030815ec6905de) 2026-08-16 — Document the standalone VC Port mobile repo.
+- [`69662e8c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/69662e8cdc2f945dc543858b95f24375903079d3) 2026-08-16 — Fix Android native CMake path and add wrap host tests.
+- [`1b1dc4a6`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/1b1dc4a6895083a5defe4fc0788318c605d415bc) 2026-08-16 — Add single-file wrapping and an in-memory password generator.
+- [`d7b95d5c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/d7b95d5c52f037154b929c754f02c9295f23ab79) 2026-08-16 — Add offline update checks and mobile system sharing.
+- [`7a708ca5`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/7a708ca54f55ffc8fd75140e256c8d9762c57e69) 2026-08-16 — Add Apple silicon, biometric, and mobile port work.
+- [`a05c8534`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/a05c8534c340ba0780a33bf09e8c4f096dfe067b) 2026-06-17 — docs: update supported operating systems
+- [`40f6473c`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/40f6473c90f39efcd40235ce241784cd966f1df7) 2026-06-16 — Some formatting changes to README.md (#1777)
+- [`d26be958`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/d26be958613cea99fe258192dd16f3fd037bb79d) 2026-06-09 — Update copyright year to 2026
+- [`e349c766`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/e349c76686aa52ed5b7f9a4d8307b6556406419e) 2026-06-06 — Build: extend reproducible packaging to RPM
+- [`f77d0c07`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/f77d0c0760b4cfd3290ca44fc5395d8d1980364a) 2026-06-05 — Build: replace fixed SOURCE_DATE_EPOCH fallback
+- [`964ecde6`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/964ecde6a1c08c51dde4ea7c30d6e1481bb84940) 2026-05-20 — Linux: add Arch package build support (#1740)
+- [`9ae7cb19`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/9ae7cb1914ef44b7c7cf98a35f226630718a6a57) 2026-04-17 — Added line break between AM Crypto and IDRIX (#1679)
+- [`d8cd2cfa`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/d8cd2cfaecbe7771a42d5ed60699fe4d5f1ff1f3) 2026-04-12 — Fix links to documentation in README.md (#1617)
