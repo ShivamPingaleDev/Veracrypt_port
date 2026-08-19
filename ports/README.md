@@ -7,6 +7,11 @@ VC Port lets you open the same locked files on your **phone** that you already u
 
 This app is **not** called VeraCrypt. We are not allowed to use that name. It is **not unbreakable**.
 
+There is **one app**: **VC Port**. GitHub has two names for the same work:
+
+- **[Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port)** — use this. Full source and the APK / IPA.
+- **This VCPort repo** — only the phone folders. Not a second app. Do not install from here.
+
 ## How it works
 
 A locked file (a *volume*) is just a file on disk. On a computer, VeraCrypt can attach it as a drive letter. A phone cannot do that.
@@ -47,7 +52,7 @@ On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not s
 
 **0.3.7 is a stable alpha**, not 1.0, not a store build. Copies: [GitHub Release v0.3.7](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.7). The APK there is a **debug-signed preview**. The IPA is **unsigned**. Production is a FOSS APK you build and sign with your own keystore, plus an IPA you sign with your Team ID. Installing one Android copy replaces the others.
 
-The full tree with original VeraCrypt `src/` lives in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the phone apps.
+Install and current source are on [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is only the phone folders.
 
 ## iPhone — install (you sign it)
 

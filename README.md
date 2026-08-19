@@ -7,6 +7,13 @@ VC Port lets you open the same locked files on your **phone** that you already u
 
 This app is **not** called VeraCrypt. We are not allowed to use that name. It is **not unbreakable**.
 
+There is **one app**: **VC Port**. GitHub has two names for the same work:
+
+- **[Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port)** — use this. Full source and the APK / IPA.
+- **[VCPort](https://github.com/ShivamPingaleDev/VCPort)** — only the phone folders, no VeraCrypt `src/`. Not a second app. Do not install from there.
+
+The repo is named Veracrypt_port because the volume engine is VeraCrypt source. The app on the phone is still called VC Port.
+
 ## How it works
 
 A locked file (a *volume*) is just a file on disk. On a computer, VeraCrypt can attach it as a drive letter. A phone cannot do that.

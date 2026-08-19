@@ -6,10 +6,10 @@
 
 If this work is useful to you and you have room to **teach**, offer an **internship**, or **hire**: I am looking for that. Same email as Contact. No pressure.
 
-TrueCrypt License 3.0 requires the source to stay public if a binary is shipped. Both GitHub repos stay **public**:
+TrueCrypt License 3.0 requires the source to stay public if a binary is shipped. Both GitHub repos stay **public**. They are **one app** (VC Port), not two products:
 
-- Full tree: https://github.com/ShivamPingaleDev/Veracrypt_port
-- Mobile-only (`ports/` as root): https://github.com/ShivamPingaleDev/VCPort
+- Home (source + APK/IPA): https://github.com/ShivamPingaleDev/Veracrypt_port
+- Phone-folder copy only: https://github.com/ShivamPingaleDev/VCPort — do not treat this as a second download site
 
 Do not make either private after an APK or IPA has been posted.
 
@@ -84,7 +84,7 @@ Do **not** buy Google/Apple/Meta ads. Do **not** title posts “VeraCrypt for An
 
 `android` `ios` `encryption` `cryptography` `veracrypt` `truecrypt` `kotlin` `swift` `foss` `privacy` `disk-encryption` `offline`
 
-Website field: VCPort → `https://github.com/ShivamPingaleDev/Veracrypt_port` (full source). Veracrypt_port → `https://github.com/ShivamPingaleDev/VCPort` (mobile apps).
+Website field: both repos → `https://github.com/ShivamPingaleDev/Veracrypt_port` (home). VCPort is a phone-folder copy, not a second product.
 
 ### Where to post once (human, not spam)
 

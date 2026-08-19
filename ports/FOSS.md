@@ -11,7 +11,7 @@ ship nothing proprietary, let people rebuild and sign their own copies.
 
 ## What this tree keeps doing
 
-- Public git ([Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port); mobile-only [VCPort](https://github.com/ShivamPingaleDev/VCPort))
+- Public git: home is [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port) (source + APK/IPA). [VCPort](https://github.com/ShivamPingaleDev/VCPort) is only the phone folders, not a second app.
 - No Google Play / Firebase / Crashlytics / ads / analytics
 - AndroidX + Kotlin + NDK only on Android; no prebuilt `.so` / `.a` blobs
 - `minifyEnabled false` (reviewable bytecode)

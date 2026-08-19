@@ -299,6 +299,8 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("no Google Analytics", public)
         self.assertIn("Do **not** title posts", public)
         self.assertIn("PUBLIC.md", readme)
+        self.assertIn("one app", readme.lower())
+        self.assertIn("Not a second app", readme)
         self.assertIn("docs/screenshots/01-volume.png", readme)
         self.assertIn("docs/screenshots/05-mounted.png", readme)
         self.assertIn("docs/screenshots/08-skin-signal.png", readme)
