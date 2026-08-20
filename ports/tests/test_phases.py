@@ -234,6 +234,9 @@ class Phase5IosTests(unittest.TestCase):
         self.assertIn("TARGETED_DEVICE_FAMILY: \"1,2\"", yml)
         self.assertIn("run_ipad_sim.sh", read("ports/tests/run-phases.sh"))
         self.assertIn("run_ios_session_test.sh", read("ports/tests/run-phases.sh"))
+        self.assertIn("CrossPhoneVolumeTests", read("ports/scripts/cross-phone-open.sh"))
+        self.assertIn("DesktopCompatVolumeTests", read("ports/scripts/desktop-phone-open.sh"))
+        self.assertIn("engine-made.hc", read("ports/scripts/desktop-phone-open.sh"))
         self.assertIn("VCPortTests", yml)
         self.assertIn("AppInterfaceSessionTests", read("ports/ios/run_ios_session_test.sh"))
         self.assertIn("generic/platform=iOS", read("ports/ios/build-unsigned-ipa.sh"))
@@ -314,21 +317,21 @@ class Phase8CiTests(unittest.TestCase):
 
 
 class Phase9LegalVersionTests(unittest.TestCase):
-    def test_current_version_is_0_3_7(self) -> None:
+    def test_current_version_is_0_3_8(self) -> None:
         v = load_version()
-        self.assertEqual(v["port_version"], "0.3.7")
+        self.assertEqual(v["port_version"], "0.3.8")
         self.assertEqual(v["upstream_version"], "1.26.29")
         self.assertEqual(v["upstream_commit"], "b48e31f5b47da7d41025e3f0e02751675e15005a")
         self.assertEqual(v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
         self.assertEqual(v["upstream_tag"], "VeraCrypt_1.26.29")
         plist = read("ports/ios/VCPort/Info.plist")
-        self.assertIn("0.3.7", plist)
+        self.assertIn("0.3.8", plist)
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
-        self.assertEqual(v["android_version_code"], 12)
-        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/12.txt")
-        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 12")
+        self.assertEqual(v["android_version_code"], 13)
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/13.txt")
+        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 13")
         self.assertIn("session tests", notes.read_text(encoding="utf-8").lower())
         self.assertIn("not unbreakable", notes.read_text(encoding="utf-8").lower())
         self.assertIn("stable alpha", notes.read_text(encoding="utf-8").lower())

@@ -21,6 +21,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "0.3.8",
+          "buildVersion": "13",
+          "date": "2026-08-20T00:00:00-00:00",
+          "localizedDescription": "Stable alpha. FAT12 on small volumes so desktop VeraCrypt sees full files. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "0.3.7",
           "buildVersion": "12",
           "date": "2026-08-19T00:00:00-00:00",

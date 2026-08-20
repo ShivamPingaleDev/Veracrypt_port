@@ -6,6 +6,15 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
+## 0.3.8
+
+Stable alpha: 2 MiB FAT volumes are FAT12, so files larger than one sector open in official desktop VeraCrypt.
+
+- Phone Create (FAT) writes FAT12 when cluster count is under 4085, FAT16 otherwise. Open follows the same Microsoft rule, so a 32 KiB file is not truncated to 512 bytes on a computer.
+- Desktop volumes with password, PIM, keyfile, AES-Twofish-Serpent, SHA-256, and a hidden volume open on Android and iOS. Phone-made FAT volumes open on desktop VeraCrypt 1.26.29.
+- Sprint 10/11 gates: `ports/scripts/cross-phone-open.sh`, `ports/scripts/desktop-phone-open.sh`.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.8.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.8-unsigned-preview.ipa`). Same `applicationId` as 0.3.7; it replaces the old install. Still alpha (not 1.0, not a store build).
+
 ## 0.3.7
 
 Stable alpha: shorter in-app About; several-file copy; Open after Home without `/proc/self/fd`.

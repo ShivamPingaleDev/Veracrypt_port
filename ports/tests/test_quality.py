@@ -301,6 +301,30 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("Read-only volumes refuse", ios_session)
         self.assertNotIn("UpdateChecker.check()", ios_session)
         self.assertNotIn("panicWipe()", ios_session)
+        cross_android = read(
+            "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/CrossPhoneVolumeTest.kt"
+        )
+        cross_ios = read("ports/ios/VCPortTests/CrossPhoneVolumeTests.swift")
+        cross_sh = read("ports/scripts/cross-phone-open.sh")
+        self.assertIn("createRandomVolumeOnAndroid", cross_android)
+        self.assertIn("openVolumeMadeOnIos", cross_android)
+        self.assertIn("testCreateRandomVolumeOnIos", cross_ios)
+        self.assertIn("testOpenVolumeMadeOnAndroid", cross_ios)
+        self.assertIn("android-made.hc", cross_sh)
+        self.assertIn("ios-made.hc", cross_sh)
+        self.assertIn("Download/vcport-cross", cross_sh)
+        self.assertIn("CrossPhoneVolumeTest", cross_sh)
+        desktop_android = read(
+            "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/DesktopCompatVolumeTest.kt"
+        )
+        desktop_ios = read("ports/ios/VCPortTests/DesktopCompatVolumeTests.swift")
+        desktop_sh = read("ports/scripts/desktop-phone-open.sh")
+        self.assertIn("openDesktopCreatedVolumes", desktop_android)
+        self.assertIn("testOpenDesktopCreatedVolumes", desktop_ios)
+        self.assertIn("engine-made.hc", desktop_sh)
+        self.assertIn("aes-sha512-pim-kf.hc", desktop_sh)
+        self.assertIn("AES-Twofish-Serpent", desktop_sh)
+        self.assertIn("PHOTO.JPG", desktop_sh)
         ios_view = read("ports/ios/VCPort/ContentView.swift")
         self.assertIn("applySessionKeyfiles", ios_view)
         self.assertIn("headerKeyfileURLs", ios_view)
@@ -486,7 +510,7 @@ class FunctionalTests(unittest.TestCase):
 class SmokeSanityTests(unittest.TestCase):
     def test_version_json_parses(self) -> None:
         v = json.loads(read("ports/version.json"))
-        self.assertEqual(v["port_version"], "0.3.7")
+        self.assertEqual(v["port_version"], "0.3.8")
         self.assertEqual(len(v["upstream_commit"]), 40)
 
     def test_pin_file_matches_json(self) -> None:
@@ -565,6 +589,16 @@ class CompatibilityTests(unittest.TestCase):
         self.assertIn('DEFAULT_KDF = "HMAC-SHA-512"', native)
         self.assertIn("AES(Twofish(Serpent))", swift)
         self.assertIn("HMAC-SHA-512", swift)
+
+    def test_small_fat_volumes_use_fat12(self) -> None:
+        mobile = read("ports/shared/vc_mobile.cpp")
+        self.assertIn("clusters < 4085u", mobile)
+        self.assertIn("FAT12   ", mobile)
+        self.assertIn("fat12_poke", mobile)
+        volume = read("ports/shared/test_volume_main.cpp")
+        self.assertIn("2MiB volume formats FAT12", volume)
+        self.assertIn("32KiB PHOTO.JPG", volume)
+        self.assertIn("--write-compat", volume)
 
     def test_exfat_stays_unsupported(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")

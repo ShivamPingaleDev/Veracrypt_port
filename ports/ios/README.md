@@ -5,7 +5,7 @@
 We do not put this app on the App Store. **You** sign it with **your Apple ID**. We never see that ID.
 
 1. On a computer, install [AltStore](https://altstore.io/) or [SideStore](https://sidestore.io/).
-2. Download `VCPort-0.3.7-unsigned-preview.ipa` from the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.7).
+2. Download `VCPort-0.3.8-unsigned-preview.ipa` from the [GitHub Release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.8).
 3. Open that IPA in AltStore or SideStore and sign in with **your Apple ID**.
 4. On the iPhone: **Settings → General → VPN & Device Management** → tap your name → **Trust**.
 5. Open **VC Port**.

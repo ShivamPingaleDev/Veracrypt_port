@@ -302,6 +302,7 @@ struct FatGeom
 	uint64_t root_offset;
 	uint64_t data_offset;
 	int fat32;
+	int fat12;
 };
 
 static int fat_load_geom (VcVolume *volume, FatGeom *g)
@@ -326,6 +327,7 @@ static int fat_load_geom (VcVolume *volume, FatGeom *g)
 	g->root_cluster = u32le (&boot[44]);
 	g->fat_size_sectors = fat16Sectors ? fat16Sectors : fat32Sectors;
 	g->fat32 = g->root_entries == 0;
+	g->fat12 = 0;
 
 	if (g->bytes_per_sector == 0 || g->sectors_per_cluster == 0 || g->fats == 0)
 		return VC_ERR_FORMAT;
@@ -343,6 +345,52 @@ static int fat_load_geom (VcVolume *volume, FatGeom *g)
 		g->root_offset = 0;
 		g->data_offset = g->fat_offset + fatBytes;
 	}
+
+	uint32_t tot16 = u16le (&boot[19]);
+	uint32_t tot32 = u32le (&boot[32]);
+	uint32_t totalSecs = tot16 ? tot16 : tot32;
+	if (totalSecs == 0 && g->bytes_per_sector)
+		totalSecs = (uint32_t) (vc_size (volume) / g->bytes_per_sector);
+	uint32_t rootSecs = 0;
+	if (g->root_entries)
+		rootSecs = (g->root_entries * 32 + g->bytes_per_sector - 1) / g->bytes_per_sector;
+	uint32_t used = g->reserved + g->fats * g->fat_size_sectors + rootSecs;
+	uint32_t dataSecs = totalSecs > used ? totalSecs - used : 0;
+	uint32_t clusters = g->sectors_per_cluster ? dataSecs / g->sectors_per_cluster : 0;
+	/* MS FAT: CountOfClusters < 4085 is FAT12, not the OEM "FAT16" string. */
+	if (!g->fat32 && clusters < 4085u)
+		g->fat12 = 1;
+	return VC_OK;
+}
+
+static uint32_t fat12_get (VcVolume *volume, const FatGeom *g, uint32_t cluster)
+{
+	uint64_t off = g->fat_offset + (uint64_t) cluster + (cluster / 2);
+	uint8_t b[2];
+	if (vc_read (volume, off, b, 2) != VC_OK)
+		return 0x0FFFu;
+	uint16_t v = u16le (b);
+	return (cluster & 1) ? (uint32_t) (v >> 4) : (uint32_t) (v & 0x0FFFu);
+}
+
+static int fat12_poke (VcVolume *volume, const FatGeom *g, uint32_t cluster, uint32_t value)
+{
+	uint32_t v12 = value & 0x0FFFu;
+	uint64_t fatBytes = (uint64_t) g->fat_size_sectors * g->bytes_per_sector;
+	for (uint32_t f = 0; f < g->fats; ++f)
+	{
+		uint64_t off = g->fat_offset + (uint64_t) f * fatBytes + (uint64_t) cluster + (cluster / 2);
+		uint8_t b[2];
+		if (vc_read (volume, off, b, 2) != VC_OK)
+			return VC_ERR_IO;
+		uint16_t old = u16le (b);
+		uint16_t neu = (cluster & 1)
+			? (uint16_t) ((old & 0x000Fu) | (v12 << 4))
+			: (uint16_t) ((old & 0xF000u) | v12);
+		put16 (b, neu);
+		if (vc_write (volume, off, b, 2) != VC_OK)
+			return VC_ERR_IO;
+	}
 	return VC_OK;
 }
 
@@ -355,6 +403,8 @@ static uint32_t fat_next (VcVolume *volume, const FatGeom *g, uint32_t cluster)
 			return 0x0FFFFFFFu;
 		return u32le (b) & 0x0FFFFFFFu;
 	}
+	if (g->fat12)
+		return fat12_get (volume, g, cluster);
 	uint8_t b[2];
 	if (vc_read (volume, g->fat_offset + (uint64_t) cluster * 2, b, 2) != VC_OK)
 		return 0xFFFFu;
@@ -363,7 +413,11 @@ static uint32_t fat_next (VcVolume *volume, const FatGeom *g, uint32_t cluster)
 
 static int fat_is_eof (const FatGeom *g, uint32_t cluster)
 {
-	return g->fat32 ? cluster >= 0x0FFFFFF8u : cluster >= 0xFFF8u;
+	if (g->fat32)
+		return cluster >= 0x0FFFFFF8u;
+	if (g->fat12)
+		return cluster >= 0x0FF8u;
+	return cluster >= 0xFFF8u;
 }
 
 /* FAT32 max file is 4 GiB-1. 512-byte clusters need ~8M hops; 16M is headroom. */
@@ -792,7 +846,11 @@ int vc_export_file (VcVolume *volume, const char *path, const char *dest_path)
 
 static uint32_t fat_eof_mark (const FatGeom *g)
 {
-	return g->fat32 ? 0x0FFFFFFFu : 0xFFFFu;
+	if (g->fat32)
+		return 0x0FFFFFFFu;
+	if (g->fat12)
+		return 0x0FFFu;
+	return 0xFFFFu;
 }
 
 static uint32_t fat_max_cluster (VcVolume *volume, const FatGeom *g)
@@ -802,15 +860,26 @@ static uint32_t fat_max_cluster (VcVolume *volume, const FatGeom *g)
 		return 2;
 	uint32_t clusters = (uint32_t) ((sz - g->data_offset) / g->cluster_size);
 	uint32_t maxc = clusters + 1;
-	if (!g->fat32 && maxc > 0xFFF4u)
+	if (g->fat12 && maxc > 0xFF4u)
+		maxc = 0xFF4u;
+	if (!g->fat32 && !g->fat12 && maxc > 0xFFF4u)
 		maxc = 0xFFF4u;
 	if (g->fat32 && maxc > 0x0FFFFFF6u)
 		maxc = 0x0FFFFFF6u;
+	uint64_t fatBytes = (uint64_t) g->fat_size_sectors * g->bytes_per_sector;
+	if (g->fat12 && fatBytes >= 3)
+	{
+		uint32_t byFat = (uint32_t) (((fatBytes - 1) * 2) / 3);
+		if (maxc > byFat)
+			maxc = byFat;
+	}
 	return maxc;
 }
 
 static int fat_poke (VcVolume *volume, const FatGeom *g, uint32_t cluster, uint32_t value)
 {
+	if (g->fat12)
+		return fat12_poke (volume, g, cluster, value);
 	uint64_t fatBytes = (uint64_t) g->fat_size_sectors * g->bytes_per_sector;
 	for (uint32_t f = 0; f < g->fats; ++f)
 	{
@@ -1807,18 +1876,27 @@ static int format_empty_fat16 (VcVolume *volume, uint64_t dataBytes)
 	uint32_t fats = 2;
 	uint32_t rootEnt = 512;
 	uint32_t rootSecs = (rootEnt * 32 + bps - 1) / bps;
-	uint32_t fatSecs = 16;
-	for (;;)
+	uint32_t fatSecs = 1;
+	uint32_t clusters = 0;
+	int useFat12 = 0;
+	for (int iter = 0; iter < 64; ++iter)
 	{
+		if (reserved + fats * fatSecs + rootSecs >= totalSecs)
+			return VC_ERR_ARGUMENT;
 		uint32_t dataSecs = totalSecs - reserved - fats * fatSecs - rootSecs;
-		uint32_t clusters = dataSecs / spc;
-		uint32_t need = (clusters * 2 + bps - 1) / bps;
+		clusters = dataSecs / spc;
+		if (clusters < 16)
+			return VC_ERR_ARGUMENT;
+		useFat12 = clusters < 4085u;
+		uint32_t bytes = useFat12 ? ((clusters + 2) * 3 + 1) / 2 : (clusters + 2) * 2;
+		uint32_t need = (bytes + bps - 1) / bps;
 		if (need <= fatSecs)
 			break;
 		fatSecs = need;
-		if (reserved + fats * fatSecs + rootSecs >= totalSecs)
+		if (iter == 63)
 			return VC_ERR_ARGUMENT;
 	}
+	(void) clusters;
 
 	std::vector<uint8_t> boot (bps, 0);
 	boot[0] = 0xEB;
@@ -1844,7 +1922,9 @@ static int format_empty_fat16 (VcVolume *volume, uint64_t dataBytes)
 	put16_le (boot.data (), 22, (uint16_t) fatSecs);
 	put16_le (boot.data (), 24, 1);
 	put16_le (boot.data (), 26, 1);
-	memcpy (&boot[54], "FAT16   ", 8);
+	boot[38] = 0x29;
+	memcpy (&boot[43], "NO NAME    ", 11);
+	memcpy (&boot[54], useFat12 ? "FAT12   " : "FAT16   ", 8);
 	boot[510] = 0x55;
 	boot[511] = 0xAA;
 	if (vc_write (volume, 0, boot.data (), boot.size ()) != VC_OK)
@@ -1854,7 +1934,8 @@ static int format_empty_fat16 (VcVolume *volume, uint64_t dataBytes)
 	fat[0] = 0xF8;
 	fat[1] = 0xFF;
 	fat[2] = 0xFF;
-	fat[3] = 0xFF;
+	if (!useFat12)
+		fat[3] = 0xFF;
 	for (uint32_t f = 0; f < fats; ++f)
 	{
 		uint64_t off = (uint64_t) (reserved + f * fatSecs) * bps;

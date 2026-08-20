@@ -189,8 +189,90 @@ static bool has_name (VcDirEntry *entries, int n, const char *name, int wantDir)
 	return false;
 }
 
-int main ()
+static const char kCompatPassword[] = "EngineCompat-password-one-OK";
+
+static int write_compat_volume (const char *path)
 {
+	for (int i = 0; i < 320; ++i)
+		vc_entropy_add ("0123456789abcdef0123456789abcdef", 32);
+	unlink (path);
+	VcCreateOptions copts = {};
+	copts.path = path;
+	copts.password = kCompatPassword;
+	copts.password_len = strlen (kCompatPassword);
+	copts.pim = 1;
+	copts.size_bytes = 2ull * 1024ull * 1024ull;
+	copts.cipher = "AES(Twofish(Serpent))";
+	copts.kdf = "HMAC-SHA-512";
+	if (vc_create_volume (&copts) != VC_OK)
+	{
+		fprintf (stderr, "write-compat create failed\n");
+		return 1;
+	}
+	VcOpenOptions opt = {};
+	opt.path = path;
+	opt.password = kCompatPassword;
+	opt.password_len = strlen (kCompatPassword);
+	opt.pim = 1;
+	int err = 0;
+	VcVolume *vol = vc_open (&opt, &err);
+	if (!vol)
+	{
+		fprintf (stderr, "write-compat open failed %d\n", err);
+		return 1;
+	}
+	char memo[] = "/tmp/vcport-compat-memo-XXXXXX";
+	char photo[] = "/tmp/vcport-compat-photo-XXXXXX";
+	int mfd = mkstemp (memo);
+	int pfd = mkstemp (photo);
+	if (mfd < 0 || pfd < 0)
+	{
+		if (mfd >= 0)
+			close (mfd);
+		if (pfd >= 0)
+			close (pfd);
+		vc_close (vol);
+		return 1;
+	}
+	const char *memoBody = "engine-memo-ok\n";
+	if (write (mfd, memoBody, 15) != 15)
+	{
+		close (mfd);
+		close (pfd);
+		vc_close (vol);
+		return 1;
+	}
+	close (mfd);
+	std::vector<uint8_t> blob (32u * 1024u);
+	for (size_t i = 0; i < blob.size (); ++i)
+		blob[i] = (uint8_t) i;
+	if (write (pfd, blob.data (), blob.size ()) != (ssize_t) blob.size ())
+	{
+		close (pfd);
+		vc_close (vol);
+		return 1;
+	}
+	close (pfd);
+	int rc = vc_import_file (vol, "/", memo, "MEMO.TXT");
+	if (rc == VC_OK)
+		rc = vc_import_file (vol, "/", photo, "PHOTO.JPG");
+	vc_close (vol);
+	unlink (memo);
+	unlink (photo);
+	if (rc != VC_OK)
+	{
+		fprintf (stderr, "write-compat import failed %d\n", rc);
+		return 1;
+	}
+	printf ("wrote %s\n", path);
+	return 0;
+}
+
+int main (int argc, char **argv)
+{
+	if (argc >= 3 && strcmp (argv[1], "--write-compat") == 0)
+		return write_compat_volume (argv[2]);
+
 	char path[] = "/tmp/vcport-fat-fixture-XXXXXX";
 	int fd = mkstemp (path);
 	if (fd < 0)
@@ -313,6 +395,9 @@ int main ()
 	{
 		n = vc_list_root (createdVol, entries, 32);
 		expect (n >= 0, "list created FAT");
+		uint8_t boot[62];
+		expect (vc_read (createdVol, 0, boot, sizeof (boot)) == VC_OK, "read created boot");
+		expect (memcmp (boot + 54, "FAT12   ", 8) == 0, "2MiB volume formats FAT12");
 
 		char srcin[] = "/tmp/vcport-fromdev-XXXXXX";
 		int ifd = mkstemp (srcin);
@@ -331,6 +416,38 @@ int main ()
 		if (f)
 			fclose (f);
 		expect (got == 12 && memcmp (buf, "from-device\n", 12) == 0, "imported contents match");
+
+		char photoin[] = "/tmp/vcport-photo-XXXXXX";
+		int pfd = mkstemp (photoin);
+		expect (pfd >= 0, "temp 32KiB PHOTO.JPG");
+		std::vector<uint8_t> photo (32u * 1024u);
+		for (size_t i = 0; i < photo.size (); ++i)
+			photo[i] = (uint8_t) i;
+		if (pfd >= 0)
+		{
+			expect (write (pfd, photo.data (), photo.size ()) == (ssize_t) photo.size (), "write 32KiB PHOTO.JPG");
+			close (pfd);
+		}
+		expect (vc_import_file (createdVol, "/", photoin, "PHOTO.JPG") == VC_OK, "import 32KiB PHOTO.JPG");
+		n = vc_list_root (createdVol, entries, 32);
+		int photoOk = 0;
+		for (int i = 0; i < n; ++i)
+		{
+			if (strcasecmp (entries[i].name, "PHOTO.JPG") == 0 && entries[i].size == photo.size ())
+				photoOk = 1;
+		}
+		expect (photoOk, "PHOTO.JPG dirent size is 32KiB");
+		expect (vc_export_file (createdVol, "PHOTO.JPG", tmpout) == VC_OK, "export 32KiB PHOTO.JPG");
+		std::vector<uint8_t> gotPhoto (photo.size () + 16, 0);
+		f = fopen (tmpout, "rb");
+		size_t photoGot = f ? fread (gotPhoto.data (), 1, gotPhoto.size (), f) : 0;
+		if (f)
+			fclose (f);
+		expect (photoGot == photo.size () && memcmp (gotPhoto.data (), photo.data (), photo.size ()) == 0,
+			"32KiB PHOTO.JPG roundtrip");
+		expect (vc_delete_file (createdVol, "PHOTO.JPG") == VC_OK, "delete PHOTO.JPG");
+		unlink (photoin);
+
 		expect (vc_import_file (createdVol, "/", srcin, "FROMDEV.TXT") == VC_ERR_FORMAT, "reject duplicate name");
 		expect (vc_delete_file (createdVol, "FROMDEV.TXT") == VC_OK, "delete FROMDEV.TXT");
 		n = vc_list_root (createdVol, entries, 32);

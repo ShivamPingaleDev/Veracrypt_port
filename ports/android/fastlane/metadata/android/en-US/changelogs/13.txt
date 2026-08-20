@@ -1,0 +1,1 @@
+VC Port 0.3.8 stable alpha: small FAT volumes are real FAT12 so a 32 KiB file opens on desktop VeraCrypt; password/PIM/keyfile/cascade/hash/hidden containers round-trip with the phones. Session tests still cover the app interface. GitHub APKs stay debug-signed previews. Not unbreakable.

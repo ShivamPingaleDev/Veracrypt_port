@@ -109,7 +109,11 @@ and PIM fields are empty; Tools header ops still use the last unlock in RAM.
 Tests must not tap Panic wipe.
 iPad Simulator has the same session as `ports/ios/VCPortTests/AppInterfaceSessionTests.swift`
 (`ports/ios/run_ios_session_test.sh`; skips Files/share sheets like Android
-skips SAF). Appearance is Original plus Dark mode on the foss APK
+skips SAF). Sprint 10 (create a random volume on one phone, open it on the
+other): `ports/scripts/cross-phone-open.sh`. Sprint 11 (official desktop VeraCrypt
+volumes with password / PIM / keyfile / cascade / hash open on the phones, and
+phone FAT volumes open on desktop; 2 MiB containers are FAT12):
+`ports/scripts/desktop-phone-open.sh`. Appearance is Original plus Dark mode on the foss APK
 (`connectedFossDebugAndroidTest`). Cyberpunk / Matrix / MAGI are archived
 under `archive/looks/` and are not built. Tests must not tap Panic wipe.
 
