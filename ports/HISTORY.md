@@ -4,6 +4,7 @@ This is **one app** (VC Port). The real git history lives in [Veracrypt_port](ht
 
 Newest first. Same work as the [changelog](CHANGELOG.md).
 
+- [`40cace0b`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/40cace0b25bd37f0438fea44066746a8991eaaf2) 2026-08-20 — Ship VC Port 0.3.8 so small FAT volumes open on desktop VeraCrypt.
 - [`96856bb0`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/96856bb0af5fec51d3e7ee51bca047075e80b375) 2026-08-20 — Say plainly that Veracrypt_port and VCPort are one app, not two.
 - [`463807bf`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/463807bf89316621765f01779bffb20d447c6ba3) 2026-08-20 — Drop the old wrap screenshot and add plain iPhone install steps.
 - [`1fc087cb`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/1fc087cb676bac1b8268f42c06356f481eb7018f) 2026-08-20 — Publish current Android and iPhone tab shots for the 0.3.7 README.
