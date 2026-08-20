@@ -1,7 +1,7 @@
 import Foundation
 
 enum FossConfig {
-    /// Master builds stay offline. Live Check for updates is on experimental-biometrics.
+    /// Master builds stay offline. This branch stays offline too. experimental-biometrics is stale.
     static var enableUpdateCheck: Bool {
         Bundle.main.object(forInfoDictionaryKey: "VCPortEnableUpdateCheck") as? Bool ?? false
     }

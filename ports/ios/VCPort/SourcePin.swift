@@ -3,7 +3,7 @@ import Foundation
 /// Baked-in public source pin from Info.plist (ports/version.json via
 /// sync_source_pin.py). This IPA never downloads or installs VeraCrypt source.
 /// Official git and GitHub latest-release URL are hardcoded, not fetched.
-/// Live Check for updates is on experimental-biometrics. See ports/UPSTREAM.md.
+/// experimental-biometrics is stale; this IPA stays offline. See ports/UPSTREAM.md.
 enum SourcePin {
     static let repo = (Bundle.main.object(forInfoDictionaryKey: "VCPortSourceRepo") as? String)
         ?? "https://github.com/ShivamPingaleDev/Veracrypt_port"

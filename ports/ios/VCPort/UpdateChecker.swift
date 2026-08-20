@@ -1,6 +1,6 @@
 import Foundation
 
-/// Master builds stay offline. Live Check for updates is on experimental-biometrics.
+/// Master builds stay offline. This branch stays offline too. experimental-biometrics is stale.
 enum UpdateChecker {
     static var localVersion: String { SourcePin.localVersion }
 

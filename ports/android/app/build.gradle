@@ -24,7 +24,7 @@ android {
         buildConfigField 'String', 'SOURCE_REPO', "\"${qcfg(versionJson.source_repo as String)}\""
         buildConfigField 'String', 'SOURCE_MANIFEST', "\"${qcfg(versionJson.update_manifest as String)}\""
         // Official VeraCrypt git + GitHub latest-release API, baked in at compile time.
-        // Master APKs never fetch these URLs. Live Check for updates is on experimental-biometrics.
+        // Master APKs never fetch these URLs. This branch stays offline. experimental-biometrics is stale.
         buildConfigField 'String', 'UPSTREAM_GIT', "\"${qcfg(versionJson.upstream_git as String)}\""
         buildConfigField 'String', 'UPSTREAM_RELEASES', "\"${qcfg(versionJson.upstream_releases as String)}\""
         buildConfigField 'String', 'UPSTREAM_TAG', "\"${qcfg(versionJson.upstream_tag as String)}\""

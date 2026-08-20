@@ -38,7 +38,7 @@ Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and a se
 1. Build and install the **FOSS flavor** (`assembleFossRelease`) — no `INTERNET`.
 2. Run it on **GrapheneOS** (or equivalent) with a locked bootloader, no Google services, and a strong OS passphrase.
 3. Keep the **volume password in your head**. Put the keyfile on a *different* token, not on the phone.
-4. Keep volume passwords in your head. Put keyfiles on a *different* token, not on the phone. Master has no fingerprint / Face ID unlock (`experimental-biometrics` does). Volume-path history never hits `History.xml`.
+4. Keep volume passwords in your head. Put keyfiles on a *different* token, not on the phone. Master has no fingerprint / Face ID unlock. This branch's **github** flavor (and iOS `VCPortEnableBiometrics`) can. `experimental-biometrics` is **stale**. Volume-path history never hits `History.xml`.
 5. A **VeraCrypt hidden / nested volume** can be created here or on a computer. This client **opens whichever password you type** — there is no open-time “hidden” checkbox. Filling the outer volume overwrites the nested one.
 6. Prefer a **self-built** APK over GitHub debug-signed previews.
 7. Make the git repo **public** before you distribute binaries (TrueCrypt License 3.0).
@@ -56,7 +56,7 @@ Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and a se
 
 - **OWASP MASVS-STORAGE**: no backups, wipe session files, Keystore/StrongBox, no exported DocumentsProvider
 - **OWASP MASVS-CRYPTO**: Argon2id wrap KDF 32 MiB, AES-256, HMAC-SHA256, constant-time MAC compare, CSPRNG passwords
-- **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only, no incoming sockets, no background traffic. Master phone builds have no INTERNET. Live Check for updates (≤20s HTTPS window to three hardcoded hosts) is on `experimental-biometrics`. Fetched JSON is never executed. This does not detect unknown bugs in VeraCrypt itself.
+- **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only, no incoming sockets, no background traffic. Master and this branch have no INTERNET. Live Check for updates lived on `experimental-biometrics`, which is **stale**. Fetched JSON is never executed. This does not detect unknown bugs in VeraCrypt itself.
 - **OWASP MASVS-PRIVACY**: no telemetry, no crash reporters. Stay offline by default.
 - **NIST SP 800-63**: biometrics are not a knowledge factor
 - **FOSS hygiene**: no GMS, no trackers, Gradle wrapper with published SHA-256
