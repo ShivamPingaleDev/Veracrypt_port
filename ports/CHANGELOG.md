@@ -1,5 +1,9 @@
 # VC Port changelog
 
+## STALE
+
+This branch is frozen before 0.3.8. See [STALE.md](../STALE.md). Fingerprint extra moved to `experimental-otg-master` (github flavor). Master stays offline.
+
 ## Unreleased
 
 - In-app Check for updates stays on this branch (GitHub / Looks GitHub / iOS opt-in: one ≤20s HTTPS window to `ports/version.json` and the official VeraCrypt latest release). Master phone builds have no INTERNET and no Check for updates button.

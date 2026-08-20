@@ -1,3 +1,5 @@
+> **STALE branch.** `experimental-biometrics` is frozen before 0.3.8. Do not merge. Fingerprint extra: `experimental-otg-master` (github flavor). Stable alpha: `master`. See [STALE.md](STALE.md).
+
 > “We must defend our own privacy if we expect to have any.”
 > — Eric Hughes, *A Cypherpunk’s Manifesto* (1993)
 
