@@ -46,6 +46,10 @@ targets:
         OTHER_LDFLAGS:
           - -lvc_mobile
           - -lc++
+          - -framework
+          - PDFKit
+          - -framework
+          - AVKit
     preBuildScripts:
       - name: Build libvc_mobile
         basedOnDependencyAnalysis: false

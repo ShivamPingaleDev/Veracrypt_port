@@ -27,7 +27,7 @@ cd ports/android
 ./gradlew :app:assembleFossRelease
 ```
 
-High-threat defaults: [ports/THREAT-MODEL.md](ports/THREAT-MODEL.md). Master has no DocumentsProvider export. Branch `experimental-otg-master` adds opt-in USB whole-disk + Files browse, citing OTG Master by moylali (https://github.com/moylali/OTGMaster), with no auto-mount. See [ports/docs/OTG-MASTER.md](ports/docs/OTG-MASTER.md).
+High-threat defaults: [ports/THREAT-MODEL.md](ports/THREAT-MODEL.md). Master has no DocumentsProvider export. Branch `experimental-otg-master` adds Android USB whole-disk Open (no auto-mount) and in-app preview on both phones. See OTG Master: [ports/docs/OTG-MASTER.md](ports/docs/OTG-MASTER.md). iOS has no whole-disk USB.
 
 Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](ports/FOSS.md). How to keep the repos public: [ports/PUBLIC.md](ports/PUBLIC.md). Emulator UI shots: [ports/docs/screenshots/](ports/docs/screenshots/).
 

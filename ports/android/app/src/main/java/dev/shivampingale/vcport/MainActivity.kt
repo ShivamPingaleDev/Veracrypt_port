@@ -147,6 +147,8 @@ class MainActivity : AppCompatActivity() {
     private val protectHiddenState = mutableStateOf(false)
     private val tabState = mutableIntStateOf(0)
     private val lastPlainFilesState = mutableStateOf(listOf<File>())
+    private val previewFileState = mutableStateOf<File?>(null)
+    private val previewNameState = mutableStateOf("")
     private val createPasswordState = mutableStateOf("")
     private val createHiddenPasswordState = mutableStateOf("")
     private val createCipherState = mutableStateOf(NativeBridge.DEFAULT_CIPHER)
@@ -535,6 +537,8 @@ class MainActivity : AppCompatActivity() {
                 var listTruncated by listTruncatedState
                 var busy by busyState
                 var tab by tabState
+                var previewFile by previewFileState
+                var previewName by previewNameState
                 val tabScroll = rememberScrollState()
                 LaunchedEffect(tab) { tabScroll.scrollTo(0) }
                 var createCipher by createCipherState
@@ -1020,6 +1024,16 @@ class MainActivity : AppCompatActivity() {
                                         } else {
                                             selectedNames + entry.name
                                         }
+                                    }
+                                },
+                                onPreview = {
+                                    val files = entries.filter { it.name in selectedNames && !it.isDir }
+                                    if (!BuildConfig.ENABLE_IN_APP_PREVIEW) {
+                                        status = "In-app preview is off in this build."
+                                    } else if (files.size != 1) {
+                                        status = "Tap one file, then View in app. Preview stays inside VC Port (not VLC or Files)."
+                                    } else {
+                                        startInAppPreview(handle, dirPath, files[0]) { status = it }
                                     }
                                 },
                                 onShare = { files ->
@@ -1903,12 +1917,19 @@ class MainActivity : AppCompatActivity() {
                                                     Text(shownPath, style = MaterialTheme.typography.bodySmall)
                                                 }
                                             }
-                                            VcHint("USB/OTG file on a stick still uses Choose container. Whole-disk USB is experimental: you pick the disk, then Open. Nothing auto-mounts.")
+                                            VcHint("USB/OTG file on a stick: Choose container. Whole-disk: Scan USB disks. See OTG Master. Nothing auto-mounts.")
                                             if (BuildConfig.ENABLE_OTG_DISK) {
-                                                Text("Whole USB disk (experimental)", style = MaterialTheme.typography.titleSmall)
-                                                VcHint("Idea from OTG Master by moylali — https://github.com/moylali/OTGMaster — reimplemented here. Not their GPL code. No auto-mount.")
-                                                Button(
-                                                    onClick = {
+                                                OtgVolumePanel(
+                                                    busy = busy,
+                                                    devices = otgDevices,
+                                                    candidates = otgCandidates,
+                                                    shareWithFiles = shareWithFiles,
+                                                    onShareWithFiles = {
+                                                        shareWithFiles = it
+                                                        OtgMountShare.shareWithFiles = it
+                                                        refreshDocumentRoots()
+                                                    },
+                                                    onScan = {
                                                         otgDevices = OtgUsb.massStorageDevices(this@MainActivity)
                                                         otgCandidates = emptyList()
                                                         status = if (otgDevices.isEmpty()) {
@@ -1917,33 +1938,19 @@ class MainActivity : AppCompatActivity() {
                                                             "Found ${otgDevices.size} USB disk(s). Tap one. Grant permission. Then pick a partition and Open volume."
                                                         }
                                                     },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth().testTag("scan_usb")
-                                                ) { Text("Scan USB disks") }
-                                                otgDevices.forEach { device ->
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            if (OtgUsb.hasPermission(this@MainActivity, device)) {
-                                                                openUsbMassStorage(device)
-                                                            } else {
-                                                                OtgUsb.requestPermission(this@MainActivity, device)
-                                                                status = "Grant USB permission, then the partition list appears. Still no auto-mount."
-                                                            }
-                                                        },
-                                                        enabled = !busy,
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) {
-                                                        Text(device.productName ?: "USB ${device.deviceId}")
-                                                    }
-                                                }
-                                                otgCandidates.forEach { cand ->
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            val scsi = pendingOtgScsi
-                                                            if (scsi == null) {
-                                                                status = "Scan USB disks again."
-                                                                return@OutlinedButton
-                                                            }
+                                                    onPickDevice = { device ->
+                                                        if (OtgUsb.hasPermission(this@MainActivity, device)) {
+                                                            openUsbMassStorage(device)
+                                                        } else {
+                                                            OtgUsb.requestPermission(this@MainActivity, device)
+                                                            status = "Grant USB permission, then the partition list appears. Still no auto-mount."
+                                                        }
+                                                    },
+                                                    onPickPartition = { cand ->
+                                                        val scsi = pendingOtgScsi
+                                                        if (scsi == null) {
+                                                            status = "Scan USB disks again."
+                                                        } else {
                                                             try {
                                                                 pendingOtgScsi = null
                                                                 val otgPath = OtgBlockStore.bind(scsi, cand)
@@ -1951,33 +1958,13 @@ class MainActivity : AppCompatActivity() {
                                                                 containerUri = null
                                                                 containerLabel = cand.label
                                                                 status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
-                                                            } catch (e: Exception) {
+                                                            } catch (_: Exception) {
                                                                 status = "Could not bind USB partition."
                                                                 scsi.close()
                                                             }
-                                                        },
-                                                        enabled = !busy,
-                                                        modifier = Modifier.fillMaxWidth()
-                                                    ) { Text("${cand.label} (${SizeUnits.formatBytes(cand.byteLength)})") }
-                                                }
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .toggleable(
-                                                            value = shareWithFiles,
-                                                            enabled = !busy,
-                                                            role = Role.Checkbox,
-                                                            onValueChange = {
-                                                                shareWithFiles = it
-                                                                OtgMountShare.shareWithFiles = it
-                                                                refreshDocumentRoots()
-                                                            }
-                                                        )
-                                                ) {
-                                                    Checkbox(shareWithFiles, onCheckedChange = null, enabled = !busy)
-                                                    Text("Allow Files app to browse unlocked volumes (seizure leak; off by default)")
-                                                }
+                                                        }
+                                                    }
+                                                )
                                             }
                                             Button(
                                                 onClick = {
@@ -2222,6 +2209,17 @@ class MainActivity : AppCompatActivity() {
                     }
                 )
             }
+            previewFile?.let { file ->
+                InAppPreviewDialog(
+                    file = file,
+                    name = previewName,
+                    onClose = {
+                        InAppPreview.wipe(this@MainActivity)
+                        previewFile = null
+                        previewName = ""
+                    }
+                )
+            }
             if (showOpenAnother) {
                 AlertDialog(
                     onDismissRequest = { showOpenAnother = false },
@@ -2445,6 +2443,9 @@ class MainActivity : AppCompatActivity() {
         entriesState.value = emptyList()
         dirPathState.value = ""
         listTruncatedState.value = false
+        previewFileState.value = null
+        previewNameState.value = ""
+        InAppPreview.wipe(this)
         refreshDocumentRoots()
     }
 
@@ -3549,6 +3550,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun startInAppPreview(
+        handle: Long,
+        dirPath: String,
+        entry: VaultEntry,
+        onStatus: (String) -> Unit
+    ) {
+        if (!NativeBridge.isOpen(handle) || entry.isDir) {
+            onStatus("Tap one file, then View in app.")
+            return
+        }
+        beginWork("Opening ${entry.name} in this app…")
+        Thread {
+            val dest = InAppPreview.materialize(this, handle, joinDir(dirPath, entry.name), entry.name)
+            runOnUiThread {
+                endWork()
+                if (dest == null) {
+                    onStatus("Could not preview ${entry.name} in-app. File may be over 64 MiB, or export failed.")
+                    return@runOnUiThread
+                }
+                previewNameState.value = entry.name
+                previewFileState.value = dest
+                onStatus("Viewing ${entry.name} in this app. Not VLC or Files.")
+            }
+        }.start()
+    }
+
     private fun shareInFrontDecrypted(
         handle: Long,
         dirPath: String,
@@ -4338,6 +4365,7 @@ private fun VaultPane(
     onUp: () -> Unit,
     onGoToPath: (String) -> Unit,
     onOpen: (VaultEntry) -> Unit,
+    onPreview: () -> Unit,
     onShare: (List<VaultEntry>) -> Unit,
     onCopyFromDevice: () -> Unit,
     onMoveFromDevice: () -> Unit,
@@ -4378,6 +4406,13 @@ private fun VaultPane(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(onClick = onOpenAnother, enabled = !busy) { Text("Open another container") }
+            if (BuildConfig.ENABLE_IN_APP_PREVIEW) {
+                TextButton(
+                    onClick = onPreview,
+                    enabled = !busy && live,
+                    modifier = Modifier.testTag("view_in_app")
+                ) { Text("View in app") }
+            }
             TextButton(onClick = onSelectAll, enabled = !busy && live && fileCount > 0) {
                 Text(if (allFilesSelected) "Clear selection" else "Select files")
             }

@@ -8,7 +8,7 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 ## experimental-otg-master (not a release)
 
-USB whole-disk Open without auto-mount; foss = no biometrics, github = fingerprint extra. Idea cited from OTG Master (moylali, https://github.com/moylali/OTGMaster). Optional DocumentsProvider. Do not treat as 1.0.
+USB whole-disk Open without auto-mount; foss = no biometrics, github = fingerprint extra. Optional DocumentsProvider. In-app **View in app** preview (not VLC). Do not treat as 1.0.
 
 ## 0.3.8
 

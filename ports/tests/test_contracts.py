@@ -588,8 +588,14 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("ENABLE_BIOMETRIC', 'true'", gradle)
         self.assertIn("androidx.biometric", gradle)
         self.assertIn("Nothing auto-mounts", main)
-        self.assertIn("moylali", main)
+        self.assertIn("ENABLE_OTG_DISK", gradle)
+        self.assertIn("OtgVolumePanel", main)
+        self.assertIn("moylali", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgUsb.kt"))
         self.assertIn("/vcport-otg-dev/", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgBlockStore.kt"))
+        self.assertIn("bindFile", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgBlockStore.kt"))
+        self.assertIn("phase 2 probe MBR", read("ports/shared/test_otg_usb_main.cpp"))
+        self.assertIn("phase 12 no auto-mount", read("ports/shared/test_otg_usb_main.cpp"))
+        self.assertIn("vc_otg_usb_test", read("ports/shared/CMakeLists.txt"))
         self.assertNotIn("/proc/self/fd/${", main)
         cite = read("ports/docs/OTG-MASTER.md")
         self.assertIn("https://github.com/moylali/OTGMaster", cite)
@@ -598,6 +604,37 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("no auto-mount", cite.lower())
         self.assertFalse("USB_DEVICE_ATTACHED" in foss)
         self.assertFalse("USB_DEVICE_ATTACHED" in github)
+
+    def test_in_app_preview_stays_inside_app(self) -> None:
+        android = read("ports/android/app/src/main/java/dev/shivampingale/vcport/InAppPreview.kt")
+        ios = read("ports/ios/VCPort/InAppPreview.swift")
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        gradle = read("ports/android/app/build.gradle")
+        self.assertIn("ENABLE_IN_APP_PREVIEW", gradle)
+        self.assertIn("View in app", main)
+        self.assertIn("View in app", view)
+        self.assertIn("testTag(\"view_in_app\")", main)
+        self.assertIn("portTag(\"view_in_app\")", view)
+        self.assertNotIn("Intent.ACTION_VIEW", android)
+        self.assertNotIn("startActivity(", android)
+        self.assertNotIn("UIDocumentInteractionController", ios)
+        self.assertNotIn("QuickLook", ios)
+        self.assertIn("InAppPreview.DIR", read("ports/android/app/src/main/java/dev/shivampingale/vcport/Hardening.kt"))
+        self.assertIn("InAppPreview.wipe()", view)
+        self.assertIn("VCPortEnableInAppPreview", read("ports/ios/VCPort/Info.plist"))
+        self.assertIn("previewTextFromVolumeAndUsbSlot", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/InAppPreviewTest.kt"))
+        self.assertIn("testPreviewTextFromVolume", read("ports/ios/VCPortTests/InAppPreviewTests.swift"))
+
+    def test_otg_merge_switches_are_modular(self) -> None:
+        cmake = read("ports/shared/CMakeLists.txt")
+        gradle = read("ports/android/app/build.gradle")
+        docs = read("ports/docs/OTG-MASTER.md")
+        self.assertIn("option(VC_PORT_OTG", cmake)
+        self.assertIn("ENABLE_OTG_DISK", gradle)
+        self.assertIn("vc_otg_stub.cpp", cmake)
+        self.assertIn("OtgVolumePanel.kt", docs)
+        self.assertIn("Merge into master later", docs)
 
     def test_no_gms_firebase_play_integrity(self) -> None:
         blob = ""
@@ -686,9 +723,22 @@ class IosHighThreatTests(unittest.TestCase):
         self.assertNotIn("com.apple.developer.networking.networkextension", ent)
         self.assertNotIn("icloud", ent.lower())
 
-    def test_foss_update_check_defaults_off(self) -> None:
+    def test_ios_has_no_whole_disk_usb(self) -> None:
+        view = read("ports/ios/VCPort/ContentView.swift")
         foss = read("ports/ios/VCPort/FossConfig.swift")
-        self.assertIn("?? false", foss)
+        native = read("ports/ios/build-native.sh")
+        cmake = read("ports/shared/CMakeLists.txt")
+        self.assertIn("See OTG Master", view)
+        self.assertNotIn("moylali", view)
+        self.assertNotIn("github.com/moylali", view)
+        self.assertNotIn("Scan USB", view)
+        self.assertNotIn("/vcport-otg-dev", view)
+        self.assertIn("enableOtgDisk: Bool { false }", foss)
+        self.assertIn("-DVC_PORT_OTG=OFF", native)
+        self.assertIn("CMAKE_SYSTEM_NAME STREQUAL \"iOS\"", cmake)
+        self.assertIn("vc_otg_stub.cpp", cmake)
+        self.assertIn("View in app", view)
+        self.assertIn("enableInAppPreview", foss)
 
     def test_compelled_biometrics_copy(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")

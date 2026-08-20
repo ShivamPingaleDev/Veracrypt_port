@@ -43,6 +43,7 @@ struct ContentView: View {
     @State private var incomingFile: URL?
     @State private var lastPlain: [URL] = []
     @State private var selectedNames: Set<String> = []
+    @State private var previewItem: InAppPreviewItem?
     @State private var createCipher = VcMobileBridge.defaultCipher
     @State private var createKdf = VcMobileBridge.defaultKdf
     @State private var createSizeAmount = "16"
@@ -277,6 +278,12 @@ struct ContentView: View {
                 Button("Cancel", role: .cancel) { transferMove = nil }
             } message: {
                 Text("Selected files land in the folder last opened on that volume.")
+            }
+            .sheet(item: $previewItem) { item in
+                InAppPreviewSheet(item: item) {
+                    previewItem = nil
+                    InAppPreview.wipe()
+                }
             }
             .onChange(of: scenePhase) { phase in
                 if phase == .background && !holdingForPicker && !busy {
@@ -540,6 +547,9 @@ struct ContentView: View {
                     }
                 }
                 .disabled(selectableFileNames.isEmpty)
+                Button("View in app") { startInAppPreview() }
+                    .disabled(!FossConfig.enableInAppPreview)
+                    .portTag("view_in_app")
                 HStack {
                     Button("New folder") {
                         namePromptValue = ""
@@ -595,7 +605,7 @@ struct ContentView: View {
                     holdLock = true
                     importerPresented = true
                 }
-                Text("USB/OTG: a file on the stick, not the whole disk. Whole-disk USB is Android-only on this experimental branch (idea from OTG Master by moylali, https://github.com/moylali/OTGMaster). Nothing auto-mounts.")
+                Text("USB/OTG: pick a file on the stick in Files, then Open. See OTG Master. Whole-disk Open is not on iPhone.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if FossConfig.enableBiometrics {
@@ -1364,6 +1374,7 @@ struct ContentView: View {
 
     private func wipeSessionFiles() {
         lastPlain.forEach { wipeFile($0) }
+        InAppPreview.wipe()
         let tmp = FileManager.default.temporaryDirectory
         let unwrapped = tmp.appendingPathComponent("unwrapped", isDirectory: true)
         if let files = try? FileManager.default.contentsOfDirectory(at: unwrapped, includingPropertiesForKeys: nil) {
@@ -1395,6 +1406,8 @@ struct ContentView: View {
         dirPath = ""
         listTruncated = false
         selectedNames = []
+        previewItem = nil
+        InAppPreview.wipe()
     }
 
     private func persistActiveMount() {
@@ -1809,6 +1822,35 @@ struct ContentView: View {
         hiddenKeyfileURLs = []
         clearMountOptions()
         forgetUnlock()
+    }
+
+    private func startInAppPreview() {
+        guard FossConfig.enableInAppPreview else {
+            status = "In-app preview is off in this build."
+            return
+        }
+        guard let handle = volumeHandle else {
+            status = "Open a volume first."
+            return
+        }
+        let files = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
+        guard files.count == 1, let entry = files.first else {
+            status = "Tap one file, then View in app. Preview stays inside VC Port (not VLC or Files)."
+            return
+        }
+        beginWork("Opening \(entry.name) in this app…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dest = InAppPreview.materialize(handle: handle, volumePath: joinDir(dirPath, entry.name), name: entry.name)
+            DispatchQueue.main.async {
+                endWork()
+                guard let dest else {
+                    status = "Could not preview \(entry.name) in-app. File may be over 64 MiB, or export failed."
+                    return
+                }
+                previewItem = InAppPreviewItem(url: dest, name: entry.name)
+                status = "Viewing \(entry.name) in this app. Not VLC or Files."
+            }
+        }
     }
 
     private func shareVaultFiles(_ files: [VaultEntry]) {

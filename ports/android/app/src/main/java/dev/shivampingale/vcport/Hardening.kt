@@ -60,6 +60,7 @@ object Hardening {
         wipeDir(File(context.cacheDir, "unwrapped"))
         wipeDir(File(context.cacheDir, "share"))
         wipeDir(File(context.cacheDir, "wraps"))
+        wipeDir(File(context.cacheDir, InAppPreview.DIR))
         context.cacheDir.listFiles()?.forEach { file ->
             if (file.isFile && (
                     file.name.startsWith("wrap-in-") ||

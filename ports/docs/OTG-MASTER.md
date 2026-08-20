@@ -20,13 +20,40 @@ VC Port did **not** copy that tree. OTG Master is GPL-2.0-or-later; this port st
 | --- | --- | --- | --- | --- |
 | Android **foss** | No | Yes, tap Scan → pick partition → Open | **No** | No |
 | Android **github** | Yes (fingerprint / face extra) | Same | **No** | No |
-| iOS | Off unless `VCPortEnableBiometrics` is true | File on a stick via Files only | **No** | No |
+| iOS | Off unless `VCPortEnableBiometrics` is true | **No** (file on a stick via Files only) | **No** | No |
 
-There is **no** `USB_DEVICE_ATTACHED` auto-open and **no** auto-unlock of plain FAT/exFAT sticks (OTG Master 0.3.9 added that; this branch does not).
+There is **no** `USB_DEVICE_ATTACHED` auto-open and **no** auto-unlock of plain FAT/exFAT sticks (OTG Master 0.3.9 added that; this branch does not). iOS never compiles whole-disk USB slots (`-DVC_PORT_OTG=OFF`, `vc_otg_stub.cpp`). Preview, copy, and in-app browse still run on iPhone.
 
 Native Open uses `/vcport-otg-dev/N`, never `/proc/self/fd/`.
 
 **Allow Files app to browse** is off until the user ticks it. DocumentsProvider is a seizure leak versus master.
+
+## In-app file preview (this branch)
+
+Mounted-tab **View in app** decrypts one file into app cache and shows it **inside VC Port**. It does not open VLC, Files, Gallery, or `ACTION_VIEW`.
+
+| Kind | What actually plays |
+| --- | --- |
+| Images | JPEG / PNG / GIF / WebP / BMP / HEIC — platform decoder in-process |
+| Text | UTF-8, first 256 KiB |
+| PDF | Android `PdfRenderer` / iOS PDFKit, in this app |
+| Audio / video | Android `MediaPlayer`/`VideoView` / iOS `AVPlayer`, in this app |
+| Office / other | Not decoded. Hex of the first 256 bytes. Copy to device if you need another tool |
+
+No LibreOffice, no VLCKit. Whole-disk USB Open is Android-only. iPhone keeps file-on-stick Open plus **View in app**.
+
+Flags: Android `ENABLE_IN_APP_PREVIEW`, iOS `VCPortEnableInAppPreview`. Preview cache is `cache/preview` (Android) / tmp `preview/` (iOS), wiped on Close, Dismount, and Panic.
+
+## Merge into master later
+
+Keep this branch modular. A future master merge should be flag flips plus a review, not a rewrite:
+
+1. Android `ENABLE_OTG_DISK=false` (foss + github). USB UI is `OtgVolumePanel.kt` behind that flag.
+2. CMake `-DVC_PORT_OTG=OFF` (iOS already forces this) uses `vc_otg_stub.cpp` and skips `vc_otg_usb_test`.
+3. Drop flavor `VolumeDocumentsProvider` from foss/github manifests if master must not export to Files.
+4. In-app preview can merge on its own: `InAppPreview.kt` / `InAppPreview.swift`, `ENABLE_IN_APP_PREVIEW` / `VCPortEnableInAppPreview`.
+
+OTG-only Kotlin: `OtgUsb.kt`, `OtgScsi.kt`, `OtgPartitions.kt`, `OtgBlockStore.kt`, `OtgVolumePanel.kt`, `VolumeDocumentsProvider.kt`.
 
 ## Builds
 
