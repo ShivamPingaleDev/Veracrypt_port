@@ -41,7 +41,7 @@ open VCPort.xcodeproj
    - Or sideload `VCPort-*-unsigned-preview.ipa` with **AltStore / SideStore**, which signs it with **your** Apple ID.
    - Trust the developer cert under Settings → General → VPN & Device Management.
    - A signature you create will not install on someone else’s phone. AltStore `downloadURL` stays empty until a signed IPA exists.
-5. The target already includes `PrivacyInfo.xcprivacy`, Keychain entitlements, and `ITSAppUsesNonExemptEncryption=true`. Fingerprint / Face ID extra is `VCPortEnableBiometrics` on this branch, not master. `experimental-biometrics` is **stale**.
+5. The target already includes `PrivacyInfo.xcprivacy`, Keychain entitlements, and `ITSAppUsesNonExemptEncryption=true`. Fingerprint / Face ID extra is off (`VCPortEnableBiometrics` false). `experimental-biometrics` is **stale**.
 
 `VCPortEnableUpdateCheck` in `Info.plist` is **false**. The app does not use the network. `experimental-biometrics` (which had live Check for updates) is **stale**.
 
@@ -60,7 +60,7 @@ Not required for FOSS. If you submit:
 
 ## Features
 
-Unlock with any combination of **text password**, **keyfiles**, and **PIM**. Mount options: backup header, read-only, TrueCrypt Mode, and hidden-volume protection. Fingerprint / Face ID extra is `VCPortEnableBiometrics` on this branch, not master. `experimental-biometrics` is **stale**.
+Unlock with any combination of **text password**, **keyfiles**, and **PIM**. Mount options: backup header, read-only, TrueCrypt Mode, and hidden-volume protection. Fingerprint / Face ID extra is off. `experimental-biometrics` is **stale**.
 
 Tap **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no password). The password generator never writes history. Tap **Share decrypted** on selected files to extract them from an opened FAT folder and present the system share sheet. **Copy from device** / **Copy to device** (and Move) transfer one or several files through the system Files picker; Move from the device says so if the original cannot be deleted. Several containers can stay mounted in one session (up to 8); **Copy to volume** / **Move to volume** send selected files into another mounted container. **New folder**, **Rename**, **Delete**, **Properties**, and **Wipe free space** work inside the open FAT volume. **View in app** previews one decrypted file inside VC Port (image, text, PDF, audio, video); it does not open VLC or Files.app. USB on iPhone is a **file on the stick** via Files. See OTG Master. Whole-disk USB Open is Android-only.
 

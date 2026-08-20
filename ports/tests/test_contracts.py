@@ -575,7 +575,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("slots are this session only", main.lower())
         self.assertIn("slots are this session only", view.lower())
 
-    def test_experimental_otg_flavors_bio_and_no_bio(self) -> None:
+    def test_experimental_otg_flavors_no_bio(self) -> None:
         foss = read("ports/android/app/src/foss/AndroidManifest.xml")
         github = read("ports/android/app/src/github/AndroidManifest.xml")
         gradle = read("ports/android/app/build.gradle")
@@ -583,9 +583,9 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("VolumeDocumentsProvider", foss)
         self.assertIn("VolumeDocumentsProvider", github)
         self.assertNotIn("USE_BIOMETRIC", foss)
-        self.assertIn("USE_BIOMETRIC", github)
+        self.assertNotIn("USE_BIOMETRIC", github)
         self.assertIn("ENABLE_BIOMETRIC', 'false'", gradle)
-        self.assertIn("ENABLE_BIOMETRIC', 'true'", gradle)
+        self.assertNotIn("ENABLE_BIOMETRIC', 'true'", gradle)
         self.assertIn("androidx.biometric", gradle)
         self.assertIn("Nothing auto-mounts", main)
         self.assertIn("ENABLE_OTG_DISK", gradle)

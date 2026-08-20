@@ -6,7 +6,7 @@ enum FossConfig {
         Bundle.main.object(forInfoDictionaryKey: "VCPortEnableUpdateCheck") as? Bool ?? false
     }
 
-    /// experimental-otg-master: Face ID extra. Default off (non-biometric IPA).
+    /// Off. This branch hardens USB + preview first; no Face ID extra.
     static var enableBiometrics: Bool {
         Bundle.main.object(forInfoDictionaryKey: "VCPortEnableBiometrics") as? Bool ?? false
     }

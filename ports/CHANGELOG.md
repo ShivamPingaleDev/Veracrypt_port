@@ -4,13 +4,13 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 ## Unreleased
 
-- `experimental-biometrics` is **stale**. Fingerprint extra on this branch is the Android github flavor / iOS `VCPortEnableBiometrics`. Live Check for updates is not here.
+- This branch has **no** fingerprint / Face ID extra. Harden USB + preview first. `experimental-biometrics` is **stale**. Live Check for updates is not here.
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
 ## experimental-otg-master (not a release)
 
-USB whole-disk Open without auto-mount; foss = no biometrics, github = fingerprint extra. Optional DocumentsProvider. In-app **View in app** preview (not VLC). Do not treat as 1.0.
+USB whole-disk Open without auto-mount. No fingerprint / Face ID extra (foss and github). Optional DocumentsProvider. In-app **View in app** preview (not VLC). Do not treat as 1.0.
 
 ## 0.3.8
 

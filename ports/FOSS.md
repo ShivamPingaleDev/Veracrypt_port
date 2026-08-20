@@ -62,7 +62,7 @@ The Free Software Foundation’s position is that an iOS app cannot be fully fre
 ### Apple requirements this tree already matches
 
 1. **Privacy Manifest** (`ios/VCPort/PrivacyInfo.xcprivacy`) — required since May 2024 for App Store and expected by current AltStore/SideStore. Declares no tracking.
-2. **Face ID usage string** (`NSFaceIDUsageDescription`) — off by default on this experimental branch (`VCPortEnableBiometrics` false). The github Android flavor has fingerprint extra; foss does not.
+2. **Face ID usage string** (`NSFaceIDUsageDescription`) — unused on this branch (`VCPortEnableBiometrics` false). Android foss and github also have no fingerprint extra.
 3. **Encryption export** (`ITSAppUsesNonExemptEncryption=true`) — volume AES is **not** the HTTPS-only exemption. For App Store you must complete Apple’s encryption questions and, if you distribute outside the US, typically file an annual self-classification (ERN). Sideloaded / AltStore IPAs still encrypt; they just skip App Store Connect.
 4. **No tracking SDKs** — no ATT prompt, no `NSUserTrackingUsageDescription`.
 5. **Minimum iOS 16**, no private APIs.

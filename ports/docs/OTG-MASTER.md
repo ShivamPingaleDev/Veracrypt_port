@@ -19,8 +19,8 @@ VC Port did **not** copy that tree. OTG Master is GPL-2.0-or-later; this port st
 | Flavor | Biometrics | USB whole disk | Auto-mount | Network |
 | --- | --- | --- | --- | --- |
 | Android **foss** | No | Yes, tap Scan → pick partition → Open | **No** | No |
-| Android **github** | Yes (fingerprint / face extra) | Same | **No** | No |
-| iOS | Off unless `VCPortEnableBiometrics` is true | **No** (file on a stick via Files only) | **No** | No |
+| Android **github** | No | Same | **No** | No |
+| iOS | No (`VCPortEnableBiometrics` stays false) | **No** (file on a stick via Files only) | **No** | No |
 
 There is **no** `USB_DEVICE_ATTACHED` auto-open and **no** auto-unlock of plain FAT/exFAT sticks (OTG Master 0.3.9 added that; this branch does not). iOS never compiles whole-disk USB slots (`-DVC_PORT_OTG=OFF`, `vc_otg_stub.cpp`). Preview, copy, and in-app browse still run on iPhone.
 
@@ -59,7 +59,7 @@ OTG-only Kotlin: `OtgUsb.kt`, `OtgScsi.kt`, `OtgPartitions.kt`, `OtgBlockStore.k
 
 ```bash
 ports/scripts/build-phones.sh
-# Android: assembleFossRelease (no bio) and assembleGithubRelease (bio)
+# Android: assembleFossRelease and assembleGithubRelease (both no biometrics)
 ```
 
 Do not merge this to `master` without a separate review. Master stays in-app browse only.
