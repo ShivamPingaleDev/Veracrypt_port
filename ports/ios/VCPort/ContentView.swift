@@ -2810,6 +2810,10 @@ struct ContentView: View {
         }
         testing.homeLeave = { dismountOnLeave() }
         testing.selectMountSlot = { selectMount($0) }
+        testing.selectNames = { selectedNames = $0 }
+        testing.startPreview = { startInAppPreview() }
+        testing.previewName = { previewItem?.name }
+        testing.otgDiskEnabled = { FossConfig.enableOtgDisk }
         testing.ready = true
     }
 

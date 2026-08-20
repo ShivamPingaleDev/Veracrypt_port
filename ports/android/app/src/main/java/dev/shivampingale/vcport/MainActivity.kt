@@ -117,6 +117,7 @@ class MainActivity : AppCompatActivity() {
     private val otgDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
     private val otgCandidatesState = mutableStateOf<List<OtgCandidate>>(emptyList())
     private var pendingOtgScsi: OtgScsiDevice? = null
+    private var pendingOtgFile: File? = null
     private var usbPermissionReceiver: BroadcastReceiver? = null
     private val incomingState = mutableStateOf<File?>(null)
     private val passwordState = mutableStateOf("")
@@ -255,6 +256,32 @@ class MainActivity : AppCompatActivity() {
             tabState.intValue = 0
         }
         return true
+    }
+
+    /**
+     * Emulator has no USB Host. Instrumented UI tests inject a disk image so
+     * the Volume tab can show a partition button and Open `/vcport-otg-dev/N`.
+     */
+    @androidx.annotation.VisibleForTesting
+    fun testingInjectFakeUsb(disk: File, byteOffset: Long, byteLength: Long, label: String) {
+        val done = CountDownLatch(1)
+        runOnUiThread {
+            try {
+                pendingOtgScsi?.close()
+                pendingOtgScsi = null
+                pendingOtgFile = disk
+                otgCandidatesState.value = listOf(OtgCandidate(label, byteOffset, byteLength))
+                pathState.value = ""
+                containerUriState.value = null
+                containerLabelState.value = ""
+                statusState.value =
+                    "Simulated USB disk. Pick a partition, then type the password and Open volume. Nothing auto-mounted."
+                tabState.intValue = 0
+            } finally {
+                done.countDown()
+            }
+        }
+        done.await(5, TimeUnit.SECONDS)
     }
 
     @androidx.annotation.VisibleForTesting
@@ -1930,6 +1957,7 @@ class MainActivity : AppCompatActivity() {
                                                         refreshDocumentRoots()
                                                     },
                                                     onScan = {
+                                                        pendingOtgFile = null
                                                         otgDevices = OtgUsb.massStorageDevices(this@MainActivity)
                                                         otgCandidates = emptyList()
                                                         status = if (otgDevices.isEmpty()) {
@@ -1948,20 +1976,39 @@ class MainActivity : AppCompatActivity() {
                                                     },
                                                     onPickPartition = { cand ->
                                                         val scsi = pendingOtgScsi
-                                                        if (scsi == null) {
-                                                            status = "Scan USB disks again."
-                                                        } else {
-                                                            try {
-                                                                pendingOtgScsi = null
-                                                                val otgPath = OtgBlockStore.bind(scsi, cand)
-                                                                path = otgPath
-                                                                containerUri = null
-                                                                containerLabel = cand.label
-                                                                status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
-                                                            } catch (_: Exception) {
-                                                                status = "Could not bind USB partition."
-                                                                scsi.close()
+                                                        val fake = pendingOtgFile
+                                                        when {
+                                                            scsi != null -> {
+                                                                try {
+                                                                    pendingOtgScsi = null
+                                                                    val otgPath = OtgBlockStore.bind(scsi, cand)
+                                                                    path = otgPath
+                                                                    containerUri = null
+                                                                    containerLabel = cand.label
+                                                                    status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
+                                                                } catch (_: Exception) {
+                                                                    status = "Could not bind USB partition."
+                                                                    scsi.close()
+                                                                }
                                                             }
+                                                            fake != null -> {
+                                                                try {
+                                                                    pendingOtgFile = null
+                                                                    val otgPath = OtgBlockStore.bindFile(
+                                                                        fake,
+                                                                        cand.byteOffset,
+                                                                        cand.byteLength,
+                                                                        cand.label
+                                                                    )
+                                                                    path = otgPath
+                                                                    containerUri = null
+                                                                    containerLabel = cand.label
+                                                                    status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
+                                                                } catch (_: Exception) {
+                                                                    status = "Could not bind USB partition."
+                                                                }
+                                                            }
+                                                            else -> status = "Scan USB disks again."
                                                         }
                                                     }
                                                 )
@@ -2351,6 +2398,7 @@ class MainActivity : AppCompatActivity() {
         usbPermissionReceiver = null
         pendingOtgScsi?.close()
         pendingOtgScsi = null
+        pendingOtgFile = null
         releaseAllContainerPfds()
         super.onDestroy()
     }
@@ -2437,6 +2485,7 @@ class MainActivity : AppCompatActivity() {
         }
         pendingOtgScsi?.close()
         pendingOtgScsi = null
+        pendingOtgFile = null
         mountedVolumesState.value = emptyList()
         activeMountIndexState.intValue = 0
         handleState.value = 0L

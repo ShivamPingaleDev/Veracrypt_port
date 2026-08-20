@@ -107,6 +107,8 @@ mounts two volumes, copies/moves files, then uses read-only / backup
 header / hidden-volume protection. After a successful Open the Volume password
 and PIM fields are empty; Tools header ops still use the last unlock in RAM.
 Tests must not tap Panic wipe.
+One local command for the visible UI walk on both phones:
+`ports/scripts/run-ui-walk.sh` (results and USB limits: `ports/tests/UI-WALK.md`).
 iPad Simulator has the same session as `ports/ios/VCPortTests/AppInterfaceSessionTests.swift`
 (`ports/ios/run_ios_session_test.sh`; skips Files/share sheets like Android
 skips SAF). Sprint 10 (create a random volume on one phone, open it on the

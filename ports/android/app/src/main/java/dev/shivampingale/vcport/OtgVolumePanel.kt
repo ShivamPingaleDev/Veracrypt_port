@@ -50,7 +50,7 @@ fun OtgVolumePanel(
         OutlinedButton(
             onClick = { onPickPartition(cand) },
             enabled = !busy,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("otg_partition")
         ) { Text("${cand.label} (${SizeUnits.formatBytes(cand.byteLength)})") }
     }
     Row(
