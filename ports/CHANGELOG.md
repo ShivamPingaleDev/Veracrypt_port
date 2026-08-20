@@ -4,6 +4,8 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 ## Unreleased
 
+- Personal C lab under `ports/pure-c/`: same `libvc_mobile` as 0.3.8. OTG/preview are stubs. Not a phone app.
+
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
 ## 0.3.8

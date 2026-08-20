@@ -1033,5 +1033,25 @@ class OverlayInventoryTests(unittest.TestCase):
             self.assertTrue((ROOT / rel).is_file(), rel)
 
 
+class PureCLabTests(unittest.TestCase):
+    def test_lab_uses_phone_vc_mobile_and_otg_stub(self) -> None:
+        main = read("ports/pure-c/main.c")
+        otg = read("ports/pure-c/otg.c")
+        preview = read("ports/pure-c/preview.c")
+        readme = read("ports/pure-c/README.md")
+        makefile = read("ports/pure-c/Makefile")
+        self.assertIn("vc_mobile.h", main)
+        self.assertIn("vc_open", main)
+        self.assertIn("No /proc/self/fd", main)
+        self.assertNotIn("/proc/self/fd", otg)
+        self.assertIn("/vcport-otg-dev/", read("ports/pure-c/otg.h"))
+        self.assertIn("return 0;", otg)
+        self.assertIn("VC_C_PREVIEW_TEXT", preview)
+        self.assertIn("libvc_mobile", makefile)
+        self.assertIn("experimental-otg-master", readme)
+        self.assertIn("See OTG Master", readme)
+        self.assertNotIn("experimental/", makefile)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

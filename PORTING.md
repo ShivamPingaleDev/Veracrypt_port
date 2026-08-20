@@ -35,7 +35,7 @@ Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](port
 
 `ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Each Apple user **signs their own** IPA with their Apple ID (AltStore / SideStore or Xcode Team). The GitHub IPA is unsigned on purpose. iPad Simulator: `ports/ios/run_ipad_sim.sh`. Device sideload under your name: Xcode Team, or `VC_PORT_IOS_TEAM=YOUR10CHARID ports/ios/sideload-sign.sh`. Parallel Android + iOS: `ports/scripts/build-phones.sh`. See [ports/FOSS.md](ports/FOSS.md), [ports/PUBLIC.md](ports/PUBLIC.md), and `ports/ios/README.md`.
 
-The SwiftUI app uses the same `vc_mobile` C API. Fingerprint / Face ID unlock is on `experimental-biometrics`, not master.
+The SwiftUI app uses the same `vc_mobile` C API. Fingerprint / Face ID unlock is on `experimental-biometrics` (**stale**; github flavor extra is on `experimental-otg-master`), not master. A personal C CLI that links the same library is `ports/pure-c/` on this branch.
 
 ## Offline-first
 
