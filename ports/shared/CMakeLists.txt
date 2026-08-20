@@ -73,6 +73,7 @@ add_library(vc_mobile STATIC
 	vc_exfat.cpp
 	vc_wrap.cpp
 	vc_progress.cpp
+	vc_otg_dev.cpp
 	${VC_CRYPTO}
 	${VC_VOLUME}
 	${VC_PLATFORM}

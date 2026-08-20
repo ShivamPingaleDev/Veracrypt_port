@@ -336,10 +336,13 @@ class NamingAndAttributionTests(unittest.TestCase):
             self.assertIn("internship", root.lower())
             self.assertIn("No pressure", root)
 
-    def test_android_readme_has_no_documents_provider(self) -> None:
+    def test_android_readme_documents_provider_is_experimental(self) -> None:
         readme = read("ports/android/README.md")
         self.assertNotIn("DocumentsProvider stub", readme)
-        self.assertIn("no DocumentsProvider", readme)
+        self.assertIn("DocumentsProvider", readme)
+        self.assertIn("moylali", readme)
+        self.assertIn("https://github.com/moylali/OTGMaster", readme)
+        self.assertIn("Nothing auto-mounts", readme)
 
     def test_contributing_has_item_5(self) -> None:
         text = read("ports/CONTRIBUTING.md")
@@ -377,6 +380,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn('android:exported="false"', manifest)
         self.assertIn("${applicationId}.share", manifest)
         self.assertNotIn("VolumeDocumentsProvider", manifest)
+        self.assertNotIn("USB_DEVICE_ATTACHED", manifest)
         self.assertNotIn("MANAGE_EXTERNAL_STORAGE", manifest)
         self.assertIn("network_security_config", manifest)
         self.assertIn("backup_rules", manifest)
@@ -434,13 +438,14 @@ class AndroidHighThreatTests(unittest.TestCase):
             self.assertNotIn("Save extra keyfile for a computer", blob)
             self.assertNotIn("How it works:", blob)
             self.assertNotIn("Create phone-unlock keyfile", blob)
-            self.assertNotIn("Unlock with fingerprint", blob)
-            self.assertNotIn("Unlock with Face ID", blob)
+        self.assertIn("Unlock with fingerprint / face", main)
+        self.assertIn("BuildConfig.ENABLE_BIOMETRIC", main)
+        self.assertNotIn("Unlock with Face ID", view)
         self.assertIn("copyOwned", read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"))
-        self.assertFalse(
+        self.assertTrue(
             (PORTS / "android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt").exists()
         )
-        self.assertFalse((PORTS / "ios/VCPort/BiometricStore.swift").exists())
+        self.assertTrue((PORTS / "ios/VCPort/BiometricStore.swift").exists())
 
     def test_backup_excludes_everything(self) -> None:
         backup = read("ports/android/app/src/main/res/xml/backup_rules.xml")
@@ -570,24 +575,29 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("slots are this session only", main.lower())
         self.assertIn("slots are this session only", view.lower())
 
-    def test_master_has_no_phone_biometrics(self) -> None:
-        vault = PORTS / "android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt"
-        store = PORTS / "ios/VCPort/BiometricStore.swift"
-        self.assertFalse(vault.exists())
-        self.assertFalse(store.exists())
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+    def test_experimental_otg_flavors_bio_and_no_bio(self) -> None:
+        foss = read("ports/android/app/src/foss/AndroidManifest.xml")
+        github = read("ports/android/app/src/github/AndroidManifest.xml")
         gradle = read("ports/android/app/build.gradle")
-        manifest = read("ports/android/app/src/main/AndroidManifest.xml")
-        plist = read("ports/ios/VCPort/Info.plist")
-        self.assertNotIn("androidx.biometric", gradle)
-        self.assertNotIn("USE_BIOMETRIC", manifest)
-        self.assertNotIn("USE_FINGERPRINT", manifest)
-        self.assertNotIn("NSFaceIDUsageDescription", plist)
-        self.assertNotIn("BiometricPrompt", main)
-        self.assertNotIn("BiometricStore", view)
-        self.assertNotIn("Type REMEMBER", main)
-        self.assertNotIn("Type REMEMBER", view)
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        self.assertIn("VolumeDocumentsProvider", foss)
+        self.assertIn("VolumeDocumentsProvider", github)
+        self.assertNotIn("USE_BIOMETRIC", foss)
+        self.assertIn("USE_BIOMETRIC", github)
+        self.assertIn("ENABLE_BIOMETRIC', 'false'", gradle)
+        self.assertIn("ENABLE_BIOMETRIC', 'true'", gradle)
+        self.assertIn("androidx.biometric", gradle)
+        self.assertIn("Nothing auto-mounts", main)
+        self.assertIn("moylali", main)
+        self.assertIn("/vcport-otg-dev/", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgBlockStore.kt"))
+        self.assertNotIn("/proc/self/fd/${", main)
+        cite = read("ports/docs/OTG-MASTER.md")
+        self.assertIn("https://github.com/moylali/OTGMaster", cite)
+        self.assertIn("moylali", cite)
+        self.assertIn("GPL-2.0-or-later", cite)
+        self.assertIn("no auto-mount", cite.lower())
+        self.assertFalse("USB_DEVICE_ATTACHED" in foss)
+        self.assertFalse("USB_DEVICE_ATTACHED" in github)
 
     def test_no_gms_firebase_play_integrity(self) -> None:
         blob = ""

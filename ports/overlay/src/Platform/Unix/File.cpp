@@ -48,6 +48,7 @@
 
 #include "Platform/File.h"
 #include "Platform/TextReader.h"
+#include "vc_otg_dev.h"
 
 namespace VeraCrypt
 {
@@ -69,6 +70,12 @@ namespace VeraCrypt
 	void File::Close ()
 	{
 		if_debug (ValidateState());
+
+		if (vc_otg_is_fd (FileHandle))
+		{
+			FileIsOpen = false;
+			return;
+		}
 
 		if (!SharedHandle)
 		{
@@ -105,11 +112,19 @@ namespace VeraCrypt
 	void File::Flush () const
 	{
 		if_debug (ValidateState());
+		if (vc_otg_is_fd (FileHandle))
+			return;
 		throw_sys_sub_if (fsync (FileHandle) != 0, wstring (Path));
 	}
 
 	uint32 File::GetDeviceSectorSize () const
 	{
+		if (vc_otg_is_fd (FileHandle))
+		{
+			int slot = vc_otg_slot_from_fd (FileHandle);
+			int n = vc_otg_sector_size (slot);
+			return n > 0 ? (uint32) n : 512;
+		}
 		if (Path.IsDevice())
 		{
 #ifdef TC_LINUX
@@ -212,6 +227,13 @@ namespace VeraCrypt
 	{
 		if_debug (ValidateState());
 
+		if (vc_otg_is_fd (FileHandle))
+		{
+			int64_t n = vc_otg_size (vc_otg_slot_from_fd (FileHandle));
+			throw_sys_sub_if (n < 0, wstring (Path));
+			return (uint64) n;
+		}
+
 		// BSD does not support seeking to the end of a device
 #ifdef TC_BSD
 		if (Path.IsBlockDevice() || Path.IsCharacterDevice())
@@ -277,6 +299,24 @@ namespace VeraCrypt
 
 	void File::Open (const FilePath &path, FileOpenMode mode, FileShareMode shareMode, FileOpenFlags flags)
 	{
+		string pathStr = string (path);
+		if (vc_otg_is_path (pathStr.c_str ()))
+		{
+			int slot = vc_otg_slot (pathStr.c_str ());
+			if (slot < 0 || !vc_otg_ready (slot))
+			{
+				errno = ENODEV;
+				throw_sys_sub_if (true, wstring (path));
+			}
+			Path = path;
+			mFileOpenFlags = flags;
+			FileHandle = vc_otg_fake_fd (slot);
+			SharedHandle = true;
+			FileIsOpen = true;
+			vc_otg_seek (slot, 0);
+			return;
+		}
+
 #ifdef TC_LINUX
 		int sysFlags = O_LARGEFILE;
 #else
@@ -378,6 +418,15 @@ namespace VeraCrypt
 #ifdef TC_TRACE_FILE_OPERATIONS
 		TraceFileOperation (FileHandle, Path, false, buffer.Size());
 #endif
+		if (vc_otg_is_fd (FileHandle))
+		{
+			int slot = vc_otg_slot_from_fd (FileHandle);
+			uint64_t pos = vc_otg_tell (slot);
+			int n = vc_otg_read_at (slot, pos, buffer, buffer.Size ());
+			throw_sys_sub_if (n < 0, wstring (Path));
+			vc_otg_seek (slot, pos + (uint64_t) n);
+			return (uint64) n;
+		}
 		ssize_t bytesRead = read (FileHandle, buffer, buffer.Size());
 		throw_sys_sub_if (bytesRead == -1, wstring (Path));
 
@@ -391,6 +440,12 @@ namespace VeraCrypt
 #ifdef TC_TRACE_FILE_OPERATIONS
 		TraceFileOperation (FileHandle, Path, false, buffer.Size(), position);
 #endif
+		if (vc_otg_is_fd (FileHandle))
+		{
+			int n = vc_otg_read_at (vc_otg_slot_from_fd (FileHandle), position, buffer, buffer.Size ());
+			throw_sys_sub_if (n < 0, wstring (Path));
+			return (uint64) n;
+		}
 		ssize_t bytesRead = pread (FileHandle, buffer, buffer.Size(), position);
 		throw_sys_sub_if (bytesRead == -1, wstring (Path));
 
@@ -400,12 +455,28 @@ namespace VeraCrypt
 	void File::SeekAt (uint64 position) const
 	{
 		if_debug (ValidateState());
+		if (vc_otg_is_fd (FileHandle))
+		{
+			vc_otg_seek (vc_otg_slot_from_fd (FileHandle), position);
+			return;
+		}
 		throw_sys_sub_if (lseek (FileHandle, position, SEEK_SET) == -1, wstring (Path));
 	}
 
 	void File::SeekEnd (int offset) const
 	{
 		if_debug (ValidateState());
+
+		if (vc_otg_is_fd (FileHandle))
+		{
+			int slot = vc_otg_slot_from_fd (FileHandle);
+			int64_t n = vc_otg_size (slot);
+			throw_sys_sub_if (n < 0, wstring (Path));
+			int64_t pos = n + offset;
+			throw_sys_sub_if (pos < 0, wstring (Path));
+			vc_otg_seek (slot, (uint64_t) pos);
+			return;
+		}
 
 		// BSD does not support seeking to the end of a device
 #ifdef TC_BSD
@@ -422,6 +493,8 @@ namespace VeraCrypt
 	void File::SetLength (uint64 length) const
 	{
 		if_debug (ValidateState());
+		if (vc_otg_is_fd (FileHandle))
+			throw ParameterIncorrect (SRC_POS);
 		throw_sys_sub_if (ftruncate (FileHandle, length) == -1, wstring (Path));
 	}
 
@@ -432,6 +505,15 @@ namespace VeraCrypt
 #ifdef TC_TRACE_FILE_OPERATIONS
 		TraceFileOperation (FileHandle, Path, true, buffer.Size());
 #endif
+		if (vc_otg_is_fd (FileHandle))
+		{
+			int slot = vc_otg_slot_from_fd (FileHandle);
+			uint64_t pos = vc_otg_tell (slot);
+			int n = vc_otg_write_at (slot, pos, buffer, buffer.Size ());
+			throw_sys_sub_if (n != (int) buffer.Size (), wstring (Path));
+			vc_otg_seek (slot, pos + (uint64_t) n);
+			return;
+		}
 		throw_sys_sub_if (write (FileHandle, buffer, buffer.Size()) != (ssize_t) buffer.Size(), wstring (Path));
 	}
 
@@ -442,6 +524,12 @@ namespace VeraCrypt
 #ifdef TC_TRACE_FILE_OPERATIONS
 		TraceFileOperation (FileHandle, Path, true, buffer.Size(), position);
 #endif
+		if (vc_otg_is_fd (FileHandle))
+		{
+			int n = vc_otg_write_at (vc_otg_slot_from_fd (FileHandle), position, buffer, buffer.Size ());
+			throw_sys_sub_if (n != (int) buffer.Size (), wstring (Path));
+			return;
+		}
 		throw_sys_sub_if (pwrite (FileHandle, buffer, buffer.Size(), position) != (ssize_t) buffer.Size(), wstring (Path));
 	}
 }

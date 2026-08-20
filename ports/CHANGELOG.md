@@ -6,6 +6,10 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
+## experimental-otg-master (not a release)
+
+USB whole-disk Open without auto-mount; foss = no biometrics, github = fingerprint extra. Idea cited from OTG Master (moylali, https://github.com/moylali/OTGMaster). Optional DocumentsProvider. Do not treat as 1.0.
+
 ## 0.3.8
 
 Stable alpha: 2 MiB FAT volumes are FAT12, so files larger than one sector open in official desktop VeraCrypt.

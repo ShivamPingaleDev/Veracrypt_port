@@ -595,9 +595,14 @@ struct ContentView: View {
                     holdLock = true
                     importerPresented = true
                 }
-                Text("USB/OTG: a file on the stick, not the whole disk.")
+                Text("USB/OTG: a file on the stick, not the whole disk. Whole-disk USB is Android-only on this experimental branch (idea from OTG Master by moylali, https://github.com/moylali/OTGMaster). Nothing auto-mounts.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if FossConfig.enableBiometrics {
+                    Text("Face ID extra is on. A compelled face still wins. Turn VCPortEnableBiometrics off for the non-biometric IPA.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if let url = containerURL {
                     Text("Selected: \(url.lastPathComponent)")
                     if isTemporaryContainer(url) {

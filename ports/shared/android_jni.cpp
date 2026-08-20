@@ -15,6 +15,7 @@
 #include <sys/prctl.h>
 #endif
 #include "vc_mobile.h"
+#include "vc_otg_dev.h"
 
 enum { JNI_UTF_MAX = 4096 };
 
@@ -71,6 +72,108 @@ static void jni_wipe_string(std::string &s)
 static int jni_live_handle(jlong handle)
 {
 	return handle < (jlong) VC_ERR_UNSUPPORTED || handle > 0;
+}
+
+static JavaVM *g_otg_vm = nullptr;
+static jclass g_otg_class = nullptr;
+static jmethodID g_otg_read = nullptr;
+static jmethodID g_otg_write = nullptr;
+static jmethodID g_otg_size = nullptr;
+static jmethodID g_otg_sector = nullptr;
+static jmethodID g_otg_ready = nullptr;
+
+static JNIEnv *otg_env()
+{
+	if (!g_otg_vm)
+		return nullptr;
+	JNIEnv *env = nullptr;
+	if (g_otg_vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_OK)
+		return env;
+	if (g_otg_vm->AttachCurrentThread(&env, nullptr) == 0)
+		return env;
+	return nullptr;
+}
+
+static int otg_read_at(int slot, uint64_t offset, void *buffer, size_t size)
+{
+	JNIEnv *env = otg_env();
+	if (!env || !g_otg_class || !g_otg_read || !buffer || size == 0 || size > 1024 * 1024)
+		return -1;
+	jbyteArray arr = env->NewByteArray((jsize) size);
+	if (!arr)
+		return -1;
+	jint n = env->CallStaticIntMethod(g_otg_class, g_otg_read, slot, (jlong) offset, arr);
+	if (env->ExceptionCheck())
+	{
+		env->ExceptionClear();
+		env->DeleteLocalRef(arr);
+		return -1;
+	}
+	if (n > 0)
+		env->GetByteArrayRegion(arr, 0, n, reinterpret_cast<jbyte *>(buffer));
+	env->DeleteLocalRef(arr);
+	return n;
+}
+
+static int otg_write_at(int slot, uint64_t offset, const void *buffer, size_t size)
+{
+	JNIEnv *env = otg_env();
+	if (!env || !g_otg_class || !g_otg_write || !buffer || size == 0 || size > 1024 * 1024)
+		return -1;
+	jbyteArray arr = env->NewByteArray((jsize) size);
+	if (!arr)
+		return -1;
+	env->SetByteArrayRegion(arr, 0, (jsize) size, reinterpret_cast<const jbyte *>(buffer));
+	jint n = env->CallStaticIntMethod(g_otg_class, g_otg_write, slot, (jlong) offset, arr);
+	env->DeleteLocalRef(arr);
+	if (env->ExceptionCheck())
+	{
+		env->ExceptionClear();
+		return -1;
+	}
+	return n;
+}
+
+static int64_t otg_size(int slot)
+{
+	JNIEnv *env = otg_env();
+	if (!env || !g_otg_class || !g_otg_size)
+		return -1;
+	jlong n = env->CallStaticLongMethod(g_otg_class, g_otg_size, slot);
+	if (env->ExceptionCheck())
+	{
+		env->ExceptionClear();
+		return -1;
+	}
+	return (int64_t) n;
+}
+
+static int otg_sector_size(int slot)
+{
+	JNIEnv *env = otg_env();
+	if (!env || !g_otg_class || !g_otg_sector)
+		return 512;
+	jint n = env->CallStaticIntMethod(g_otg_class, g_otg_sector, slot);
+	if (env->ExceptionCheck())
+	{
+		env->ExceptionClear();
+		return 512;
+	}
+	return n;
+}
+
+static int otg_ready(int slot)
+{
+	JNIEnv *env = otg_env();
+	if (!env || !g_otg_class || !g_otg_ready)
+		return 0;
+	jboolean ok = env->CallStaticBooleanMethod(g_otg_class, g_otg_ready, slot);
+	if (env->ExceptionCheck())
+	{
+		env->ExceptionClear();
+		return 0;
+	}
+	return ok ? 1 : 0;
 }
 
 extern "C" JNIEXPORT jlong JNICALL
@@ -587,11 +690,34 @@ Java_dev_shivampingale_vcport_NativeBridge_startRuntime(JNIEnv *, jobject)
 	vc_runtime_start();
 }
 
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *, void *)
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *)
 {
 #ifdef __linux__
 	prctl(PR_SET_DUMPABLE, 0);
 #endif
+	g_otg_vm = vm;
+	JNIEnv *env = nullptr;
+	if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_OK && env)
+	{
+		jclass local = env->FindClass("dev/shivampingale/vcport/OtgBlockStore");
+		if (local)
+		{
+			g_otg_class = reinterpret_cast<jclass>(env->NewGlobalRef(local));
+			env->DeleteLocalRef(local);
+			g_otg_read = env->GetStaticMethodID(g_otg_class, "nativeRead", "(IJ[B)I");
+			g_otg_write = env->GetStaticMethodID(g_otg_class, "nativeWrite", "(IJ[B)I");
+			g_otg_size = env->GetStaticMethodID(g_otg_class, "nativeSize", "(I)J");
+			g_otg_sector = env->GetStaticMethodID(g_otg_class, "nativeSectorSize", "(I)I");
+			g_otg_ready = env->GetStaticMethodID(g_otg_class, "nativeReady", "(I)Z");
+			VcOtgBackend backend = {};
+			backend.read_at = otg_read_at;
+			backend.write_at = otg_write_at;
+			backend.size = otg_size;
+			backend.sector_size = otg_sector_size;
+			backend.ready = otg_ready;
+			vc_otg_set_backend(&backend);
+		}
+	}
 	/* Worker threads start from NativeBridge.startRuntime after loadLibrary. */
 	return JNI_VERSION_1_6;
 }

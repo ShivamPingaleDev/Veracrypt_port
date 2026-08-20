@@ -44,10 +44,14 @@ android {
         foss {
             dimension 'distribution'
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
+            buildConfigField 'boolean', 'ENABLE_BIOMETRIC', 'false'
+            buildConfigField 'boolean', 'ENABLE_OTG_DISK', 'true'
         }
         github {
             dimension 'distribution'
             buildConfigField 'boolean', 'ENABLE_UPDATE_CHECK', 'false'
+            buildConfigField 'boolean', 'ENABLE_BIOMETRIC', 'true'
+            buildConfigField 'boolean', 'ENABLE_OTG_DISK', 'true'
         }
     }
 
@@ -125,6 +129,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.fragment:fragment-ktx:1.8.2'
     implementation 'androidx.documentfile:documentfile:1.0.1'
+    implementation 'androidx.biometric:biometric:1.1.0'
     androidTestImplementation platform('androidx.compose:compose-bom:2024.06.00')
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'

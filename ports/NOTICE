@@ -23,3 +23,7 @@ Contact: Shivam Mangesh Pingale
   shivampingaledev@gmail.com
 
 Footnote: A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
+
+Experimental USB whole-disk (this branch only) is an independent reimplementation of an idea from
+OTG Master by moylali, https://github.com/moylali/OTGMaster (GPL-2.0-or-later).
+That project's source is not vendored here. See ports/docs/OTG-MASTER.md.

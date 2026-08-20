@@ -433,9 +433,9 @@ class IntegrationTests(unittest.TestCase):
         )
         swift = resolve("ports/ios/VCPort/UnlockFactors.swift")
         self.assertTrue(kotlin.is_file())
-        self.assertFalse(swift.exists())
+        self.assertTrue(swift.exists())
         blob = kotlin.read_text(encoding="utf-8")
-        self.assertNotIn("VCF2", blob)
+        self.assertIn("VCF2", blob)
         self.assertIn("copyOwned", blob)
 
     def test_jni_exports_progress(self) -> None:

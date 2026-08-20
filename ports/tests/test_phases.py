@@ -46,9 +46,10 @@ class Phase1HonestyFreezeTests(unittest.TestCase):
         self.assertNotIn("softprops/action-gh-release", wf)
         self.assertIn("No GitHub Release APK attach", wf)
 
-    def test_docs_do_not_claim_documents_provider(self) -> None:
+    def test_docs_experimental_documents_provider(self) -> None:
         self.assertNotIn("DocumentsProvider stub", read("ports/android/README.md"))
-        self.assertIn("no DocumentsProvider", read("ports/android/README.md"))
+        self.assertIn("DocumentsProvider", read("ports/android/README.md"))
+        self.assertIn("https://github.com/moylali/OTGMaster", read("ports/android/README.md"))
         contrib = read("ports/CONTRIBUTING.md")
         self.assertIn("5. Report security issues", contrib)
         self.assertIn("SECURITY.md", contrib)
@@ -133,7 +134,7 @@ class Phase3FatFolderTests(unittest.TestCase):
         self.assertNotIn('Button("Dismount") { closeVolume() }', ios)
         self.assertIn("wipeSessionFiles()", ios)
         self.assertIn("createPasswordState.value = \"\"", android)
-        self.assertNotIn("BiometricStore.deleteAll()", ios)
+        self.assertIn("FossConfig.enableBiometrics", ios)
         self.assertIn("!truncated!", android)
         self.assertIn("Load more", android)
         self.assertIn("listDir", ios)
@@ -157,6 +158,8 @@ class Phase3FatFolderTests(unittest.TestCase):
         self.assertIn("Select files", android)
         self.assertIn("Select files", ios)
         self.assertNotIn("VolumeDocumentsProvider", read("ports/android/app/src/main/AndroidManifest.xml"))
+        self.assertIn("VolumeDocumentsProvider", read("ports/android/app/src/foss/AndroidManifest.xml"))
+        self.assertNotIn("USB_DEVICE_ATTACHED", read("ports/android/app/src/main/AndroidManifest.xml"))
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("VC_LIST_UI_MAX", jni)
         self.assertIn("vc_list_dir_from", jni)

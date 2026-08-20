@@ -162,18 +162,19 @@ class FactorCodecTests(unittest.TestCase):
 class MobileSourceLockTests(unittest.TestCase):
     def test_kotlin_and_swift_share_vcf2(self) -> None:
         kotlin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
-        swift = PORTS / "ios/VCPort/UnlockFactors.swift"
-        self.assertNotIn("VCF2", kotlin)
-        self.assertNotIn("randomBiometricKey", kotlin)
-        self.assertFalse(swift.exists())
+        swift = read("ports/ios/VCPort/UnlockFactors.swift")
+        self.assertIn("VCF2", kotlin)
+        self.assertIn("randomBiometricKey", kotlin)
+        self.assertIn("VCF2", swift)
         self.assertIn("copyOwned", kotlin)
 
     def test_kotlin_legacy_fallback_still_present(self) -> None:
         kotlin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
-        self.assertNotIn("VCF2", kotlin)
+        self.assertIn("VCF2", kotlin)
 
     def test_swift_legacy_fallback_still_present(self) -> None:
-        self.assertFalse((PORTS / "ios/VCPort/UnlockFactors.swift").exists())
+        swift = read("ports/ios/VCPort/UnlockFactors.swift")
+        self.assertIn("VCF2", swift)
 
 
 class SemverCompareTests(unittest.TestCase):

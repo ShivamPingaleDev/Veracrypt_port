@@ -1,6 +1,7 @@
 package dev.shivampingale.vcport
 
 import android.content.Intent
+import android.hardware.usb.UsbDevice
 import android.net.Uri
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
@@ -77,6 +78,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
+import android.content.BroadcastReceiver
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.CountDownLatch
@@ -112,6 +114,10 @@ class MainActivity : AppCompatActivity() {
     private val pathState = mutableStateOf("")
     private val containerUriState = mutableStateOf<Uri?>(null)
     private val statusState = mutableStateOf("Stay offline. Select a VeraCrypt container, or share an encrypted file as-is.")
+    private val otgDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
+    private val otgCandidatesState = mutableStateOf<List<OtgCandidate>>(emptyList())
+    private var pendingOtgScsi: OtgScsiDevice? = null
+    private var usbPermissionReceiver: BroadcastReceiver? = null
     private val incomingState = mutableStateOf<File?>(null)
     private val passwordState = mutableStateOf("")
     private val pimState = mutableStateOf("0")
@@ -498,6 +504,9 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         Hardening.protectWindow(this)
         handleIncoming(intent)
+        usbPermissionReceiver = OtgUsb.registerPermissionReceiver(this) { device ->
+            openUsbMassStorage(device)
+        }
         setContent {
             var skin by remember { mutableStateOf(loadSkin()) }
             VcPortTheme(skin = skin) {
@@ -513,6 +522,10 @@ class MainActivity : AppCompatActivity() {
                 var keyfileGenCount by keyfileGenCountState
                 var containerLabel by containerLabelState
                 var useTextPassword by remember { mutableStateOf(true) }
+                var useBiometric by remember { mutableStateOf(false) }
+                var shareWithFiles by remember { mutableStateOf(OtgMountShare.shareWithFiles) }
+                var otgDevices by otgDevicesState
+                var otgCandidates by otgCandidatesState
                 var status by statusState
                 var entries by entriesState
                 var handle by handleState
@@ -1890,7 +1903,82 @@ class MainActivity : AppCompatActivity() {
                                                     Text(shownPath, style = MaterialTheme.typography.bodySmall)
                                                 }
                                             }
-                                            VcHint("USB/OTG: a file on the stick, not the whole disk.")
+                                            VcHint("USB/OTG file on a stick still uses Choose container. Whole-disk USB is experimental: you pick the disk, then Open. Nothing auto-mounts.")
+                                            if (BuildConfig.ENABLE_OTG_DISK) {
+                                                Text("Whole USB disk (experimental)", style = MaterialTheme.typography.titleSmall)
+                                                VcHint("Idea from OTG Master by moylali — https://github.com/moylali/OTGMaster — reimplemented here. Not their GPL code. No auto-mount.")
+                                                Button(
+                                                    onClick = {
+                                                        otgDevices = OtgUsb.massStorageDevices(this@MainActivity)
+                                                        otgCandidates = emptyList()
+                                                        status = if (otgDevices.isEmpty()) {
+                                                            "No USB mass-storage device. Plug a stick, then Scan USB disks. This never auto-mounts."
+                                                        } else {
+                                                            "Found ${otgDevices.size} USB disk(s). Tap one. Grant permission. Then pick a partition and Open volume."
+                                                        }
+                                                    },
+                                                    enabled = !busy,
+                                                    modifier = Modifier.fillMaxWidth().testTag("scan_usb")
+                                                ) { Text("Scan USB disks") }
+                                                otgDevices.forEach { device ->
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            if (OtgUsb.hasPermission(this@MainActivity, device)) {
+                                                                openUsbMassStorage(device)
+                                                            } else {
+                                                                OtgUsb.requestPermission(this@MainActivity, device)
+                                                                status = "Grant USB permission, then the partition list appears. Still no auto-mount."
+                                                            }
+                                                        },
+                                                        enabled = !busy,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        Text(device.productName ?: "USB ${device.deviceId}")
+                                                    }
+                                                }
+                                                otgCandidates.forEach { cand ->
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            val scsi = pendingOtgScsi
+                                                            if (scsi == null) {
+                                                                status = "Scan USB disks again."
+                                                                return@OutlinedButton
+                                                            }
+                                                            try {
+                                                                pendingOtgScsi = null
+                                                                val otgPath = OtgBlockStore.bind(scsi, cand)
+                                                                path = otgPath
+                                                                containerUri = null
+                                                                containerLabel = cand.label
+                                                                status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
+                                                            } catch (e: Exception) {
+                                                                status = "Could not bind USB partition."
+                                                                scsi.close()
+                                                            }
+                                                        },
+                                                        enabled = !busy,
+                                                        modifier = Modifier.fillMaxWidth()
+                                                    ) { Text("${cand.label} (${SizeUnits.formatBytes(cand.byteLength)})") }
+                                                }
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .toggleable(
+                                                            value = shareWithFiles,
+                                                            enabled = !busy,
+                                                            role = Role.Checkbox,
+                                                            onValueChange = {
+                                                                shareWithFiles = it
+                                                                OtgMountShare.shareWithFiles = it
+                                                                refreshDocumentRoots()
+                                                            }
+                                                        )
+                                                ) {
+                                                    Checkbox(shareWithFiles, onCheckedChange = null, enabled = !busy)
+                                                    Text("Allow Files app to browse unlocked volumes (seizure leak; off by default)")
+                                                }
+                                            }
                                             Button(
                                                 onClick = {
                                                     holdLockForPicker()
@@ -1960,6 +2048,34 @@ class MainActivity : AppCompatActivity() {
                                                 },
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Add keyfiles") }
+                                            if (BuildConfig.ENABLE_BIOMETRIC) {
+                                                val vault = BiometricVault(this@MainActivity)
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Checkbox(useBiometric, { useBiometric = it }, enabled = !busy)
+                                                    Text(if (useBiometric) "On — extra keyfile mixed when opening" else "Fingerprint / face extra (off)")
+                                                }
+                                                VcHint("A compelled fingerprint still wins. GitHub flavor only. foss has no biometrics.")
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        if (path.isEmpty()) {
+                                                            status = "Choose a container or USB partition first."
+                                                            return@OutlinedButton
+                                                        }
+                                                        vault.load(this@MainActivity, path) { bundle ->
+                                                            if (bundle == null) {
+                                                                status = "Fingerprint unlock cancelled."
+                                                                return@load
+                                                            }
+                                                            password = bundle.password
+                                                            pim = bundle.pim.toString()
+                                                            useBiometric = bundle.hasBiometric()
+                                                            status = "Filled from fingerprint. Then tap Open volume."
+                                                        }
+                                                    },
+                                                    enabled = !busy,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) { Text("Unlock with fingerprint / face") }
+                                            }
                                             Text("Mount options", style = MaterialTheme.typography.titleSmall)
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
@@ -2228,6 +2344,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        usbPermissionReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {
+            }
+        }
+        usbPermissionReceiver = null
+        pendingOtgScsi?.close()
+        pendingOtgScsi = null
         releaseAllContainerPfds()
         super.onDestroy()
     }
@@ -2264,6 +2389,7 @@ class MainActivity : AppCompatActivity() {
         if (index !in list.indices) return
         val victim = list.removeAt(index)
         if (NativeBridge.isOpen(victim.handle)) NativeBridge.closeVolume(victim.handle)
+        if (OtgBlockStore.isPath(victim.path)) OtgBlockStore.release(victim.path)
         liveContainerPfds.remove(victim.handle)?.let {
             try {
                 it.close()
@@ -2278,6 +2404,7 @@ class MainActivity : AppCompatActivity() {
             dirPathState.value = ""
             listTruncatedState.value = false
             statusState.value = "Dismounted ${victim.label}."
+            refreshDocumentRoots()
             return
         }
         val active = activeMountIndexState.intValue
@@ -2293,6 +2420,7 @@ class MainActivity : AppCompatActivity() {
         entriesState.value = v.entries
         listTruncatedState.value = v.truncated
         statusState.value = "Dismounted ${victim.label}. ${list.size} still mounted."
+        refreshDocumentRoots()
     }
 
     private fun closeMountedVolume() {
@@ -2306,12 +2434,18 @@ class MainActivity : AppCompatActivity() {
             }
         }
         liveContainerPfds.clear()
+        mountedVolumesState.value.forEach { vol ->
+            if (OtgBlockStore.isPath(vol.path)) OtgBlockStore.release(vol.path)
+        }
+        pendingOtgScsi?.close()
+        pendingOtgScsi = null
         mountedVolumesState.value = emptyList()
         activeMountIndexState.intValue = 0
         handleState.value = 0L
         entriesState.value = emptyList()
         dirPathState.value = ""
         listTruncatedState.value = false
+        refreshDocumentRoots()
     }
 
     /**
@@ -2422,6 +2556,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun panicWipe() {
         closeMountedVolume()
+        OtgBlockStore.releaseAll()
         releasePendingPfd()
         wipeRamSecrets()
         Hardening.panic(this)
@@ -3151,12 +3286,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun nativePathIsInternal(nativePath: String): Boolean {
         return nativePath.startsWith("/proc/self/fd/") ||
+            OtgBlockStore.isPath(nativePath) ||
             nativePath.startsWith(cacheDir.absolutePath) ||
             nativePath.startsWith(filesDir.absolutePath)
     }
 
     private fun containerPathUsable(path: String): Boolean {
         if (path.isEmpty() || path.startsWith("/proc/self/fd/")) return false
+        if (OtgBlockStore.isPath(path)) return OtgBlockStore.isReady(path)
         val file = File(path)
         return file.isFile && file.canRead() && file.length() > 0L
     }
@@ -3174,6 +3311,42 @@ class MainActivity : AppCompatActivity() {
             if (containerPathUsable(bound)) return bound
         }
         return ""
+    }
+
+    private fun openUsbMassStorage(device: UsbDevice) {
+        beginWork("Reading USB disk…")
+        Thread {
+            try {
+                pendingOtgScsi?.close()
+                pendingOtgScsi = null
+                val scsi = OtgScsiDevice.open(OtgUsb.manager(this), device)
+                val cands = OtgPartitions.probe(scsi)
+                runOnUiThread {
+                    pendingOtgScsi = scsi
+                    otgCandidatesState.value = cands
+                    endWork()
+                    statusState.value =
+                        "Pick a partition, then type the password and Open volume. Nothing auto-mounted."
+                }
+            } catch (_: Exception) {
+                runOnUiThread {
+                    endWork()
+                    statusState.value = "Could not read that USB disk. It is not auto-mounted."
+                }
+            }
+        }.start()
+    }
+
+    private fun refreshDocumentRoots() {
+        val roots = if (OtgMountShare.shareWithFiles) {
+            mountedVolumesState.value.map { vol ->
+                OtgMountShare.Root(vol.path.ifEmpty { vol.label }, vol.handle, vol.label)
+            }
+        } else {
+            emptyList()
+        }
+        OtgMountShare.publish(roots)
+        OtgMountShare.notify(this)
     }
 
     private fun bindContainer(uri: Uri): String {
@@ -3289,6 +3462,7 @@ class MainActivity : AppCompatActivity() {
                             truncated = truncated
                         )
                         mountedVolumesState.value = next
+                        refreshDocumentRoots()
                         activeMountIndexState.intValue = next.lastIndex
                         headerKeyfileUrisState.value = keyfileUris
                         rememberUnlock(text, pimText)
