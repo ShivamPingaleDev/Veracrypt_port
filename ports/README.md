@@ -104,7 +104,7 @@ If this work is useful to you and you have room to **teach**, offer an **interns
 
 ## Support (optional)
 
-VC Port is **free**. Support helps the author; it does **not** unlock features or stronger encryption. Links are on GitHub and in the app under **Tools → About / licenses** (opens your browser).
+VC Port is **free**. Support helps the author; it does **not** unlock features or stronger encryption. Links are on GitHub only — not inside the app.
 
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/ShivamPingaleDev)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)

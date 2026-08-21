@@ -270,13 +270,10 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("unlock stronger encryption", support.lower())
         self.assertIn("buymeacoffee.com/shivampingaledev", root_readme)
         self.assertIn("ko-fi.com/shivampingaledev", ports_readme)
-        self.assertIn("about_support_github", main)
-        self.assertIn("about_support_bmac", main)
-        self.assertIn("about_support_kofi", main)
-        self.assertIn("about_support_liberapay", main)
-        self.assertIn("about_support_github", view)
-        self.assertIn("buymeacoffee.com/shivampingaledev", read("ports/android/app/src/main/java/dev/shivampingale/vcport/SupportLinks.kt"))
-        self.assertIn("ko-fi.com/shivampingaledev", read("ports/ios/VCPort/SupportLinks.swift"))
+        self.assertNotIn("about_support_github", main)
+        self.assertNotIn("about_support_github", view)
+        self.assertFalse(resolve("ports/android/app/src/main/java/dev/shivampingale/vcport/SupportLinks.kt").exists())
+        self.assertFalse(resolve("ports/ios/VCPort/SupportLinks.swift").exists())
 
     def test_nation_state_apts_are_out_of_scope(self) -> None:
         threat = read("ports/THREAT-MODEL.md")
