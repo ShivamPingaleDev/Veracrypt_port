@@ -1,1 +1,6 @@
-custom: "https://veracrypt.jp/en/Donation.html"
+# Optional support for VC Port. Also: VeraCrypt upstream donations.
+ko_fi: shivampingaledev
+liberapay: ShivamPingaleDev
+custom:
+  - https://buymeacoffee.com/shivampingaledev
+  - https://veracrypt.jp/en/Donation.html
