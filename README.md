@@ -118,7 +118,7 @@ VC Port is **free**. Support helps the author keep working on it; it does **not*
 [![Liberapay patrons](https://img.shields.io/liberapay/patrons/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
 [![Liberapay goal](https://img.shields.io/liberapay/goal/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
 
-More: [ports/SUPPORT.md](ports/SUPPORT.md)
+More: [SUPPORT.md](SUPPORT.md)
 
 Problems that can hurt people: [SECURITY.md](SECURITY.md). How to talk about this in public: [ports/PUBLIC.md](ports/PUBLIC.md).
 

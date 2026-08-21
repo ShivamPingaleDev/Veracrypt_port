@@ -257,7 +257,8 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("TrueCrypt License 3.0", sec)
 
     def test_support_page_github_only(self) -> None:
-        support = read("ports/SUPPORT.md")
+        support = read("SUPPORT.md")
+        ports_support = read("ports/SUPPORT.md")
         root_readme = read("README.md")
         ports_readme = read("ports/README.md")
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
@@ -266,8 +267,8 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("buymeacoffee.com/shivampingaledev", support)
         self.assertIn("ko-fi.com/shivampingaledev", support)
         self.assertIn("liberapay.com/ShivamPingaleDev", support)
-        self.assertIn("liberapay/receives/ShivamPingaleDev", support)
-        self.assertIn("unlock stronger encryption", support.lower())
+        self.assertIn("liberapay/receives/ShivamPingaleDev", ports_support)
+        self.assertIn("unlock features or stronger encryption", support.lower())
         self.assertIn("buymeacoffee.com/shivampingaledev", root_readme)
         self.assertIn("ko-fi.com/shivampingaledev", ports_readme)
         funding = read(".github/FUNDING.yml")

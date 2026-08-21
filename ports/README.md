@@ -116,7 +116,7 @@ VC Port is **free**. Support helps the author; it does **not** unlock features o
 [![Liberapay patrons](https://img.shields.io/liberapay/patrons/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
 [![Liberapay goal](https://img.shields.io/liberapay/goal/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
 
-More: [SUPPORT.md](SUPPORT.md)
+More: [SUPPORT.md](../SUPPORT.md)
 
 How to talk about this in public: [PUBLIC.md](PUBLIC.md). How to build: [FOSS.md](FOSS.md). iPhone signing: [ios/README.md](ios/README.md).
 
