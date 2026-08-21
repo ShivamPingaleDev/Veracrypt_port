@@ -1,6 +1,6 @@
 # Support VC Port (optional)
 
-VC Port is **free** and **open source**. Same features for everyone. Support helps the author keep working on it; it does **not** unlock stronger encryption or paid features. Support links are on GitHub only — not inside the app. The phone apps stay offline.
+VC Port is **free** and **open source**. Same features for everyone. Support helps the author keep working on it; it does **not** unlock stronger encryption or paid features. Support links are on GitHub and under **Tools → About / licenses** in the app (opens your browser). The FOSS Android build has no `INTERNET` permission.
 
 ## Links
 
