@@ -69,4 +69,4 @@ Legend: **Have** = shipped on `master` (both phones unless noted). **Partial** =
 
 ## Free app, optional support
 
-VC Port stays free and FOSS. Optional support links are on GitHub ([SUPPORT.md](SUPPORT.md)) — not in the app. No paid features.
+VC Port stays free and FOSS. Optional support links are in **Tools → About / licenses** and on GitHub ([SUPPORT.md](SUPPORT.md)). No paid features.
