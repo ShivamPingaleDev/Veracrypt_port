@@ -1,1 +1,7 @@
-custom: "https://veracrypt.jp/en/Donation.html"
+# Optional support for VC Port (free app — no paid features).
+# Shows the Sponsor heart on the GitHub repo page (About area).
+github: ShivamPingaleDev
+ko_fi: shivampingaledev
+liberapay: ShivamPingaleDev
+custom:
+  - https://buymeacoffee.com/shivampingaledev
