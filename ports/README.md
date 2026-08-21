@@ -70,6 +70,21 @@ A free Apple ID lasts **7 days**. Open AltStore or SideStore again before that s
 
 If you have a Mac and Xcode: open the project, pick your name as Team, plug in the iPhone, press Run. More detail: [ios/README.md](ios/README.md).
 
+## Support (optional)
+
+VC Port is **free**. Support helps the author; it does **not** unlock features or stronger encryption. Links are on GitHub only — not inside the app.
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/shivampingaledev)
+[![Donate on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ShivamPingaleDev/donate)
+
+[![Liberapay receives](https://img.shields.io/liberapay/receives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay gives](https://img.shields.io/liberapay/gives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay patrons](https://img.shields.io/liberapay/patrons/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay goal](https://img.shields.io/liberapay/goal/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+
+More: [SUPPORT.md](../SUPPORT.md)
+
 **Volume** — pick a locked file and type the password.
 
 Android: ![Volume](docs/screenshots/01-volume.png)
@@ -101,21 +116,6 @@ Original is the VeraCrypt-like look. Dark mode is a dark theme. Not required. No
 **Footnote:** A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.
 
 If this work is useful to you and you have room to **teach**, offer an **internship**, or **hire**: I am looking for that. Same email as Contact. No pressure.
-
-## Support (optional)
-
-VC Port is **free**. Support helps the author; it does **not** unlock features or stronger encryption. Links are on GitHub only — not inside the app.
-
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/shivampingaledev)
-[![Donate on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ShivamPingaleDev/donate)
-
-[![Liberapay receives](https://img.shields.io/liberapay/receives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
-[![Liberapay gives](https://img.shields.io/liberapay/gives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
-[![Liberapay patrons](https://img.shields.io/liberapay/patrons/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
-[![Liberapay goal](https://img.shields.io/liberapay/goal/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
-
-More: [SUPPORT.md](../SUPPORT.md)
 
 How to talk about this in public: [PUBLIC.md](PUBLIC.md). How to build: [FOSS.md](FOSS.md). iPhone signing: [ios/README.md](ios/README.md).
 
