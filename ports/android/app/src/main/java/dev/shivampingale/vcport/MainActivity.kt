@@ -72,6 +72,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
@@ -79,6 +80,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import android.content.BroadcastReceiver
+import android.content.ActivityNotFoundException
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.CountDownLatch
@@ -1921,6 +1923,23 @@ class MainActivity : AppCompatActivity() {
                                             VcHint("Apache-2.0 / TrueCrypt License 3.0. Not named VeraCrypt. Not unbreakable.")
                                             VcHint("https://github.com/ShivamPingaleDev/Veracrypt_port")
                                             VcHint("Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
+                                            VcHint(stringResource(R.string.about_support))
+                                            TextButton(
+                                                onClick = { openUrl(SupportLinks.GITHUB_SPONSORS) },
+                                                modifier = Modifier.testTag("about_support_github")
+                                            ) { Text("GitHub Sponsors") }
+                                            TextButton(
+                                                onClick = { openUrl(SupportLinks.BUY_ME_A_COFFEE) },
+                                                modifier = Modifier.testTag("about_support_bmac")
+                                            ) { Text("Buy Me a Coffee") }
+                                            TextButton(
+                                                onClick = { openUrl(SupportLinks.KO_FI) },
+                                                modifier = Modifier.testTag("about_support_kofi")
+                                            ) { Text("Ko-fi") }
+                                            TextButton(
+                                                onClick = { openUrl(SupportLinks.LIBERAPAY) },
+                                                modifier = Modifier.testTag("about_support_liberapay")
+                                            ) { Text("Liberapay") }
                                             VcHint("The app does not install itself.")
                                             VcHint(SourcePin.describeBuild())
                                         }
@@ -2601,6 +2620,14 @@ class MainActivity : AppCompatActivity() {
         if (!statusState.value.startsWith("Panic")) {
             statusState.value =
                 "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays."
+        }
+    }
+
+    private fun openUrl(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: ActivityNotFoundException) {
+            statusState.value = "No browser found: $url"
         }
     }
 

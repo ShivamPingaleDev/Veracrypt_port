@@ -102,6 +102,22 @@ Original is the VeraCrypt-like look. Dark mode is a dark theme. Not required. No
 
 If this work is useful to you and you have room to **teach**, offer an **internship**, or **hire**: I am looking for that. Same email as Contact. No pressure.
 
+## Support (optional)
+
+VC Port is **free**. Support helps the author; it does **not** unlock features or stronger encryption. Links are on GitHub and in the app under **Tools → About / licenses** (opens your browser).
+
+[![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?logo=GitHub-Sponsors&logoColor=#EA4AAA)](https://github.com/sponsors/ShivamPingaleDev)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/shivampingaledev)
+[![Donate on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ShivamPingaleDev/donate)
+
+[![Liberapay receives](https://img.shields.io/liberapay/receives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay gives](https://img.shields.io/liberapay/gives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay patrons](https://img.shields.io/liberapay/patrons/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay goal](https://img.shields.io/liberapay/goal/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+
+More: [SUPPORT.md](SUPPORT.md)
+
 How to talk about this in public: [PUBLIC.md](PUBLIC.md). How to build: [FOSS.md](FOSS.md). iPhone signing: [ios/README.md](ios/README.md).
 
 You may not call this app VeraCrypt. Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/
