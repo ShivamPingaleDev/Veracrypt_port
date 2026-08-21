@@ -1,8 +1,7 @@
+# Optional support for VC Port (free app — no paid features).
+# Shows the Sponsor heart on the GitHub repo page (About area).
 github: ShivamPingaleDev
 ko_fi: shivampingaledev
 liberapay: ShivamPingaleDev
 custom:
-  - https://github.com/sponsors/ShivamPingaleDev
   - https://buymeacoffee.com/shivampingaledev
-  - https://ko-fi.com/shivampingaledev
-  - https://liberapay.com/ShivamPingaleDev/donate

@@ -2,7 +2,7 @@
 
 VC Port is **free** and **open source**. Same features for everyone. Support helps the author keep working on it; it does **not** unlock stronger encryption or paid features. Support links are on GitHub only — not inside the app. The phone apps stay offline.
 
-On the GitHub repo page, optional support appears in the **About** sidebar (clickable URLs in the description + website link to [SUPPORT.md](../SUPPORT.md)) and the **Sponsor** heart (from [.github/FUNDING.yml](../../.github/FUNDING.yml)).
+On the GitHub repo page, optional support appears in the **About** sidebar (repo description) and the **Sponsor** heart (from [.github/FUNDING.yml](.github/FUNDING.yml)).
 
 ## Links
 
