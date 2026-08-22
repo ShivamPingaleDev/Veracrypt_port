@@ -21,6 +21,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "0.3.10",
+          "buildVersion": "15",
+          "date": "2026-08-22T00:00:00-00:00",
+          "localizedDescription": "Stable alpha. Volume, Create, Mounted, Tools tabs. Empty Mounted slots open a scrollable Open popup. Typed idle time on Open. Compact Tools About. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "0.3.9",
           "buildVersion": "14",
           "date": "2026-08-22T00:00:00-00:00",

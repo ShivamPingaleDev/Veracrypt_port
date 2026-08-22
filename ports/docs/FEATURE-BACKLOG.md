@@ -21,7 +21,7 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 
 | Feature | Status |
 | --- | --- |
-| Inactivity + screen-lock dismount | **Built** — Tools idle Off/1/5/15 min; screen-off / lock also closes volumes |
+| Inactivity + screen-lock dismount | **Built** — Open-volume idle (typed minutes/hours, 0 = Off); screen-off / lock also closes volumes |
 | Android Quick Settings panic tile | **Built** — optional tile; wipes even if you never open Tools |
 | PIM iteration estimator | **Built** — Tools helper; not a crack-time claim; not Benchmark |
 | In-container SHA-256 before export | **Built** — hash selected file(s) inside the volume, wipe the temp |

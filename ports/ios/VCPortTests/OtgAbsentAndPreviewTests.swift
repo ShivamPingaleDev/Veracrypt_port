@@ -62,7 +62,7 @@ final class OtgAbsentAndPreviewTests: XCTestCase {
         waitUntil(90) {
             onMainValue { t.entryNames() }.contains { $0.compare("NOTE.TXT", options: .caseInsensitive) == .orderedSame }
         }
-        onMain { t.selectTab(3) }
+        onMain { t.selectTab(2) }
         pump(2.0)
         onMain { t.selectNames(["NOTE.TXT"]) }
         onMain { t.startPreview() }

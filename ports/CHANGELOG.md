@@ -8,6 +8,15 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
+## 0.3.10
+
+Stable alpha: tabs Volume → Create → Mounted → Tools; Empty Mounted slots open a scrollable Open popup; typed idle time on Open; compact Tools About.
+
+- Mounted keeps the file list. Tap Empty (or Open another container) for the same Open suite as the Volume tab. Multiple slots still work.
+- Idle dismount is a number + min/h on Open (0 = Off), not a Tools preset. Home and screen-lock still close volumes.
+- Tools About is a short footer: first Hughes quote, contacts, Repo / Sponsor / Releases, TrueCrypt attribution.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.10.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.10-unsigned-preview.ipa`). Same `applicationId` as 0.3.9; it replaces the old install. Still alpha (not 1.0, not a store build).
+
 ## 0.3.9
 
 Stable alpha: Android USB whole-disk Open without auto-mount, in-app preview, idle close, and the full Open-volume form on Mounted slots.

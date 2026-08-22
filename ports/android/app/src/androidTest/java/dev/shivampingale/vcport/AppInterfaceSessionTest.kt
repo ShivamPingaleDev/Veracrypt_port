@@ -578,7 +578,9 @@ class AppInterfaceSessionTest {
         rule.onNodeWithTag("pim_estimate_result").assertIsDisplayed()
         assertTrue(rule.activity.testingPimEstimate().contains("500,000") || rule.activity.testingPimEstimate().contains("1,000"))
 
-        rule.onNodeWithTag("idle_1").performScrollTo().performClick()
+        rule.onNodeWithTag("tab_volume").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("idle_amount").performScrollTo().performTextReplacement("1")
         rule.waitForIdle()
         rule.activity.testingFireIdleTimeout()
         waitStatus("Idle timeout", 15_000)

@@ -1,0 +1,1 @@
+VC Port 0.3.10 stable alpha: Volume, Create, Mounted, Tools tabs; Empty slots open a scrollable Open popup; typed idle time on Open; compact Tools About. Session tests still cover the app interface. GitHub APKs stay debug-signed previews. Not unbreakable.

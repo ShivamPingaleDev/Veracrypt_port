@@ -78,12 +78,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.IntentCompat
 import java.io.File
 import java.io.FileOutputStream
@@ -556,7 +559,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadIdleMinutes(): Int {
         val n = sessionPrefs().getInt("idle_minutes", 0)
-        return if (n in SessionIdle.MINUTES) n else 0
+        return n.coerceIn(0, SessionIdle.MAX_MINUTES)
     }
 
     private fun saveIdleMinutes(minutes: Int) {
@@ -678,7 +681,9 @@ class MainActivity : AppCompatActivity() {
                 var headerKdf by remember { mutableStateOf("(keep current)") }
                 var useBackupHeader by useBackupHeaderState
                 var readOnlyOpen by readOnlyOpenState
-                var idleMinutes by idleMinutesState
+                val idleSplit = SessionIdle.split(idleMinutesState.intValue)
+                var idleAmount by remember { mutableStateOf(idleSplit.first.toString()) }
+                var idleUnit by remember { mutableStateOf(idleSplit.second) }
                 var trueCryptMode by trueCryptModeState
                 var protectHidden by protectHiddenState
                 var hiddenProtectPassword by hiddenProtectPasswordState
@@ -1085,8 +1090,8 @@ class MainActivity : AppCompatActivity() {
                             ) {
                                 Tab(selected = tab == 0, onClick = { tab = 0 }, modifier = Modifier.testTag("tab_volume"), text = { Text("Volume") })
                                 Tab(selected = tab == 1, onClick = { tab = 1 }, modifier = Modifier.testTag("tab_create"), text = { Text("Create") })
-                                Tab(selected = tab == 2, onClick = { tab = 2 }, modifier = Modifier.testTag("tab_tools"), text = { Text("Tools") })
-                                Tab(selected = tab == 3, onClick = { tab = 3 }, modifier = Modifier.testTag("tab_mounted"), text = { Text("Mounted") })
+                                Tab(selected = tab == 2, onClick = { tab = 2 }, modifier = Modifier.testTag("tab_mounted"), text = { Text("Mounted") })
+                                Tab(selected = tab == 3, onClick = { tab = 3 }, modifier = Modifier.testTag("tab_tools"), text = { Text("Tools") })
                             }
                             @Composable
                             fun BindOpenVolumeForm(mountedSlot: Boolean, onCancel: (() -> Unit)?) {
@@ -1238,6 +1243,16 @@ class MainActivity : AppCompatActivity() {
                                     onHiddenPassword = { hiddenProtectPassword = it },
                                     hiddenPim = hiddenProtectPim,
                                     onHiddenPim = { hiddenProtectPim = it },
+                                    idleAmount = idleAmount,
+                                    onIdleAmount = {
+                                        idleAmount = it
+                                        saveIdleMinutes(SessionIdle.toMinutes(it.toIntOrNull() ?: 0, idleUnit))
+                                    },
+                                    idleUnit = idleUnit,
+                                    onIdleUnit = {
+                                        idleUnit = it
+                                        saveIdleMinutes(SessionIdle.toMinutes(idleAmount.toIntOrNull() ?: 0, it))
+                                    },
                                     onOpen = {
                                         showOpenAnother = false
                                         persistActiveMount(dirPath, entries, listTruncated)
@@ -1261,7 +1276,7 @@ class MainActivity : AppCompatActivity() {
                                     onCancel = onCancel
                                 )
                             }
-                            if (tab == 3) {
+                            if (tab == 2) {
                             VaultPane(
                                 modifier = Modifier.weight(1f),
                                 dirPath = dirPath,
@@ -1284,17 +1299,6 @@ class MainActivity : AppCompatActivity() {
                                 },
                                 onDismountMount = { dismountMountedAt(it) },
                                 onOpenAnother = { showOpenAnother = true },
-                                openingAnother = showOpenAnother || mountedVolumes.isEmpty(),
-                                openForm = {
-                                    BindOpenVolumeForm(
-                                        mountedSlot = true,
-                                        onCancel = if (mountedVolumes.isNotEmpty()) {
-                                            { showOpenAnother = false }
-                                        } else {
-                                            null
-                                        }
-                                    )
-                                },
                                 hashResult = hashResult,
                                 canTransfer = mountedVolumes.size > 1,
                                 onCopyToVolume = { transferMove = false },
@@ -1428,6 +1432,39 @@ class MainActivity : AppCompatActivity() {
                                     loadDir(handle, dirPath, { entries = it }, { status = it }, append = true)
                                 }
                             )
+                            if (showOpenAnother) {
+                                Dialog(
+                                    onDismissRequest = { showOpenAnother = false },
+                                    properties = DialogProperties(usePlatformDefaultWidth = false)
+                                ) {
+                                    androidx.compose.material3.Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.96f)
+                                            .fillMaxHeight(0.92f)
+                                            .testTag("mounted_open_dialog"),
+                                        shape = MaterialTheme.shapes.large,
+                                        tonalElevation = 6.dp
+                                    ) {
+                                        Column(
+                                            Modifier
+                                                .fillMaxSize()
+                                                .padding(12.dp)
+                                        ) {
+                                            Text("Open volume", style = MaterialTheme.typography.titleMedium)
+                                            Column(
+                                                Modifier
+                                                    .weight(1f)
+                                                    .verticalScroll(rememberScrollState())
+                                            ) {
+                                                BindOpenVolumeForm(
+                                                    mountedSlot = true,
+                                                    onCancel = { showOpenAnother = false }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             } else {
                             Column(
                                 Modifier
@@ -1860,7 +1897,7 @@ class MainActivity : AppCompatActivity() {
                                             ) { Text("Create volume") }
                                         }
                                     }
-                                    2 -> {
+                                    3 -> {
                                         VcCard {
                                             Text("Appearance", style = MaterialTheme.typography.titleMedium)
                                             VcHint("Original is the VeraCrypt-like look. Dark mode is a dark theme. Pick is stored on this phone only.")
@@ -2188,31 +2225,6 @@ class MainActivity : AppCompatActivity() {
                                             ) { Text("PIM iteration estimate") }
                                         }
                                         VcCard {
-                                            Text("Idle dismount", style = MaterialTheme.typography.titleMedium)
-                                            VcHint("Home and screen lock already close an open volume. Idle is for walking away with the app still in front. Off keeps that Home/lock behavior only.")
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                SessionIdle.MINUTES.forEach { mins ->
-                                                    val selected = idleMinutes == mins
-                                                    if (selected) {
-                                                        Button(
-                                                            onClick = { saveIdleMinutes(mins) },
-                                                            enabled = !busy,
-                                                            modifier = Modifier.weight(1f).testTag("idle_$mins")
-                                                        ) { Text(SessionIdle.label(mins), style = MaterialTheme.typography.labelSmall) }
-                                                    } else {
-                                                        OutlinedButton(
-                                                            onClick = { saveIdleMinutes(mins) },
-                                                            enabled = !busy,
-                                                            modifier = Modifier.weight(1f).testTag("idle_$mins")
-                                                        ) { Text(SessionIdle.label(mins), style = MaterialTheme.typography.labelSmall) }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        VcCard {
                                             Text("Wipe cached passwords", style = MaterialTheme.typography.titleMedium)
                                             OutlinedButton(
                                                 onClick = {
@@ -2227,28 +2239,44 @@ class MainActivity : AppCompatActivity() {
                                             ) { Text("Wipe cached passwords") }
                                         }
                                         VcCard {
-                                            Text("Not on this phone", style = MaterialTheme.typography.titleMedium)
-                                            VcHint("Root / jailbreak: this app will not ask for superuser.")
-                                            VcHint("Device encryption: this app encrypts VeraCrypt container files (any file name). It cannot encrypt the phone's operating system. Android already encrypts the device with your screen lock.")
-                                            VcHint("Security tokens: PKCS#11 smart cards are not available here. Export a keyfile on a computer, then Add keyfiles.")
-                                        }
-                                        VcCard {
-                                            Text("About / licenses", style = MaterialTheme.typography.titleMedium)
+                                            val uriHandler = LocalUriHandler.current
                                             Text(
                                                 "“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)",
                                                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                                                 color = colors.onSurfaceVariant
                                             )
                                             Text(
-                                                "“Cypherpunks write code.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)",
-                                                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                                                color = colors.onSurfaceVariant
+                                                "Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com",
+                                                style = MaterialTheme.typography.bodySmall
                                             )
-                                            VcHint("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
-                                            VcHint("Apache-2.0 / TrueCrypt License 3.0. Not named VeraCrypt. Not unbreakable.")
-                                            VcHint("https://github.com/ShivamPingaleDev/Veracrypt_port")
-                                            VcHint("Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
-                                            VcHint("The app does not install itself.")
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                TextButton(
+                                                    onClick = { uriHandler.openUri("https://github.com/ShivamPingaleDev/Veracrypt_port") },
+                                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                                ) { Text("Repo") }
+                                                TextButton(
+                                                    onClick = { uriHandler.openUri("https://github.com/sponsors/ShivamPingaleDev") },
+                                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                                ) { Text("Sponsor") }
+                                                TextButton(
+                                                    onClick = { uriHandler.openUri("https://github.com/ShivamPingaleDev/Veracrypt_port/releases") },
+                                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                                ) { Text("Releases") }
+                                            }
+                                            TextButton(
+                                                onClick = { uriHandler.openUri("http://www.truecrypt.org/") },
+                                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
+                                            ) {
+                                                Text(
+                                                    "Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = colors.onSurfaceVariant
+                                                )
+                                            }
+                                            VcHint("Apache-2.0 / TrueCrypt License 3.0. Not named VeraCrypt. The app does not install itself.")
                                             VcHint(SourcePin.describeBuild())
                                         }
                                     }
@@ -3517,7 +3545,7 @@ class MainActivity : AppCompatActivity() {
                         onEntries(files)
                         dirPathState.value = ""
                         listTruncatedState.value = truncated
-                        tabState.intValue = 3
+                        tabState.intValue = 2
                         armIdleTimer()
                         var msg = "Mounted in this app. Size $volumeBytes bytes. Slots are on the Mounted tab. Tap a folder to open it, or a file to select it. Copy to volume moves selected files into another mounted container."
                         if (readOnly) msg = "Read-only. Writes are refused. $msg"
@@ -4480,8 +4508,6 @@ private fun VaultPane(
     onSelectMount: (Int) -> Unit,
     onDismountMount: (Int) -> Unit,
     onOpenAnother: () -> Unit,
-    openingAnother: Boolean = false,
-    openForm: @Composable () -> Unit = {},
     hashResult: String = "",
     canTransfer: Boolean,
     onCopyToVolume: () -> Unit,
@@ -4687,17 +4713,6 @@ private fun VaultPane(
                     .fillMaxHeight()
                     .background(colors.outline.copy(alpha = 0.4f))
             )
-            if (openingAnother) {
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .verticalScroll(rememberScrollState())
-                        .padding(8.dp)
-                ) {
-                    openForm()
-                }
-            } else {
             Column(Modifier.weight(1f).fillMaxHeight()) {
         if (hashResult.isNotEmpty()) {
             Text(
@@ -4835,7 +4850,6 @@ private fun VaultPane(
                 }
             }
         }
-            }
             }
         }
     }

@@ -129,14 +129,14 @@ final class AppInterfaceSessionTests: XCTestCase {
         XCTAssertEqual(onMainValue { t.volumePassword() }, "")
         XCTAssertEqual(onMainValue { t.volumePim() }, "0")
 
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.showVolumeProperties() }
         waitUntil(15) {
             let info = t.volumeInfo() ?? t.status()
             return info.contains("AES(Twofish(Serpent))") && info.contains("HMAC-SHA-512")
         }
 
-        onMain { t.selectTab(3) }
+        onMain { t.selectTab(2) }
         let names = onMainValue { t.entryNames() }
         XCTAssertTrue(names.contains("BASKET.sha256"))
         XCTAssertTrue(names.contains { $0.localizedCaseInsensitiveContains("MEMO") })
@@ -177,7 +177,7 @@ final class AppInterfaceSessionTests: XCTestCase {
             t.entryNames().contains { $0.localizedCaseInsensitiveContains("INBOX") }
         }
 
-        onMain { t.selectTab(3) }
+        onMain { t.selectTab(2) }
         onMain { t.openMountedSlot() }
         onMain { t.selectMountSlot(0) }
 
@@ -192,7 +192,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.openVolume() }
         waitStatus("volumes mounted", 180)
 
-        onMain { t.selectTab(3) }
+        onMain { t.selectTab(2) }
         waitUntil(15) { t.status().contains("2 volumes mounted") }
         onMain { t.selectMountSlot(0) }
         pump(0.4)
@@ -212,7 +212,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         waitStatus("Moved 1 file(s) into", 60)
         XCTAssertFalse(onMainValue { t.entryNames() }.contains { $0.caseInsensitiveCompare(moreName) == .orderedSame })
 
-        onMain { t.selectTab(3) }
+        onMain { t.selectTab(2) }
         onMain { t.selectMountSlot(1) }
         pump(0.4)
         waitUntil(15) {
@@ -236,7 +236,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         )
         waitStatus("Copied 1 file(s) into", 60)
 
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.lockSession() }
         waitStatus("Dismounted", 30)
 
@@ -248,7 +248,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.openVolume() }
         waitStatus("Mounted in this app", 180)
 
-        onMain { t.selectTab(3) }
+        onMain { t.selectTab(2) }
         onMain { t.mkdir("SECRET") }
         waitStatus("Created folder SECRET", 30)
         onMain { t.openDir("SECRET") }
@@ -264,7 +264,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         XCTAssertTrue(onMainValue { t.exportNamed(hiddenName, hiddenOut) })
         XCTAssertEqual(try String(contentsOf: hiddenOut, encoding: .utf8), "hidden-volume-ok\n")
 
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.lockSession() }
         waitStatus("Dismounted", 30)
 
@@ -273,7 +273,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.setVolumePassword(basketPassword!) }
         onMain { t.setVolumePim("1") }
         onMain { t.addKeyfiles(keyfiles) }
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.backupHeader() }
         waitStatus("Header backup ready", 60)
         let headerBak = work.appendingPathComponent("basket-header.bak")
@@ -298,7 +298,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: memoAfterChange, encoding: .utf8), memoText)
         XCTAssertTrue(onMainValue { t.entryNames() }.contains { $0.localizedCaseInsensitiveContains("INBOX") })
 
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.lockSession() }
         waitStatus("Dismounted", 30)
 
@@ -307,7 +307,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.setVolumePassword(changedPassword) }
         onMain { t.setVolumePim("1") }
         onMain { t.addKeyfiles(keyfiles) }
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.setHeaderKdf("HMAC-SHA-256") }
         onMain { t.setKdf() }
         waitStatus("Set header key derivation algorithm to HMAC-SHA-256", 60)
@@ -317,7 +317,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.setVolumePim("1") }
         onMain { t.openVolume() }
         waitStatus("Mounted in this app", 180)
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.showVolumeProperties() }
         waitUntil(15) {
             let info = t.volumeInfo() ?? t.status()
@@ -344,7 +344,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.openVolume() }
         waitStatus("Mounted in this app", 180)
 
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.lockSession() }
         waitStatus("Dismounted", 30)
 
@@ -353,7 +353,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.setVolumePassword(changedPassword) }
         onMain { t.setVolumePim("1") }
         onMain { t.addKeyfiles(extraKeys) }
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.removeAllKeyfiles() }
         waitStatus("Removed all keyfiles from volume", 60)
 
@@ -364,7 +364,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.openVolume() }
         waitStatus("Mounted in this app", 180)
 
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.lockSession() }
         waitStatus("Dismounted", 30)
 
@@ -383,7 +383,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.setVolumePim("1") }
         onMain { t.openVolume() }
         waitStatus("Mounted in this app", 180)
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.showVolumeProperties() }
         waitUntil(15) {
             let info = t.volumeInfo() ?? t.status()
@@ -398,7 +398,7 @@ final class AppInterfaceSessionTests: XCTestCase {
             t.entryNames().contains { $0.localizedCaseInsensitiveContains("NEST") }
         }
 
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.lockSession() }
         waitStatus("Dismounted", 30)
 
@@ -407,7 +407,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.setVolumePassword(basketPassword!) }
         onMain { t.setVolumePim("1") }
         onMain { t.addKeyfiles(keyfiles) }
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         onMain { t.restoreEmbedded() }
         waitStatus("Restored from embedded backup header", 60)
 
@@ -419,7 +419,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.openVolume() }
         waitStatus("Mounted in this app", 180)
 
-        onMain { t.selectTab(3) }
+        onMain { t.selectTab(2) }
         onMain { t.wipeFreeSpace() }
         waitStatus("Read-only volumes refuse", 30)
 
@@ -427,7 +427,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.hashSelected(memoHashName) }
         waitStatus("SHA-256 in volume", 60)
 
-        onMain { t.selectTab(2) }
+        onMain { t.selectTab(3) }
         waitUntil(8) { t.pimEstimate().contains("500") }
         onMain { t.fireIdleTimeout() }
         waitStatus("Idle timeout", 15)
@@ -453,11 +453,11 @@ final class AppInterfaceSessionTests: XCTestCase {
 
         onMain { t.selectTab(2) }
         pump(0.8)
-        saveShot(dir, "ios-04-tools.png")
+        saveShot(dir, "ios-05-mounted.png")
 
         onMain { t.selectTab(3) }
         pump(0.8)
-        saveShot(dir, "ios-05-mounted.png")
+        saveShot(dir, "ios-04-tools.png")
     }
 
     private func shotDir() -> URL {

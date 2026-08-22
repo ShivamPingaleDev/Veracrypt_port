@@ -89,6 +89,8 @@ struct ContentView: View {
 
     @State private var selectedTab = 0
     @AppStorage("vc_port_idle_minutes") private var idleMinutes = 0
+    @State private var idleAmountText = "0"
+    @State private var idleUnit = IdleUnit.minutes
     @State private var idleTask: Task<Void, Never>?
 
     private var selectableFileNames: Set<String> {
@@ -141,14 +143,14 @@ struct ContentView: View {
                 .tag(1)
                 .tabItem { Label("Create", systemImage: "plus.rectangle.on.folder") }
                 .portTag("tab_create")
-            toolsTab
-                .tag(2)
-                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
-                .portTag("tab_tools")
             mountedVolumeForm
-                .tag(3)
+                .tag(2)
                 .tabItem { Label("Mounted", systemImage: "externaldrive") }
                 .portTag("tab_mounted")
+            toolsTab
+                .tag(3)
+                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+                .portTag("tab_tools")
         }
         .frame(maxWidth: horizontalSizeClass == .regular ? 760 : .infinity)
         .frame(maxWidth: .infinity)
@@ -303,6 +305,21 @@ struct ContentView: View {
             } message: {
                 Text("Selected files land in the folder last opened on that volume.")
             }
+            .sheet(isPresented: $showOpenAnother) {
+                NavigationStack {
+                    Form {
+                        openVolumeForm(mountedSlot: true)
+                    }
+                    .navigationTitle("Open volume")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { showOpenAnother = false }
+                                .portTag("mounted_open_cancel")
+                        }
+                    }
+                }
+                .portTag("mounted_open_dialog")
+            }
             .sheet(item: $previewItem) { item in
                 InAppPreviewSheet(item: item) {
                     previewItem = nil
@@ -333,6 +350,11 @@ struct ContentView: View {
             .onChange(of: createHidden) { _ in syncCreateSizeFromBasket() }
             .onChange(of: createHiddenSizeAmount) { _ in syncCreateSizeFromBasket() }
             .onChange(of: createHiddenSizeUnit) { _ in syncCreateSizeFromBasket() }
+            .onAppear {
+                let split = SessionIdle.split(idleMinutes)
+                idleAmountText = String(split.amount)
+                idleUnit = split.unit
+            }
             .onOpenURL { url in
                 _ = url.startAccessingSecurityScopedResource()
                 incomingFile = url
@@ -482,9 +504,6 @@ struct ContentView: View {
                 Text("Mounted in this app")
             }
 
-            if showOpenAnother || mountedVolumes.isEmpty {
-                openVolumeForm(mountedSlot: true)
-            } else {
             Section {
                 if mountedVolumes.isEmpty {
                     Text("No volume in this slot. Open volume on the Volume tab, or tap an empty slot. This is not a system drive.")
@@ -614,7 +633,6 @@ struct ContentView: View {
                     }
                 }
             }
-            }
 
             inFrontSection
             statusSection
@@ -625,11 +643,6 @@ struct ContentView: View {
     private func openVolumeForm(mountedSlot: Bool) -> some View {
         Group {
             Section {
-                if mountedSlot {
-                    Text("Open a container into this Mounted slot. Same Open volume as the Volume tab: password, PIM, keyfiles, backup header, read-only, TrueCrypt Mode, hidden-volume protection.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
                 Text("Stay offline. A compelled password still wins. Not unbreakable.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -698,14 +711,41 @@ struct ContentView: View {
                         .keyboardType(.numberPad)
                         .portTag("hidden_protect_pim")
                 }
+                Text("Idle dismount")
+                    .font(.headline)
+                HStack {
+                    TextField("Idle", text: Binding(
+                        get: { idleAmountText },
+                        set: {
+                            idleAmountText = $0.filter(\.isNumber)
+                            if idleAmountText.count > 4 { idleAmountText = String(idleAmountText.prefix(4)) }
+                            applyIdleFromFields()
+                        }
+                    ))
+                        .keyboardType(.numberPad)
+                        .portTag("idle_amount")
+                    Picker("Unit", selection: Binding(
+                        get: { idleUnit },
+                        set: {
+                            idleUnit = $0
+                            applyIdleFromFields()
+                        }
+                    )) {
+                        ForEach(IdleUnit.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .portTag("idle_unit")
+                }
+                Text("0 = Off. Home and screen lock already close. Idle is for walking away with the app still in front.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Button("Open volume") {
                     showOpenAnother = false
                     persistActiveMount()
                     openVolume()
                 }
                 .portTag("open_volume")
-                if mountedSlot, !mountedVolumes.isEmpty {
-                    Button("Back to files") { showOpenAnother = false }
+                if mountedSlot {
+                    Button("Cancel") { showOpenAnother = false }
                         .portTag("mounted_open_cancel")
                 }
             }
@@ -997,51 +1037,30 @@ struct ContentView: View {
                     endWork()
                 }
                 .portTag("tools_pim_estimate")
-                Picker("Idle dismount", selection: $idleMinutes) {
-                    ForEach(SessionIdle.minutes, id: \.self) { mins in
-                        Text(SessionIdle.label(mins)).tag(mins)
-                    }
-                }
-                .portTag("idle_picker")
-                Text("Home and screen lock already close an open volume. Idle is for walking away with the app still in front.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 Button("Wipe cached passwords") {
                     lockSession()
                     status = "Wipe cached passwords complete. Volume closed."
                 }
             }
-            Section("Not on this phone") {
-                Text("Root / jailbreak: this app will not ask for superuser.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Device encryption: this app encrypts VeraCrypt container files (any file name). It cannot encrypt the iPhone operating system. iOS already encrypts the device with your passcode.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("Security tokens: PKCS#11 smart cards are not available on this phone. Export a keyfile from the token on a computer, then Add keyfiles here.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Section("About / licenses") {
+            Section {
                 Text("“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)")
                     .font(.caption)
                     .italic()
                     .foregroundStyle(.secondary)
-                Text("“Cypherpunks write code.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)")
-                    .font(.caption)
-                    .italic()
-                    .foregroundStyle(.secondary)
-                Text("Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/")
-                Link("http://www.truecrypt.org/", destination: URL(string: "http://www.truecrypt.org/")!)
-                Text("Apache-2.0 / TrueCrypt License 3.0. Not named VeraCrypt. Not unbreakable.")
-                    .font(.caption)
-                Text("https://github.com/ShivamPingaleDev/Veracrypt_port")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 Text("Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("The app does not install itself.")
+                HStack {
+                    Link("Repo", destination: URL(string: "https://github.com/ShivamPingaleDev/Veracrypt_port")!)
+                    Link("Sponsor", destination: URL(string: "https://github.com/sponsors/ShivamPingaleDev")!)
+                    Link("Releases", destination: URL(string: "https://github.com/ShivamPingaleDev/Veracrypt_port/releases")!)
+                }
+                .font(.caption)
+                Link(
+                    "Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
+                    destination: URL(string: "http://www.truecrypt.org/")!
+                )
+                .font(.caption2)
+                Text("Apache-2.0 / TrueCrypt License 3.0. Not named VeraCrypt. The app does not install itself.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(SourcePin.describeBuild())
@@ -1422,7 +1441,7 @@ struct ContentView: View {
                     headerKeyfileURLs = keys
                     rememberUnlock(text, pimText)
                     wipeUnlockForm()
-                    selectedTab = 3
+                    selectedTab = 2
                     bumpIdle()
                     var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Slots are on the Mounted tab. Tap Open on a folder, or select files. Copy to volume moves selected files into another mounted container."
                     if readOnly {
@@ -2514,6 +2533,12 @@ struct ContentView: View {
         }
     }
 
+    private func applyIdleFromFields() {
+        let n = Int(idleAmountText.filter(\.isNumber)) ?? 0
+        idleMinutes = SessionIdle.toMinutes(amount: n, unit: idleUnit)
+        bumpIdle()
+    }
+
     private func hashSelectedInVolume() {
         let files = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
         guard let handle = volumeHandle, !files.isEmpty else {
@@ -2974,7 +2999,7 @@ struct ContentView: View {
         testing.homeLeave = { dismountOnLeave() }
         testing.selectMountSlot = { selectMount($0) }
         testing.openMountedSlot = {
-            selectedTab = 3
+            selectedTab = 2
             showOpenAnother = true
         }
         testing.selectNames = { selectedNames = $0 }

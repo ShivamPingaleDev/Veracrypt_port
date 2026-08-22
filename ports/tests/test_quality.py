@@ -513,7 +513,7 @@ class FunctionalTests(unittest.TestCase):
 class SmokeSanityTests(unittest.TestCase):
     def test_version_json_parses(self) -> None:
         v = json.loads(read("ports/version.json"))
-        self.assertEqual(v["port_version"], "0.3.9")
+        self.assertEqual(v["port_version"], "0.3.10")
         self.assertEqual(len(v["upstream_commit"]), 40)
 
     def test_pin_file_matches_json(self) -> None:
@@ -810,6 +810,11 @@ class PimAndSessionContractTests(unittest.TestCase):
             self.assertIn("read_only_banner", blob)
             self.assertIn("hash_in_volume", blob)
             self.assertIn("Idle timeout", blob)
+        form = read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
+        self.assertIn("idle_amount", form)
+        self.assertIn("idle_amount", view)
+        self.assertNotIn('testTag("idle_0")', main)
+        self.assertNotIn("idle_picker", view)
         self.assertIn("PanicTileService", read("ports/android/app/src/main/AndroidManifest.xml"))
         self.assertIn("BIND_QUICK_SETTINGS_TILE", read("ports/android/app/src/main/AndroidManifest.xml"))
         self.assertIn("10-phase", read("ports/tests/UI-WALK.md"))
@@ -820,8 +825,8 @@ class PimAndSessionContractTests(unittest.TestCase):
         self.assertIn("github: ShivamPingaleDev", read(".github/FUNDING.yml"))
         self.assertIn("github.com/sponsors/ShivamPingaleDev", read("README.md"))
         self.assertIn("github.com/sponsors/ShivamPingaleDev", read("SUPPORT.md"))
-        self.assertNotIn("github.com/sponsors", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
-        self.assertNotIn("github.com/sponsors", read("ports/ios/VCPort/ContentView.swift"))
+        self.assertIn("github.com/sponsors/ShivamPingaleDev", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
+        self.assertIn("github.com/sponsors/ShivamPingaleDev", read("ports/ios/VCPort/ContentView.swift"))
 
     def test_session_walk_covers_new_tools(self) -> None:
         android = read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/AppInterfaceSessionTest.kt")
