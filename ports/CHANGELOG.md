@@ -4,7 +4,13 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 ## Unreleased
 
+- This branch has **no** fingerprint / Face ID extra. Harden USB + preview first. `experimental-biometrics` is **stale**. Live Check for updates is not here.
+
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
+
+## experimental-otg-master (not a release)
+
+USB whole-disk Open without auto-mount. No fingerprint / Face ID extra (foss and github). Optional DocumentsProvider. In-app **View in app** preview (not VLC). Do not treat as 1.0.
 
 ## 0.3.8
 
@@ -73,7 +79,7 @@ Phone release: official VeraCrypt `src/` with a thin overlay, one FOSS APK, Orig
 - GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.2.apk`). The Looks APKs (`styled` / `looksgithub`) are gone. The `github` flavor still builds and is also offline; it is not attached to the release.
 - Appearance is Original (VeraCrypt-like) and Dark mode. Cyberpunk, Matrix, and MAGI live under `archive/looks/`.
 - Several volumes can stay mounted in one session (up to 8). Copy to volume / Move to volume sends a file into the folder last opened on another mounted container. Toolbar Dismount still closes every volume and wipes secrets.
-- Fingerprint / Face ID unlock and in-app Check for updates are not on master; they live on `experimental-biometrics`. Production Android is the `foss` flavor (public source, no trackers, no INTERNET); there is no F-Droid store target.
+- Fingerprint / Face ID unlock and in-app Check for updates are not on master; they lived on `experimental-biometrics` (**now stale**). Production Android is the `foss` flavor (public source, no trackers, no INTERNET); there is no F-Droid store target.
 - The app stays in Recents as a blank card (`FLAG_SECURE`). Home dismounts an open volume but keeps the Create wizard so Copy once still works.
 - ARM64 AES uses the CPU crypto extension after `DetectArmFeatures()`. ARMv7 stays table AES with NEON. HMAC-SHA-512 is unchanged.
 

@@ -336,10 +336,13 @@ class NamingAndAttributionTests(unittest.TestCase):
             self.assertIn("internship", root.lower())
             self.assertIn("No pressure", root)
 
-    def test_android_readme_has_no_documents_provider(self) -> None:
+    def test_android_readme_documents_provider_is_experimental(self) -> None:
         readme = read("ports/android/README.md")
         self.assertNotIn("DocumentsProvider stub", readme)
-        self.assertIn("no DocumentsProvider", readme)
+        self.assertIn("DocumentsProvider", readme)
+        self.assertIn("moylali", readme)
+        self.assertIn("https://github.com/moylali/OTGMaster", readme)
+        self.assertIn("Nothing auto-mounts", readme)
 
     def test_contributing_has_item_5(self) -> None:
         text = read("ports/CONTRIBUTING.md")
@@ -377,6 +380,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn('android:exported="false"', manifest)
         self.assertIn("${applicationId}.share", manifest)
         self.assertNotIn("VolumeDocumentsProvider", manifest)
+        self.assertNotIn("USB_DEVICE_ATTACHED", manifest)
         self.assertNotIn("MANAGE_EXTERNAL_STORAGE", manifest)
         self.assertIn("network_security_config", manifest)
         self.assertIn("backup_rules", manifest)
@@ -424,6 +428,7 @@ class AndroidHighThreatTests(unittest.TestCase):
 
     def test_keyfiles_are_multiple_and_desktop_mount_options(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         for blob in (main, view):
             self.assertIn("Generate keyfile and add", blob)
@@ -434,13 +439,14 @@ class AndroidHighThreatTests(unittest.TestCase):
             self.assertNotIn("Save extra keyfile for a computer", blob)
             self.assertNotIn("How it works:", blob)
             self.assertNotIn("Create phone-unlock keyfile", blob)
-            self.assertNotIn("Unlock with fingerprint", blob)
-            self.assertNotIn("Unlock with Face ID", blob)
+        self.assertIn("Unlock with fingerprint / face", main)
+        self.assertIn("BuildConfig.ENABLE_BIOMETRIC", main)
+        self.assertNotIn("Unlock with Face ID", view)
         self.assertIn("copyOwned", read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt"))
-        self.assertFalse(
+        self.assertTrue(
             (PORTS / "android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt").exists()
         )
-        self.assertFalse((PORTS / "ios/VCPort/BiometricStore.swift").exists())
+        self.assertTrue((PORTS / "ios/VCPort/BiometricStore.swift").exists())
 
     def test_backup_excludes_everything(self) -> None:
         backup = read("ports/android/app/src/main/res/xml/backup_rules.xml")
@@ -516,7 +522,7 @@ class AndroidHighThreatTests(unittest.TestCase):
     def test_choose_container_keeps_session_and_shows_name(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
-        self.assertIn("Selected: $containerLabel", main)
+        self.assertIn("Selected: $containerLabel", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt"))
         self.assertNotIn('label = { Text("Container path") }', main)
         self.assertNotIn("bindContainerFd", main)
         self.assertIn("ensureContainerPath", main)
@@ -569,25 +575,114 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("selectedTab = 3", view)
         self.assertIn("slots are this session only", main.lower())
         self.assertIn("slots are this session only", view.lower())
+        form = read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
+        self.assertIn("open_volume_form", form)
+        self.assertIn("BindOpenVolumeForm", main)
+        self.assertIn("openingAnother", main)
+        self.assertNotIn("open_another_password", main)
+        self.assertIn("openVolumeForm(mountedSlot:", view)
+        self.assertIn("open_volume_form", view)
+        self.assertNotIn('alert("Open another container"', view)
 
-    def test_master_has_no_phone_biometrics(self) -> None:
-        vault = PORTS / "android/app/src/main/java/dev/shivampingale/vcport/BiometricVault.kt"
-        store = PORTS / "ios/VCPort/BiometricStore.swift"
-        self.assertFalse(vault.exists())
-        self.assertFalse(store.exists())
+    def test_hash_and_pim_show_progress_not_background(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        android_hash = main.split("private fun hashVaultFiles")[1].split("private fun mkdirInVolume")[0]
+        self.assertIn("NativeBridge.setProgress", android_hash)
+        self.assertIn("hashResultState", android_hash)
+        ios_hash = view.split("private func hashSelectedInVolume()")[1].split("private func wipeFreeSpace()")[0]
+        self.assertIn("setProgress", ios_hash)
+        self.assertIn("hashResult", ios_hash)
+        self.assertIn("pim_estimate_result", main)
+        self.assertIn("pim_estimate_result", view)
+        self.assertIn("closeOpenVolumes", main)
+        self.assertIn("closeOpenVolumes", view)
+        self.assertIn("Estimating header iterations", main)
+        self.assertIn("Estimating header iterations", view)
+
+    def test_experimental_otg_flavors_no_bio(self) -> None:
+        foss = read("ports/android/app/src/foss/AndroidManifest.xml")
+        github = read("ports/android/app/src/github/AndroidManifest.xml")
+        gradle = read("ports/android/app/build.gradle")
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
+        self.assertIn("VolumeDocumentsProvider", foss)
+        self.assertIn("VolumeDocumentsProvider", github)
+        self.assertNotIn("USE_BIOMETRIC", foss)
+        self.assertNotIn("USE_BIOMETRIC", github)
+        self.assertIn("ENABLE_BIOMETRIC', 'false'", gradle)
+        self.assertNotIn("ENABLE_BIOMETRIC', 'true'", gradle)
+        self.assertIn("androidx.biometric", gradle)
+        self.assertIn("Nothing auto-mounts", main)
+        self.assertIn("ENABLE_OTG_DISK", gradle)
+        self.assertIn("OtgVolumePanel", main)
+        self.assertIn("moylali", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgUsb.kt"))
+        self.assertIn("/vcport-otg-dev/", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgBlockStore.kt"))
+        self.assertIn("bindFile", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgBlockStore.kt"))
+        self.assertIn("testingInjectFakeUsb", main)
+        self.assertIn("testTag(\"scan_usb\")", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgVolumePanel.kt"))
+        self.assertIn("testTag(\"otg_partition\")", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgVolumePanel.kt"))
+        self.assertIn("class FakeUsbUiTest", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/FakeUsbUiTest.kt"))
+        self.assertIn("class UiWalkSuite", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/UiWalkSuite.kt"))
+        walk = read("ports/scripts/run-ui-walk.sh")
+        self.assertIn("UiWalkSuite", walk)
+        self.assertIn("android-dev.sh", walk)
+        self.assertIn("vcport_ensure_emulator", walk)
+        self.assertIn("vcport_resolve_java", read("ports/scripts/android-dev.sh"))
+        emu = read("ports/scripts/android-dev.sh")
+        self.assertIn("no-snapshot-load", emu)
+        self.assertIn("swiftshader_indirect", emu)
+        self.assertIn("nohup", emu)
+        self.assertIn("do not start a second emulator", emu)
+        self.assertIn("sys.boot_completed", emu)
+        self.assertIn("OtgAbsentAndPreviewTests", walk)
+        self.assertIn("lockSession()", read("ports/ios/VCPortTests/OtgAbsentAndPreviewTests.swift"))
+        self.assertIn("Whole-disk Open is not on iPhone", read("ports/ios/VCPort/ContentView.swift"))
+        self.assertIn("enableOtgDisk: Bool { false }", read("ports/ios/VCPort/FossConfig.swift"))
+        self.assertIn("class OtgAbsentAndPreviewTests", read("ports/ios/VCPortTests/OtgAbsentAndPreviewTests.swift"))
+        self.assertIn("phase 2 probe MBR", read("ports/shared/test_otg_usb_main.cpp"))
+        self.assertIn("phase 12 no auto-mount", read("ports/shared/test_otg_usb_main.cpp"))
+        self.assertIn("vc_otg_usb_test", read("ports/shared/CMakeLists.txt"))
+        self.assertNotIn("/proc/self/fd/${", main)
+        cite = read("ports/docs/OTG-MASTER.md")
+        self.assertIn("https://github.com/moylali/OTGMaster", cite)
+        self.assertIn("moylali", cite)
+        self.assertIn("GPL-2.0-or-later", cite)
+        self.assertIn("no auto-mount", cite.lower())
+        self.assertFalse("USB_DEVICE_ATTACHED" in foss)
+        self.assertFalse("USB_DEVICE_ATTACHED" in github)
+
+    def test_in_app_preview_stays_inside_app(self) -> None:
+        android = read("ports/android/app/src/main/java/dev/shivampingale/vcport/InAppPreview.kt")
+        ios = read("ports/ios/VCPort/InAppPreview.swift")
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         gradle = read("ports/android/app/build.gradle")
-        manifest = read("ports/android/app/src/main/AndroidManifest.xml")
-        plist = read("ports/ios/VCPort/Info.plist")
-        self.assertNotIn("androidx.biometric", gradle)
-        self.assertNotIn("USE_BIOMETRIC", manifest)
-        self.assertNotIn("USE_FINGERPRINT", manifest)
-        self.assertNotIn("NSFaceIDUsageDescription", plist)
-        self.assertNotIn("BiometricPrompt", main)
-        self.assertNotIn("BiometricStore", view)
-        self.assertNotIn("Type REMEMBER", main)
-        self.assertNotIn("Type REMEMBER", view)
+        self.assertIn("ENABLE_IN_APP_PREVIEW", gradle)
+        self.assertIn("View in app", main)
+        self.assertIn("View in app", view)
+        self.assertIn("testTag(\"view_in_app\")", main)
+        self.assertIn("testTag(\"in_app_preview\")", android)
+        self.assertIn("portTag(\"view_in_app\")", view)
+        self.assertNotIn("Intent.ACTION_VIEW", android)
+        self.assertNotIn("startActivity(", android)
+        self.assertNotIn("UIDocumentInteractionController", ios)
+        self.assertNotIn("QuickLook", ios)
+        self.assertIn("InAppPreview.DIR", read("ports/android/app/src/main/java/dev/shivampingale/vcport/Hardening.kt"))
+        self.assertIn("InAppPreview.wipe()", view)
+        self.assertIn("VCPortEnableInAppPreview", read("ports/ios/VCPort/Info.plist"))
+        self.assertIn("previewTextFromVolumeAndUsbSlot", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/InAppPreviewTest.kt"))
+        self.assertIn("testPreviewTextFromVolume", read("ports/ios/VCPortTests/InAppPreviewTests.swift"))
+
+    def test_otg_merge_switches_are_modular(self) -> None:
+        cmake = read("ports/shared/CMakeLists.txt")
+        gradle = read("ports/android/app/build.gradle")
+        docs = read("ports/docs/OTG-MASTER.md")
+        self.assertIn("option(VC_PORT_OTG", cmake)
+        self.assertIn("ENABLE_OTG_DISK", gradle)
+        self.assertIn("vc_otg_stub.cpp", cmake)
+        self.assertIn("OtgVolumePanel.kt", docs)
+        self.assertIn("Merge into master later", docs)
 
     def test_no_gms_firebase_play_integrity(self) -> None:
         blob = ""
@@ -676,9 +771,22 @@ class IosHighThreatTests(unittest.TestCase):
         self.assertNotIn("com.apple.developer.networking.networkextension", ent)
         self.assertNotIn("icloud", ent.lower())
 
-    def test_foss_update_check_defaults_off(self) -> None:
+    def test_ios_has_no_whole_disk_usb(self) -> None:
+        view = read("ports/ios/VCPort/ContentView.swift")
         foss = read("ports/ios/VCPort/FossConfig.swift")
-        self.assertIn("?? false", foss)
+        native = read("ports/ios/build-native.sh")
+        cmake = read("ports/shared/CMakeLists.txt")
+        self.assertIn("See OTG Master", view)
+        self.assertNotIn("moylali", view)
+        self.assertNotIn("github.com/moylali", view)
+        self.assertNotIn("Scan USB", view)
+        self.assertNotIn("/vcport-otg-dev", view)
+        self.assertIn("enableOtgDisk: Bool { false }", foss)
+        self.assertIn("-DVC_PORT_OTG=OFF", native)
+        self.assertIn("CMAKE_SYSTEM_NAME STREQUAL \"iOS\"", cmake)
+        self.assertIn("vc_otg_stub.cpp", cmake)
+        self.assertIn("View in app", view)
+        self.assertIn("enableInAppPreview", foss)
 
     def test_compelled_biometrics_copy(self) -> None:
         view = read("ports/ios/VCPort/ContentView.swift")
@@ -766,6 +874,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
 
     def test_volume_tools_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
         header = read("ports/shared/vc_mobile.h")
@@ -835,6 +944,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
 
     def test_desktop_file_ops_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
         header = read("ports/shared/vc_mobile.h")

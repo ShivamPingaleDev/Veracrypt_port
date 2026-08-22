@@ -13,6 +13,9 @@ if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/libexec/java_home ]; then
 		export JAVA_HOME="$_jh"
 	fi
 fi
+# shellcheck disable=SC1091
+. "$PORTS/scripts/android-dev.sh"
+vcport_resolve_java
 export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
 export PATH="${JAVA_HOME:+$JAVA_HOME/bin:}$PATH"

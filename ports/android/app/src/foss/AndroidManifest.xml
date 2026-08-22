@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-    <!-- FOSS production build: no network. Updates are a rebuild from source. -->
+    <!-- FOSS experimental: no network, no biometrics. USB disk is opt-in in the app. -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <application>
+        <provider
+            android:name=".VolumeDocumentsProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+    </application>
 </manifest>

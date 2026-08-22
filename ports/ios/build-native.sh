@@ -21,7 +21,8 @@ build_one() {
 		-DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
 		-DCMAKE_OSX_SYSROOT="$SDK" \
 		-DCMAKE_BUILD_TYPE=Release \
-		-DVC_SRC="$SRC"
+		-DVC_SRC="$SRC" \
+		-DVC_PORT_OTG=OFF
 	cmake --build "${SLICE}/cmake" --target vc_mobile
 	cp "${SLICE}/cmake/libvc_mobile.a" "${SLICE}/libvc_mobile.a"
 	# Xcode pre-build script still links ${OUT}/libvc_mobile.a for the active SDK.

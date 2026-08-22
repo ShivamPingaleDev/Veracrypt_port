@@ -27,7 +27,7 @@ cd ports/android
 ./gradlew :app:assembleFossRelease
 ```
 
-High-threat defaults: [ports/THREAT-MODEL.md](ports/THREAT-MODEL.md). There is no DocumentsProvider export. Browse FAT or exFAT from the in-app list only.
+High-threat defaults: [ports/THREAT-MODEL.md](ports/THREAT-MODEL.md). Master has no DocumentsProvider export. Branch `experimental-otg-master` adds Android USB whole-disk Open (no auto-mount) and in-app preview on both phones. See OTG Master: [ports/docs/OTG-MASTER.md](ports/docs/OTG-MASTER.md). iOS has no whole-disk USB.
 
 Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](ports/FOSS.md). How to keep the repos public: [ports/PUBLIC.md](ports/PUBLIC.md). Emulator UI shots: [ports/docs/screenshots/](ports/docs/screenshots/).
 
@@ -35,7 +35,7 @@ Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](port
 
 `ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Each Apple user **signs their own** IPA with their Apple ID (AltStore / SideStore or Xcode Team). The GitHub IPA is unsigned on purpose. iPad Simulator: `ports/ios/run_ipad_sim.sh`. Device sideload under your name: Xcode Team, or `VC_PORT_IOS_TEAM=YOUR10CHARID ports/ios/sideload-sign.sh`. Parallel Android + iOS: `ports/scripts/build-phones.sh`. See [ports/FOSS.md](ports/FOSS.md), [ports/PUBLIC.md](ports/PUBLIC.md), and `ports/ios/README.md`.
 
-The SwiftUI app uses the same `vc_mobile` C API. Fingerprint / Face ID unlock is on `experimental-biometrics`, not master.
+The SwiftUI app uses the same `vc_mobile` C API. Fingerprint / Face ID unlock is off (`VCPortEnableBiometrics` false). `experimental-biometrics` is **stale**. A personal C CLI that links the same `libvc_mobile` is `experimental-pure-c` (`ports/pure-c/`).
 
 ## Offline-first
 

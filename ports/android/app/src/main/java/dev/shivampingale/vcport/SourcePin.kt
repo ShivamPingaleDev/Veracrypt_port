@@ -10,7 +10,7 @@ package dev.shivampingale.vcport
  *   BuildConfig.UPSTREAM_GIT
  *   BuildConfig.UPSTREAM_RELEASES
  *
- * See ports/UPSTREAM.md. Live Check for updates is on experimental-biometrics.
+ * See ports/UPSTREAM.md. experimental-biometrics is stale; this APK stays offline.
  */
 object SourcePin {
     val repo: String get() = BuildConfig.SOURCE_REPO

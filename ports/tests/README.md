@@ -4,7 +4,8 @@ There is no device farm. These run on a laptop or in GitHub Actions without a
 phone, an iOS simulator.
 
 ```
-ports/tests/run-all.sh              # full host pass (CI)
+ports/tests/run-all.sh              # full host pass on a laptop (wrap + volumes + emulator if present)
+# GitHub Actions: host-contracts Python only (no wrap-test, no host-macos)
 python3 ports/tests/test_quality.py # taxonomy + property/fuzz
 ```
 

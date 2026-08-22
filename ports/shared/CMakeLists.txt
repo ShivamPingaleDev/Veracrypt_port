@@ -4,6 +4,9 @@ project(vc_mobile C CXX)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_C_STANDARD 11)
 
+# OFF on master later: keep File.cpp OTG dispatch inert and skip the USB sim test.
+option(VC_PORT_OTG "Whole-disk USB File slots (/vcport-otg-dev)" ON)
+
 if(NOT VC_SRC)
 	foreach(_candidate
 		"${CMAKE_CURRENT_SOURCE_DIR}/../../src"
@@ -79,6 +82,16 @@ add_library(vc_mobile STATIC
 	${VC_COMMON}
 )
 
+# Whole-disk USB slots are Android-only. iOS always uses the stub.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+	set(VC_PORT_OTG OFF)
+endif()
+if(VC_PORT_OTG)
+	target_sources(vc_mobile PRIVATE vc_otg_dev.cpp)
+	target_compile_definitions(vc_mobile PUBLIC VC_PORT_OTG=1)
+else()
+	target_sources(vc_mobile PRIVATE vc_otg_stub.cpp)
+endif()
 target_compile_options(vc_mobile PRIVATE -fPIC -fno-strict-aliasing -fstack-protector-strong -fno-common)
 # FORTIFY needs -O1+. Host Debug stays -O0; Android arm Debug already forces -O2.
 if(CMAKE_BUILD_TYPE MATCHES "Release|RelWithDebInfo|MinSizeRel")
@@ -160,6 +173,10 @@ elseif(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 	target_link_libraries(vc_mobile PRIVATE Threads::Threads)
 	add_executable(vc_volume_test test_volume_main.cpp)
 	target_link_libraries(vc_volume_test PRIVATE vc_mobile Threads::Threads)
+	if(VC_PORT_OTG)
+		add_executable(vc_otg_usb_test test_otg_usb_main.cpp)
+		target_link_libraries(vc_otg_usb_test PRIVATE vc_mobile Threads::Threads)
+	endif()
 	add_executable(vc_lifecycle_test test_lifecycle_main.cpp)
 	target_link_libraries(vc_lifecycle_test PRIVATE vc_mobile Threads::Threads)
 	add_executable(vc_crypto_safety_test test_crypto_safety_main.cpp mobile_mocks.cpp)

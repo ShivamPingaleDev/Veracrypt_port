@@ -3,12 +3,14 @@
 Kotlin / Jetpack Compose client with:
 
 - VeraCrypt volume core via NDK (`shared/`)
-- Password, PIM, keyfiles, and mount options (backup header, read-only, TrueCrypt Mode, hidden-volume protection). Fingerprint unlock is on `experimental-biometrics`, not master.
-- In-app FAT or exFAT folder browse, extract, copy/move (including Copy to volume / Move to volume between several mounted containers, and Copy/Move several files from or to the device), New folder / Rename / Delete / Properties, and wipe free space. Files larger than 4 GiB need exFAT. This app cannot mount a whole USB disk. Several containers can stay mounted in one session (up to 8).
+- Password, PIM, keyfiles, and mount options (backup header, read-only, TrueCrypt Mode, hidden-volume protection). No fingerprint extra on this branch. `experimental-biometrics` is **stale**.
+- In-app FAT or exFAT folder browse, extract, copy/move (including Copy to volume / Move to volume between several mounted containers, and Copy/Move several files from or to the device), New folder / Rename / Delete / Properties, and wipe free space. Files larger than 4 GiB need exFAT. Several containers can stay mounted in one session (up to 8).
+- **This experimental branch** can open a whole USB mass-storage disk (tap Scan USB disks, pick a partition, Open). Idea from [OTG Master](https://github.com/moylali/OTGMaster) by **moylali**. Nothing auto-mounts. Optional Files-app browse is a DocumentsProvider (off until you tick it). See [docs/OTG-MASTER.md](../docs/OTG-MASTER.md).
+- Mounted-tab **View in app** previews a decrypted file inside VC Port (image, text, PDF, audio, video). It does not open VLC or Files.
 - System share sheet for decrypted files inside a volume, and **Share encrypted file** to send `.hc` / `.tc` / `.vera` as-is (no unlock)
 - In-memory password generator that never saves history
 - Incoming share / open: other apps can send a file into VC Port
-- In-app FAT browser only (no DocumentsProvider; that was a seizure leak). Copy/move uses the system file picker. Android will not let a third-party app attach a volume as a folder other apps can browse.
+- Fingerprint / face extra: **off** (foss and github). Harden USB + preview first.
 
 FOSS production flavor (no `INTERNET` permission, no Play libraries):
 

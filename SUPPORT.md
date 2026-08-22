@@ -1,6 +1,6 @@
 # Support VC Port (optional)
 
-VC Port is **free**. Support helps the author keep working on it; it does **not** unlock features or stronger encryption. These links are on GitHub only — not inside the app.
+VC Port is **100% free**. Same features for everyone. Support helps the author keep working on it; it does **not** unlock features or stronger encryption. These links are on GitHub only — not inside the app.
 
 ## Links
 

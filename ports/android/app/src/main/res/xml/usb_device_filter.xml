@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Filter for the USB permission helper only. Do not attach this to
+         USB_DEVICE_ATTACHED — this experimental branch never auto-mounts. -->
+    <usb-device class="8" subclass="6" protocol="80" />
+</resources>

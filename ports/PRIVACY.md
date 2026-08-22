@@ -12,4 +12,4 @@ VC Port does not collect personal data.
 
 High-threat / seizure profile: [THREAT-MODEL.md](THREAT-MODEL.md).
 
-Master phone apps do not fetch `version.json`. In-app **Check for updates** lives on `experimental-biometrics`.
+Master phone apps do not fetch `version.json`. This branch also stays offline (`ENABLE_UPDATE_CHECK` is false). `experimental-biometrics` is **stale**.

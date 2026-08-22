@@ -35,6 +35,12 @@
 	<true/>
 	<key>VCPortEnableUpdateCheck</key>
 	<false/>
+	<key>VCPortEnableBiometrics</key>
+	<false/>
+	<key>VCPortEnableInAppPreview</key>
+	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID can unlock stored volume factors on this experimental IPA when VCPortEnableBiometrics is on. A compelled face still wins.</string>
 	<key>VCPortSourceRepo</key>
 	<string>https://github.com/ShivamPingaleDev/Veracrypt_port</string>
 	<key>VCPortUpdateManifest</key>

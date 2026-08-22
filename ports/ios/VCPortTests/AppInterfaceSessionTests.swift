@@ -3,11 +3,11 @@ import UIKit
 import XCTest
 @testable import VCPort
 
-/// Person session on the iPad Simulator through the app UI: basket + nested
+/// Person session on the iPad Simulator through the app UI (10 phases): basket + nested
 /// volume, nested folders, save wipes secrets, fill files, leave and reopen,
 /// decrypt, mount several, Copy to volume / Move to volume, hidden volume
 /// files, header backup/restore, KDF change, add/remove password and
-/// keyfiles. Does not tap Panic wipe. Does not start Check for updates.
+/// keyfiles, then idle / in-volume hash / PIM estimate. Does not tap Panic wipe. Does not start Check for updates.
 final class AppInterfaceSessionTests: XCTestCase {
     func testCreateSaveWipeReopenMountTransferAndSecurity() {
         continueAfterFailure = false
@@ -176,6 +176,10 @@ final class AppInterfaceSessionTests: XCTestCase {
         waitUntil(15) {
             t.entryNames().contains { $0.localizedCaseInsensitiveContains("INBOX") }
         }
+
+        onMain { t.selectTab(3) }
+        onMain { t.openMountedSlot() }
+        onMain { t.selectMountSlot(0) }
 
         onMain { t.selectTab(0) }
         onMain { t.clearKeyfiles() }
@@ -418,6 +422,15 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.selectTab(3) }
         onMain { t.wipeFreeSpace() }
         waitStatus("Read-only volumes refuse", 30)
+
+        let memoHashName = onMainValue { t.entryNames() }.first { $0.localizedCaseInsensitiveContains("MEMO") }!
+        onMain { t.hashSelected(memoHashName) }
+        waitStatus("SHA-256 in volume", 60)
+
+        onMain { t.selectTab(2) }
+        waitUntil(8) { t.pimEstimate().contains("500") }
+        onMain { t.fireIdleTimeout() }
+        waitStatus("Idle timeout", 15)
 
         XCTAssertFalse(onMainValue { t.status() }.localizedCaseInsensitiveContains("Check for updates"))
         try? FileManager.default.removeItem(at: work)

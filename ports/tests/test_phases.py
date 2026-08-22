@@ -46,9 +46,10 @@ class Phase1HonestyFreezeTests(unittest.TestCase):
         self.assertNotIn("softprops/action-gh-release", wf)
         self.assertIn("No GitHub Release APK attach", wf)
 
-    def test_docs_do_not_claim_documents_provider(self) -> None:
+    def test_docs_experimental_documents_provider(self) -> None:
         self.assertNotIn("DocumentsProvider stub", read("ports/android/README.md"))
-        self.assertIn("no DocumentsProvider", read("ports/android/README.md"))
+        self.assertIn("DocumentsProvider", read("ports/android/README.md"))
+        self.assertIn("https://github.com/moylali/OTGMaster", read("ports/android/README.md"))
         contrib = read("ports/CONTRIBUTING.md")
         self.assertIn("5. Report security issues", contrib)
         self.assertIn("SECURITY.md", contrib)
@@ -133,7 +134,7 @@ class Phase3FatFolderTests(unittest.TestCase):
         self.assertNotIn('Button("Dismount") { closeVolume() }', ios)
         self.assertIn("wipeSessionFiles()", ios)
         self.assertIn("createPasswordState.value = \"\"", android)
-        self.assertNotIn("BiometricStore.deleteAll()", ios)
+        self.assertIn("FossConfig.enableBiometrics", ios)
         self.assertIn("!truncated!", android)
         self.assertIn("Load more", android)
         self.assertIn("listDir", ios)
@@ -157,6 +158,8 @@ class Phase3FatFolderTests(unittest.TestCase):
         self.assertIn("Select files", android)
         self.assertIn("Select files", ios)
         self.assertNotIn("VolumeDocumentsProvider", read("ports/android/app/src/main/AndroidManifest.xml"))
+        self.assertIn("VolumeDocumentsProvider", read("ports/android/app/src/foss/AndroidManifest.xml"))
+        self.assertNotIn("USB_DEVICE_ATTACHED", read("ports/android/app/src/main/AndroidManifest.xml"))
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("VC_LIST_UI_MAX", jni)
         self.assertIn("vc_list_dir_from", jni)
@@ -218,6 +221,9 @@ class Phase5IosTests(unittest.TestCase):
         self.assertIn("Not enough memory to open the volume.", view)
         self.assertIn("Missing path or password argument.", view)
         self.assertIn("does not install itself", view)
+        self.assertIn("private var sessionRoot:", view)
+        self.assertIn("private var sessionPickers:", view)
+        self.assertIn("private var sessionDialogs:", view)
         self.assertIn("sync-upstream.sh", read("ports/UPSTREAM.md"))
 
     def test_ipad_simulator_and_sideload_sign(self) -> None:
@@ -282,13 +288,16 @@ class Phase7ManifestTests(unittest.TestCase):
 
 
 class Phase8CiTests(unittest.TestCase):
-    def test_ci_runs_host_tests_on_linux_and_macos(self) -> None:
+    def test_ci_runs_host_contracts_not_wrap_or_macos(self) -> None:
         wf = read(".github/workflows/vcport.yml")
-        self.assertIn("wrap-test:", wf)
-        self.assertIn("host-macos:", wf)
+        self.assertIn("host-contracts:", wf)
+        self.assertIn("fetch-tags: true", wf)
+        self.assertIn("git fetch --tags --force origin", wf)
+        self.assertNotIn("wrap-test:", wf)
+        self.assertNotIn("host-macos:", wf)
+        self.assertIn("python3 -m unittest", wf)
         self.assertIn("macos-latest", wf)
-        self.assertIn("ports/tests/run-all.sh", wf)
-        self.assertIn("apt-get install -y g++ python3 cmake", wf)
+        self.assertNotIn("ports/tests/run-all.sh", wf)
         self.assertIn("assembleFossRelease", wf)
         self.assertIn("assembleGithubRelease", wf)
         self.assertNotIn("assembleStyledRelease", wf)
@@ -304,6 +313,7 @@ class Phase8CiTests(unittest.TestCase):
         self.assertIn("src/Main/**", wf)
         self.assertIn("src/Driver/**", wf)
         self.assertIn("SECURITY.md", wf)
+        self.assertIn("experimental-otg-master", wf)
 
     def test_ci_watches_official_veracrypt_releases(self) -> None:
         wf = read(".github/workflows/upstream-overlay.yml")
@@ -478,6 +488,14 @@ class Phase10RelaunchTests(unittest.TestCase):
             cwd=ROOT,
             text=True,
         ).strip()
+        if not tags:
+            all_tags = subprocess.check_output(
+                ["git", "tag", "-l"],
+                cwd=ROOT,
+                text=True,
+            ).strip()
+            if not all_tags:
+                self.skipTest("no git tags in this clone (fetch-tags: true on CI)")
         self.assertEqual(tags, tag)
 
 

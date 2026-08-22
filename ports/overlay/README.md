@@ -12,7 +12,7 @@ Replacements today:
 
 | Overlay path | Why |
 | --- | --- |
-| `Platform/Unix/File.cpp` | `TC_IOS` must not use macOS `sys/disk.h` / DKIOC |
+| `Platform/Unix/File.cpp` | `TC_IOS` must not use macOS `sys/disk.h` / DKIOC. On this experimental branch, `/vcport-otg-dev/N` is a USB callback (not `/proc/self/fd`). |
 | `Common/Token.cpp` | No PKCS#11 / EMV smart-card keyfiles |
 | `Common/SecurityToken.h` | Same: official `Keyfile.cpp` includes this name |
 | `Common/EMVToken.h` | Same |

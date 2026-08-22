@@ -15,8 +15,8 @@ import java.security.KeyStore
  * of a casual seizure and of forensic leftovers.
  *
  * No backdoor: this object never opens a socket, never listens, and never
- * phones home. Master builds have no INTERNET permission. Live Check for
- * updates is on experimental-biometrics.
+ * phones home. Master builds have no INTERNET permission. This branch
+ * stays offline too. experimental-biometrics is stale.
  */
 object Hardening {
     fun protectWindow(activity: Activity) {
@@ -60,6 +60,7 @@ object Hardening {
         wipeDir(File(context.cacheDir, "unwrapped"))
         wipeDir(File(context.cacheDir, "share"))
         wipeDir(File(context.cacheDir, "wraps"))
+        wipeDir(File(context.cacheDir, InAppPreview.DIR))
         context.cacheDir.listFiles()?.forEach { file ->
             if (file.isFile && (
                     file.name.startsWith("wrap-in-") ||
