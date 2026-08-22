@@ -206,8 +206,16 @@ struct ContentView: View {
                 holdLock = false
                 if case .success(let urls) = result {
                     urls.forEach { _ = $0.startAccessingSecurityScopedResource() }
-                    for url in urls where !keyfileURLs.contains(url) {
-                        keyfileURLs.append(url)
+                    var skipped: [String] = []
+                    for url in urls {
+                        if alreadyHasKeyfile(url, in: keyfileURLs) {
+                            skipped.append(url.lastPathComponent)
+                        } else {
+                            keyfileURLs.append(url)
+                        }
+                    }
+                    if !skipped.isEmpty {
+                        status = "Already in this session: \(skipped.joined(separator: ", ")). Remove it first. VeraCrypt mixes every listed keyfile — the same file twice is a different mix."
                     }
                 }
             }
@@ -250,10 +258,17 @@ struct ContentView: View {
                 holdLock = false
                 if case .success(let urls) = result {
                     urls.forEach { _ = $0.startAccessingSecurityScopedResource() }
-                    for url in urls where !hiddenKeyfileURLs.contains(url) {
-                        hiddenKeyfileURLs.append(url)
+                    var skipped: [String] = []
+                    for url in urls {
+                        if alreadyHasKeyfile(url, in: hiddenKeyfileURLs) {
+                            skipped.append(url.lastPathComponent)
+                        } else {
+                            hiddenKeyfileURLs.append(url)
+                        }
                     }
-                    status = "Nested keyfile(s) added. First 1 MiB, same as VeraCrypt."
+                    status = skipped.isEmpty
+                        ? "Nested keyfile(s) added. First 1 MiB, same as VeraCrypt."
+                        : "Already in this session: \(skipped.joined(separator: ", ")). Remove it first. VeraCrypt mixes every listed keyfile — the same file twice is a different mix."
                 }
             }
             .fileImporter(
@@ -675,10 +690,9 @@ struct ContentView: View {
                 SystemFiles.exportCopy(url: dest) { saved in
                     holdLock = false
                     incomingFile = nil
-                    containerURL = dest
                     if let saved {
                         wipeCreateSecrets()
-                        status = "Saved \(saved.lastPathComponent). Type the volume password and Open volume. Create secrets were wiped."
+                        status = "Saved \(saved.lastPathComponent). Choose the volume you want, then Open. Create secrets were wiped."
                     }
                 }
             }
@@ -1207,8 +1221,9 @@ struct ContentView: View {
         return importErrorMessage(name, rc, handle: handle)
     }
 
-    /// After a successful Files save: forget create/open secrets. Keep the local
-    /// container URL so Open volume still works after they re-type the password.
+    /// After a successful Files save: forget create/open secrets, drop the
+    /// selected container, and wipe the temporary create copy. The user picks
+    /// the saved file with Choose container.
     func wipeCreateSecrets() {
         createPassword = ""
         createHiddenPassword = ""
@@ -1228,6 +1243,24 @@ struct ContentView: View {
         for url in keys where url.path.hasPrefix(tmp) {
             wipeFile(url)
         }
+        if let url = containerURL, isTemporaryContainer(url) {
+            wipeFile(url)
+        }
+        containerURL = nil
+        incomingFile = nil
+        createHidden = false
+        createCipher = VcMobileBridge.defaultCipher
+        createKdf = VcMobileBridge.defaultKdf
+        createFilesystem = "FAT"
+        createFileName = "volume.hc"
+        createSizeAmount = "16"
+        createSizeUnit = .mib
+        createHiddenSizeAmount = "4"
+        createHiddenSizeUnit = .mib
+        entropyPercent = 0
+        entropyMarks = []
+        VcMobileBridge.resetEntropy()
+        selectedTab = 0
         forgetUnlock()
     }
 
@@ -1991,11 +2024,29 @@ struct ContentView: View {
         status = VcMobileBridge.volumeInfo(handle) ?? "Could not read volume properties."
     }
 
+    func alreadyHasKeyfile(_ url: URL, in list: [URL]) -> Bool {
+        let path = url.standardizedFileURL.path
+        if list.contains(where: { $0.standardizedFileURL.path == path }) {
+            return true
+        }
+        guard let incoming = try? Data(contentsOf: url, options: [.mappedIfSafe]) else {
+            return list.contains(url)
+        }
+        let cap = incoming.prefix(1024 * 1024)
+        return list.contains { existing in
+            guard let have = try? Data(contentsOf: existing, options: [.mappedIfSafe]) else {
+                return false
+            }
+            return have.prefix(1024 * 1024) == cap
+        }
+    }
+
     func generateKeyfile(nested: Bool) {
         let n = min(max(Int(keyfileGenCount.filter(\.isNumber)) ?? 1, 1), 8)
         let base = keyfileGenName.trimmingCharacters(in: .whitespacesAndNewlines)
         let pattern = base.isEmpty ? "keyfile.bin" : base
         var urls: [URL] = []
+        var current = nested ? hiddenKeyfileURLs : keyfileURLs
         for i in 1...n {
             let name: String
             if n == 1 {
@@ -2007,12 +2058,17 @@ struct ContentView: View {
                 name = "\(stem)-\(i)\(ext)"
             }
             let dest = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+            if alreadyHasKeyfile(dest, in: current) {
+                status = "Already in this session: \(name). Remove it first, or change the name to generate another. VeraCrypt mixes every listed keyfile — the same file twice is a different mix."
+                return
+            }
             let rc = VcMobileBridge.generateKeyfile(path: dest.path)
             guard rc == 0 else {
                 status = "Keyfile generator failed."
                 return
             }
             urls.append(dest)
+            current.append(dest)
         }
         if nested {
             hiddenKeyfileURLs.append(contentsOf: urls)
@@ -2284,9 +2340,8 @@ struct ContentView: View {
                 return false
             }
             incomingFile = nil
-            containerURL = dest
             wipeCreateSecrets()
-            status = "Saved \(dest.lastPathComponent). Type the volume password and Open volume. Create secrets were wiped."
+            status = "Saved \(dest.lastPathComponent). Choose the volume you want, then Open. Create secrets were wiped."
             selectedTab = 0
             return fm.fileExists(atPath: dest.path)
         }
@@ -2301,7 +2356,7 @@ struct ContentView: View {
             hiddenKeyfileURLs = []
         }
         testing.addKeyfiles = { urls in
-            for url in urls where !keyfileURLs.contains(url) {
+            for url in urls where !alreadyHasKeyfile(url, in: keyfileURLs) {
                 keyfileURLs.append(url)
             }
         }

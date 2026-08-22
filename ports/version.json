@@ -1,6 +1,6 @@
 {
-  "port_version": "0.3.11",
-  "android_version_code": 16,
+  "port_version": "0.3.12",
+  "android_version_code": 17,
   "upstream_name": "VeraCrypt",
   "upstream_git": "https://github.com/veracrypt/VeraCrypt.git",
   "upstream_releases": "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest",
@@ -9,7 +9,7 @@
   "upstream_commit": "b48e31f5b47da7d41025e3f0e02751675e15005a",
   "source_repo": "https://github.com/ShivamPingaleDev/Veracrypt_port",
   "update_manifest": "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json",
-  "notes": "VC Port 0.3.11 stable alpha: freeze maintenance on master — named app-storage errors, split Open/Mounted/Create/Tools, one session closer, verify-build.sh, Copy once no longer blocks Create. GitHub APKs remain debug-signed previews. Not unbreakable.",
+  "notes": "VC Port 0.3.12 stable alpha: same keyfile is not added twice in a session; Create save wipes secrets and does not leave the new file selected. GitHub APKs remain debug-signed previews. Not unbreakable.",
   "download_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
   "macos_url": "",
   "android_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",

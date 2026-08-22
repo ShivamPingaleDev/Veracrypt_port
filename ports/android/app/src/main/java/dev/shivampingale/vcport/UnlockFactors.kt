@@ -126,10 +126,23 @@ object KeyfileIo {
         return "$stem-$index$ext"
     }
 
+    fun sameBytes(file: File, bytes: ByteArray): Boolean {
+        if (!file.isFile || file.length() != bytes.size.toLong()) return false
+        return file.readBytes().contentEquals(bytes)
+    }
+
+    fun existingCopy(dir: File, bytes: ByteArray): File? {
+        return dir.listFiles()?.firstOrNull { sameBytes(it, bytes) }
+    }
+
     fun copyOwned(context: Context, uri: Uri): File? {
+        val bytes = readLimited(context, uri) ?: return null
+        val dir = keyfileDir(context)
+        existingCopy(dir, bytes)?.let { return it }
         val raw = ShareHelper.displayName(context, uri) ?: "keyfile.bin"
-        val dest = uniqueNamed(keyfileDir(context), raw)
-        return copyInto(context, uri, dest)
+        val dest = uniqueNamed(dir, raw)
+        dest.writeBytes(bytes)
+        return dest
     }
 
     fun copyUri(context: Context, uri: Uri): File? {

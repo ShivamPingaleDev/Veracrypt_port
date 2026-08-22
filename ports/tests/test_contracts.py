@@ -533,7 +533,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("ingestPickedContainer", view)
         self.assertIn("ensureContainerURL", view)
 
-    def test_wipe_create_secrets_after_save_keeps_cache_volume(self) -> None:
+    def test_wipe_create_secrets_after_save_drops_selected_volume(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         saver = main.split("val createSaver")[1].split("val toolSaver")[0]
@@ -541,7 +541,13 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("copyFileToUri", saver)
         self.assertNotIn("copyContainerAsync", saver)
         self.assertIn("Create secrets were wiped", saver)
-        self.assertIn("Type the volume password", saver)
+        self.assertIn("Choose the volume you want", saver)
+        self.assertIn("savedName", saver)
+        self.assertNotIn("Type the volume password and Open volume", saver)
+        wipe = main.split("private fun wipeCreateSecrets()")[1].split("private fun wipeRamSecrets()")[0]
+        self.assertIn("pathState.value = \"\"", wipe)
+        self.assertIn("containerUriState.value = null", wipe)
+        self.assertIn("resetCreateWizard()", wipe)
         self.assertIn('File(cacheDir, "containers")', main)
         self.assertIn("KeyfileIo.uniqueNamed", main)
         copy = main.split("private fun copyToCache")[1].split("\n}")[0]
@@ -549,9 +555,12 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertNotIn("File(cacheDir, name)", copy)
         ios_save = view.split("SystemFiles.exportCopy(url: dest)")[1].split("func openVolume()")[0]
         self.assertIn("wipeCreateSecrets()", ios_save)
-        self.assertIn("containerURL = dest", ios_save)
+        self.assertNotIn("containerURL = dest", ios_save)
         self.assertNotIn("containerURL = saved", ios_save)
         self.assertIn("Create secrets were wiped", ios_save)
+        self.assertIn("Choose the volume you want", ios_save)
+        ios_wipe = view.split("func wipeCreateSecrets()")[1].split("func clearMountOptions()")[0]
+        self.assertIn("containerURL = nil", ios_wipe)
         self.assertIn("Create form kept", main)
         self.assertIn("Create form kept", view)
 
@@ -1148,7 +1157,7 @@ class OverlayInventoryTests(unittest.TestCase):
 
 
 class FreezeArchitectureTests(unittest.TestCase):
-    """0.3.11 freeze: one tree, named cache errors, one closer, one Open suite."""
+    """0.3.12 freeze: one tree, named cache errors, one closer, one Open suite."""
 
     def test_verify_build_script_is_the_reviewer_path(self) -> None:
         script = read("ports/scripts/verify-build.sh")
@@ -1205,6 +1214,19 @@ class FreezeArchitectureTests(unittest.TestCase):
         self.assertIn("experimental-otg-master", backlog.lower())
         self.assertIn("ignore", backlog.lower())
         self.assertIn("master", upstream.lower())
+
+    def test_same_keyfile_is_not_added_twice_in_a_session(self) -> None:
+        android = read_android_ui()
+        ios = read_ios_ui()
+        for blob in (android, ios):
+            self.assertIn("Already in this session", blob)
+            self.assertIn("same file twice is a different mix", blob)
+        keys = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
+        self.assertIn("fun existingCopy", keys)
+        gen = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        gen = gen.split("internal fun generateSessionKeyfiles")[1].split("internal fun offerGenerated")[0]
+        self.assertNotIn("uniqueNamed", gen)
+        self.assertIn("alreadyHasKeyfile", ios)
 
 
 if __name__ == "__main__":

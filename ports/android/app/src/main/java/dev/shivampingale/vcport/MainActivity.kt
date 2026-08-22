@@ -269,11 +269,9 @@ class MainActivity : AppCompatActivity() {
         if (!dest.isFile || dest.length() != src.length()) return false
         runOnUiThread {
             incomingState.value = null
-            containerUriState.value = Uri.fromFile(dest)
-            containerLabelState.value = dest.name
             wipeCreateSecrets()
             statusState.value =
-                "Saved ${dest.name}. Type the volume password and Open volume. Create secrets were wiped."
+                "Saved ${dest.name}. Choose the volume you want, then Open. Create secrets were wiped."
             tabState.intValue = 0
         }
         return true
@@ -754,6 +752,7 @@ class MainActivity : AppCompatActivity() {
                 ) { uris: List<Uri> ->
                     val kept = keyfileUris.toMutableList()
                     var failed: String? = null
+                    val skipped = mutableListOf<String>()
                     for (uri in uris) {
                         ShareHelper.persistRead(this@MainActivity, uri)
                         val copied = KeyfileIo.copyOwned(this@MainActivity, uri)
@@ -761,20 +760,22 @@ class MainActivity : AppCompatActivity() {
                             failed = ShareHelper.displayName(this@MainActivity, uri) ?: "keyfile"
                         } else {
                             val owned = Uri.fromFile(copied)
-                            if (owned !in kept) kept += owned
+                            if (sessionHasKeyfile(kept, copied)) {
+                                skipped += copied.name
+                            } else {
+                                kept += owned
+                            }
                         }
                     }
                     keyfileUris = kept
-                    status = if (failed != null)
-                        "Could not read $failed. Pick it again, or open it from the Files app with VC Port. Any file can be a keyfile; VeraCrypt uses the first 1 MiB."
-                    else
-                        "Keyfile(s) added. Any file works; only the first 1 MiB is mixed, same as VeraCrypt on a computer."
+                    status = keyfileAddStatus(failed, skipped, nested = false)
                 }
                 val hiddenKeyfilePicker = rememberLauncherForActivityResult(
                     ActivityResultContracts.OpenMultipleDocuments()
                 ) { uris: List<Uri> ->
                     val kept = hiddenKeyfileUris.toMutableList()
                     var failed: String? = null
+                    val skipped = mutableListOf<String>()
                     for (uri in uris) {
                         ShareHelper.persistRead(this@MainActivity, uri)
                         val copied = KeyfileIo.copyOwned(this@MainActivity, uri)
@@ -782,14 +783,15 @@ class MainActivity : AppCompatActivity() {
                             failed = ShareHelper.displayName(this@MainActivity, uri) ?: "keyfile"
                         } else {
                             val owned = Uri.fromFile(copied)
-                            if (owned !in kept) kept += owned
+                            if (sessionHasKeyfile(kept, copied)) {
+                                skipped += copied.name
+                            } else {
+                                kept += owned
+                            }
                         }
                     }
                     hiddenKeyfileUris = kept
-                    status = if (failed != null)
-                        "Could not read $failed as a nested keyfile."
-                    else
-                        "Nested keyfile(s) added. Same rule as outer: first 1 MiB."
+                    status = keyfileAddStatus(failed, skipped, nested = true)
                 }
                 val basketPicker = rememberLauncherForActivityResult(
                     ActivityResultContracts.OpenMultipleDocuments()
@@ -823,14 +825,13 @@ class MainActivity : AppCompatActivity() {
                     ActivityResultContracts.CreateDocument("application/octet-stream")
                 ) { uri: Uri? ->
                     if (uri != null && path.isNotEmpty() && File(path).exists()) {
+                        val savedName = ShareHelper.displayName(this@MainActivity, uri)
+                            ?: File(path).name
                         ShareHelper.persistRead(this@MainActivity, uri)
                         if (copyFileToUri(File(path), uri)) {
                             incoming = null
-                            containerUri = uri
-                            containerLabel = ShareHelper.displayName(this@MainActivity, uri)
-                                ?: File(path).name
                             wipeCreateSecrets()
-                            status = "Saved $containerLabel. Type the volume password and Open volume. Create secrets were wiped."
+                            status = "Saved $savedName. Choose the volume you want, then Open. Create secrets were wiped."
                         } else {
                             status = "Created in app cache, but could not save a copy."
                         }
@@ -1800,10 +1801,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * After a successful CreateDocument save: forget create/open secrets so they
-     * are not sitting in RAM. Keep the selected cache path and wizard size/cipher
-     * so Open volume still works after they re-type the password.
-     * Cancelling the save picker must not call this.
+     * After a successful CreateDocument save: forget create/open secrets, drop
+     * the selected container, and wipe the app-cache copy. The user picks the
+     * saved file with Choose container. Cancelling the save picker must not
+     * call this.
      */
     private fun wipeCreateSecrets() {
         createPasswordState.value = ""
@@ -1826,6 +1827,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
         Hardening.wipeDir(File(cacheDir, "keyfiles"))
+        val cachePath = pathState.value
+        if (cachePath.isNotEmpty() && nativePathIsInternal(cachePath)) {
+            Hardening.wipeFile(File(cachePath))
+        }
+        pathState.value = ""
+        containerUriState.value = null
+        containerLabelState.value = ""
+        incomingState.value = null
+        resetCreateWizard()
+        tabState.intValue = 0
         forgetUnlock()
     }
 
@@ -2277,18 +2288,52 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun sessionHasKeyfile(uris: List<Uri>, file: File): Boolean {
+        val path = file.absolutePath
+        return uris.any { it.scheme == "file" && it.path == path }
+    }
+
+    private fun keyfileAddStatus(failed: String?, skipped: List<String>, nested: Boolean): String {
+        if (failed != null) {
+            return if (nested) {
+                "Could not read $failed as a nested keyfile."
+            } else {
+                "Could not read $failed. Pick it again, or open it from the Files app with VC Port. Any file can be a keyfile; VeraCrypt uses the first 1 MiB."
+            }
+        }
+        if (skipped.isNotEmpty()) {
+            return "Already in this session: ${skipped.joinToString()}. Remove it first, or change the name to generate another. VeraCrypt mixes every listed keyfile — the same file twice is a different mix."
+        }
+        return if (nested) {
+            "Nested keyfile(s) added. Same rule as outer: first 1 MiB."
+        } else {
+            "Keyfile(s) added. Any file works; only the first 1 MiB is mixed, same as VeraCrypt on a computer."
+        }
+    }
+
     internal fun generateSessionKeyfiles(countText: String, pattern: String, nested: Boolean): List<File> {
         val n = (countText.toIntOrNull() ?: 1).coerceIn(1, 8)
         val name = ShareHelper.sanitizeKeyfileName(pattern)
         val dir = KeyfileIo.keyfileDir(this)
+        val current = if (nested) hiddenKeyfileUrisState.value else keyfileUrisState.value
         val files = mutableListOf<File>()
+        val skipped = mutableListOf<String>()
         for (i in 1..n) {
-            val dest = KeyfileIo.uniqueNamed(dir, KeyfileIo.numberedName(name, i, n))
+            val dest = File(dir, KeyfileIo.numberedName(name, i, n))
+            if (sessionHasKeyfile(current, dest) || sessionHasKeyfile(files.map { Uri.fromFile(it) }, dest)) {
+                skipped += dest.name
+                continue
+            }
             if (NativeBridge.generateKeyfile(dest.absolutePath, 128) != 0) {
                 files.forEach { KeyfileIo.wipe(it) }
                 return emptyList()
             }
             files += dest
+        }
+        if (skipped.isNotEmpty() && files.isEmpty()) {
+            statusState.value =
+                "Already in this session: ${skipped.joinToString()}. Remove it first, or change the name to generate another. VeraCrypt mixes every listed keyfile — the same file twice is a different mix."
+            return emptyList()
         }
         val uris = files.map { Uri.fromFile(it) }
         if (nested) {

@@ -1,0 +1,1 @@
+VC Port 0.3.12 stable alpha: same keyfile is not added twice in a session; after Create save, secrets are wiped and you Choose the volume yourself. Session tests still cover the app interface. GitHub APKs stay debug-signed previews. Not unbreakable.

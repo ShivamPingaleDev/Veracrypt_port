@@ -291,8 +291,8 @@ class Phase8CiTests(unittest.TestCase):
     def test_ci_runs_host_contracts_not_wrap_or_macos(self) -> None:
         wf = read(".github/workflows/vcport.yml")
         self.assertIn("host-contracts:", wf)
-        self.assertIn("fetch-tags: true", wf)
-        self.assertIn("git fetch --tags --force origin", wf)
+        self.assertNotIn("fetch-tags: true", wf)
+        self.assertIn('git fetch origin "+refs/tags/*:refs/tags/*"', wf)
         self.assertNotIn("wrap-test:", wf)
         self.assertNotIn("host-macos:", wf)
         self.assertIn("python3 -m unittest", wf)
@@ -327,21 +327,21 @@ class Phase8CiTests(unittest.TestCase):
 
 
 class Phase9LegalVersionTests(unittest.TestCase):
-    def test_current_version_is_0_3_11(self) -> None:
+    def test_current_version_is_0_3_12(self) -> None:
         v = load_version()
-        self.assertEqual(v["port_version"], "0.3.11")
+        self.assertEqual(v["port_version"], "0.3.12")
         self.assertEqual(v["upstream_version"], "1.26.29")
         self.assertEqual(v["upstream_commit"], "b48e31f5b47da7d41025e3f0e02751675e15005a")
         self.assertEqual(v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
         self.assertEqual(v["upstream_tag"], "VeraCrypt_1.26.29")
         plist = read("ports/ios/VCPort/Info.plist")
-        self.assertIn("0.3.11", plist)
+        self.assertIn("0.3.12", plist)
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
-        self.assertEqual(v["android_version_code"], 16)
-        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/16.txt")
-        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 16")
+        self.assertEqual(v["android_version_code"], 17)
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/17.txt")
+        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 17")
         self.assertIn("session tests", notes.read_text(encoding="utf-8").lower())
         self.assertIn("not unbreakable", notes.read_text(encoding="utf-8").lower())
         self.assertIn("stable alpha", notes.read_text(encoding="utf-8").lower())
@@ -495,7 +495,7 @@ class Phase10RelaunchTests(unittest.TestCase):
                 text=True,
             ).strip()
             if not all_tags:
-                self.skipTest("no git tags in this clone (fetch-tags: true on CI)")
+                self.skipTest("no git tags in this clone")
         self.assertEqual(tags, tag)
 
 

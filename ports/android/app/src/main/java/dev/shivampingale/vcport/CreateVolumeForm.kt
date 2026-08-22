@@ -326,7 +326,9 @@ internal fun MainActivity.CreateVolumePane(
                 val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = false)
                 if (files.isEmpty()) {
 
-                    status = "Keyfile generator failed."
+                    if (!status.startsWith("Already in this session")) {
+                        status = "Keyfile generator failed."
+                    }
                 } else if (testingSkipSystemPickers) {
 
                     status = "Generated and added ${files.first().name}. Save a copy."
@@ -495,7 +497,9 @@ internal fun MainActivity.CreateVolumePane(
                     val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = true)
                     if (files.isEmpty()) {
 
-                        status = "Nested keyfile generator failed."
+                        if (!status.startsWith("Already in this session")) {
+                            status = "Nested keyfile generator failed."
+                        }
                     } else if (testingSkipSystemPickers) {
 
                         status = "Generated nested keyfile ${files.first().name}. Save a copy."

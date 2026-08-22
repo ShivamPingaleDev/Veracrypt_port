@@ -8,6 +8,15 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
+## 0.3.12
+
+Stable alpha: session keyfile mix stays one copy; Create save wipes and does not leave the new file selected.
+
+- Same keyfile picked or generated twice in one session stays one mix member (no `keyfile-2.key`). VeraCrypt would otherwise treat the extra copy as a different mix.
+- After Create save, secrets and the cache copy are wiped; the new file is not left selected. Choose container for the volume you want.
+- GitHub Actions tag builds no longer fail checkout (`fetch-tags` + tag push).
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.12.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.12-unsigned-preview.ipa`). Same `applicationId` as 0.3.11; it replaces the old install. Still alpha (not 1.0, not a store build).
+
 ## 0.3.11
 
 Stable alpha: freeze maintenance on **master** (not 1.0). Tools About stays text only — it does not open a browser.

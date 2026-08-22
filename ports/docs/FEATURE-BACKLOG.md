@@ -4,7 +4,7 @@ VC Port stays **100% free**. Optional support is GitHub-only (README / SUPPORT.m
 
 ## Feature freeze (still alpha)
 
-Started after **0.3.10**; freeze maintenance shipped in **0.3.11**. Still **stable alpha**, not 1.0, not a store build.
+Started after **0.3.10**; freeze maintenance shipped in **0.3.11**. Session keyfile and Create-save wipe shipped in **0.3.12**. Still **stable alpha**, not 1.0, not a store build.
 
 **One shipping branch:** freeze is **`master` only**. Ignore `experimental-otg-master` (OTG is already on master). Do not add commits to stale `experimental-biometrics` or `vcport-github`.
 
@@ -54,10 +54,10 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 
 ## Priority
 
-1. Record the 10-phase UI walk on 0.3.11
+1. Record the 10-phase UI walk on 0.3.12
 2. Production-signed FOSS APK (your keystore) and signed IPA from this Mac
 3. Later: transfer queue; metadata scrub only default-off on export copies
 
 ## Merge note
 
-Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11** on master. Later: metadata scrub, batch queue.
+Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11**; session keyfile and Create-save wipe in **0.3.12**. Later: metadata scrub, batch queue.

@@ -334,7 +334,9 @@ internal fun MainActivity.ToolsPane(
                 val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = false)
                 if (files.isEmpty()) {
 
-                    status = "Keyfile generator failed."
+                    if (!status.startsWith("Already in this session")) {
+                        status = "Keyfile generator failed."
+                    }
                 } else if (testingSkipSystemPickers) {
 
                     status = "Generated and added ${files.first().name}. Save a copy."
