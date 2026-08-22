@@ -285,13 +285,14 @@ class Phase7ManifestTests(unittest.TestCase):
 
 
 class Phase8CiTests(unittest.TestCase):
-    def test_ci_runs_host_tests_on_linux_and_macos(self) -> None:
+    def test_ci_runs_host_contracts_not_wrap_or_macos(self) -> None:
         wf = read(".github/workflows/vcport.yml")
-        self.assertIn("wrap-test:", wf)
-        self.assertIn("host-macos:", wf)
+        self.assertIn("host-contracts:", wf)
+        self.assertNotIn("wrap-test:", wf)
+        self.assertNotIn("host-macos:", wf)
+        self.assertIn("python3 -m unittest", wf)
         self.assertIn("macos-latest", wf)
-        self.assertIn("ports/tests/run-all.sh", wf)
-        self.assertIn("apt-get install -y g++ python3 cmake", wf)
+        self.assertNotIn("ports/tests/run-all.sh", wf)
         self.assertIn("assembleFossRelease", wf)
         self.assertIn("assembleGithubRelease", wf)
         self.assertNotIn("assembleStyledRelease", wf)
@@ -307,6 +308,7 @@ class Phase8CiTests(unittest.TestCase):
         self.assertIn("src/Main/**", wf)
         self.assertIn("src/Driver/**", wf)
         self.assertIn("SECURITY.md", wf)
+        self.assertIn("experimental-otg-master", wf)
 
     def test_ci_watches_official_veracrypt_releases(self) -> None:
         wf = read(".github/workflows/upstream-overlay.yml")

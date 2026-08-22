@@ -766,5 +766,58 @@ class AcceptanceHostTests(unittest.TestCase):
         self.assertNotIn("test_modern", runner)
 
 
+class PimAndSessionContractTests(unittest.TestCase):
+    def hmac_iterations(self, pim: int) -> int:
+        return 500_000 if pim <= 0 else pim * 1_000
+
+    def test_pim_hmac_formula_rows(self) -> None:
+        rows = ((0, 500_000), (-1, 500_000), (1, 1_000), (485, 485_000), (1000, 1_000_000))
+        for pim, want in rows:
+            with self.subTest(pim=pim):
+                self.assertEqual(self.hmac_iterations(pim), want)
+
+    def test_pim_estimator_on_both_phones(self) -> None:
+        kt = read("ports/android/app/src/main/java/dev/shivampingale/vcport/PimEstimator.kt")
+        sw = read("ports/ios/VCPort/PimEstimator.swift")
+        for blob in (kt, sw):
+            self.assertIn("500_000", blob)
+            self.assertIn("Not a crack-time estimate", blob)
+            self.assertIn("Argon2", blob)
+        self.assertIn("tools_pim_estimate", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
+        self.assertIn("tools_pim_estimate", read("ports/ios/VCPort/ContentView.swift"))
+
+    def test_nested_size_is_adjustable(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        self.assertIn("create_hidden_size", main)
+        self.assertIn("create_hidden_size", view)
+        self.assertIn("less than half the outer size", main)
+        self.assertIn("less than half the outer size", view)
+
+    def test_idle_and_read_only_banner_and_hash(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        for blob in (main, view):
+            self.assertIn("read_only_banner", blob)
+            self.assertIn("hash_in_volume", blob)
+            self.assertIn("Idle timeout", blob)
+        self.assertIn("PanicTileService", read("ports/android/app/src/main/AndroidManifest.xml"))
+        self.assertIn("BIND_QUICK_SETTINGS_TILE", read("ports/android/app/src/main/AndroidManifest.xml"))
+        self.assertIn("10-phase", read("ports/tests/UI-WALK.md"))
+        self.assertNotIn("wrap-test:", read(".github/workflows/vcport.yml"))
+        self.assertIn("100% free", read("SUPPORT.md"))
+        self.assertIn("actions/workflows/vcport.yml/badge.svg", read("README.md"))
+        self.assertIn("100% free", read("README.md"))
+
+    def test_session_walk_covers_new_tools(self) -> None:
+        android = read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/AppInterfaceSessionTest.kt")
+        ios = read("ports/ios/VCPortTests/AppInterfaceSessionTests.swift")
+        for blob in (android, ios):
+            self.assertIn("Idle timeout", blob)
+            self.assertIn("SHA-256 in volume", blob)
+        self.assertIn("create_hidden_size", android)
+        self.assertIn("read_only_banner", android)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1,6 +1,6 @@
 #!/bin/sh
 # One slow UI walk on Android and iOS at the same time.
-# 9-step session on both phones; this branch also runs fake USB (Android)
+# 10-phase session on both phones; this branch also runs fake USB (Android)
 # and no-whole-disk + View in app (iOS). Does not tap Panic wipe or
 # Check for updates. Does not run on GitHub Actions (no emulator there).
 # SLOW=1 also runs Android SlowHumanSessionTest (entropy scribble on screen).

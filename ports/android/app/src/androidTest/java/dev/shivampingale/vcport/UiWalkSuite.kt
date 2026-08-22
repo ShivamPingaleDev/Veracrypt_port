@@ -4,7 +4,7 @@ import org.junit.runner.RunWith
 import org.junit.runners.Suite
 
 /**
- * One Android UI walk: 9-step session, fake USB Open + View in app, in-app
+ * One Android UI walk: 10-phase session, fake USB Open + View in app, in-app
  * preview. Does not tap Panic wipe or Check for updates. Not a physical
  * OTG stick. Run both phones with ports/scripts/run-ui-walk.sh.
  */

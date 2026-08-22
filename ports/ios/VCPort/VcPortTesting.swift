@@ -89,6 +89,9 @@ final class VcPortTesting {
     var startPreview: () -> Void = {}
     var previewName: () -> String? = { nil }
     var otgDiskEnabled: () -> Bool = { false }
+    var fireIdleTimeout: () -> Void = {}
+    var hashSelected: (String) -> Void = { _ in }
+    var pimEstimate: () -> String = { "" }
     var coldStart: () -> Void = {
         NotificationCenter.default.post(name: .vcPortTestingColdStart, object: nil)
     }

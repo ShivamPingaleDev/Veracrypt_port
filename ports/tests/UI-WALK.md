@@ -8,14 +8,27 @@ ports/scripts/run-ui-walk.sh
 
 `SLOW=1` also scribbles the Android entropy pad (`SlowHumanSessionTest`). Does not tap Panic wipe or Check for updates.
 
-This is **not** GitHub Actions. CI still builds APK/IPA and runs host tests only. Emulator UI stays on this Mac so a push does not burn runner minutes.
+This is **not** GitHub Actions (no emulator there). CI builds APK/IPA and runs **host Python contracts** only. Run this walk on this Mac after each new feature.
+
+## 10 phases (session test)
+
+1. Basket + Create (cipher/KDF/PIM/disguise)
+2. Nested volume with **adjustable Nested size**
+3. Save wipes secrets
+4. Open / fill folders
+5. Home leave + reopen
+6. Several mounts + Copy/Move to volume
+7. Hidden-volume files
+8. Header backup / restore / KDF / keyfiles
+9. Read-only open + wipe refused + **read-only banner**
+10. SHA-256 in volume, PIM estimate, idle timeout (hook; does not wait a real minute)
 
 ## What is in the walk
 
 | Phone | Always | This branch (`experimental-otg-master`) |
 | --- | --- | --- |
-| Android | 9-step `AppInterfaceSessionTest` | Fake USB Open + View in app; in-app preview kinds/text |
-| iOS | 9-step `AppInterfaceSessionTests` | No whole-disk USB + file-container View in app; preview kinds/text |
+| Android | 10-phase `AppInterfaceSessionTest` | Fake USB Open + View in app; in-app preview kinds/text |
+| iOS | 10-phase `AppInterfaceSessionTests` | No whole-disk USB + file-container View in app; preview kinds/text |
 
 Fake USB is an injected MBR file on the emulator, not a physical stick. iOS never compiles whole-disk slots (`-DVC_PORT_OTG=OFF`).
 
@@ -38,11 +51,11 @@ Fake USB is an injected MBR file on the emulator, not a physical stick. iOS neve
 | Android `vcport-api35` | PASS `AppInterfaceSessionTest` (~105s on device) |
 | iOS iPhone 17 Pro sim | PASS `AppInterfaceSessionTests` (45.2s) |
 
-**experimental-otg-master** `db1d1d8a` plus this UI-walk hook commit
+**experimental-otg-master** `db1d1d8a` plus UI-walk hook
 
 | Phone | Result |
 | --- | --- |
 | Android | PASS 9-step (101.6s) + FakeUsbUiTest (15.8s) |
 | iOS | PASS 9-step (36.1s) + InAppPreviewTests + OtgAbsentAndPreviewTests (8.7s) |
 
-The first combined iOS run on this branch failed because the session test left a volume mounted. `OtgAbsentAndPreviewTests` now calls `lockSession()` first. Combined re-run passed.
+Re-run `ports/scripts/run-ui-walk.sh` after this 10-phase + idle/hash/PIM pass.

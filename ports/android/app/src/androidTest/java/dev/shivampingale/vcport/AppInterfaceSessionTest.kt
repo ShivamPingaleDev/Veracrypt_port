@@ -30,11 +30,11 @@ import java.io.File
 import java.security.MessageDigest
 
 /**
- * Person session on the emulator through the app UI: basket + nested volume,
+ * Person session on the emulator through the app UI (10 phases): basket + nested volume,
  * nested folders, save wipes secrets, fill files, leave and reopen, decrypt,
  * mount several, Copy to volume / Move to volume, hidden volume files, header backup/restore, KDF
- * change, add/remove password and keyfiles. Does not tap Panic wipe. Does not
- * start Check for updates.
+ * change, add/remove password and keyfiles, then idle / read-only banner / in-volume hash / PIM estimate.
+ * Does not tap Panic wipe. Does not start Check for updates.
  */
 @RunWith(AndroidJUnit4::class)
 class AppInterfaceSessionTest {
@@ -147,6 +147,7 @@ class AppInterfaceSessionTest {
         rule.waitForIdle()
         rule.onNodeWithTag("create_pim").performScrollTo().performTextReplacement("1")
         rule.onNodeWithTag("create_hidden_pim").performScrollTo().performTextReplacement("1")
+        rule.onNodeWithTag("create_hidden_size").performScrollTo().performTextReplacement("4")
         rule.onNodeWithTag("create_hidden_size").performScrollTo().performTextReplacement("2")
         rule.onNodeWithTag("create_size").performScrollTo().performTextReplacement("8")
         rule.onNodeWithTag("create_filename").performScrollTo()
@@ -548,6 +549,24 @@ class AppInterfaceSessionTest {
         rule.waitForIdle()
         rule.onNodeWithTag("wipe_free_space").performScrollTo().performClick()
         waitStatus("Read-only volumes refuse", 30_000)
+        rule.onNodeWithTag("read_only_banner").assertIsDisplayed()
+
+        val memoHashName = rule.activity.testingEntryNames().first { it.contains("MEMO", ignoreCase = true) }
+        rule.activity.testingSelectNames(setOf(memoHashName))
+        rule.waitForIdle()
+        rule.activity.testingHashSelected(memoHashName)
+        waitStatus("SHA-256 in volume", 60_000)
+
+        rule.onNodeWithTag("tab_tools").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("tools_pim_estimate").performScrollTo().performClick()
+        waitStatus("header iterations", 8_000)
+        assertTrue(rule.activity.testingPimEstimate().contains("500,000") || rule.activity.testingPimEstimate().contains("1,000"))
+
+        rule.onNodeWithTag("idle_1").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.activity.testingFireIdleTimeout()
+        waitStatus("Idle timeout", 15_000)
 
         assertSecure()
         rule.onNodeWithText("Check for updates").assertDoesNotExist()

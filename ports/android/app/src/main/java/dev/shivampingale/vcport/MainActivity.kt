@@ -1,10 +1,17 @@
 package dev.shivampingale.vcport
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelFileDescriptor
+import android.view.MotionEvent
 import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -103,7 +110,8 @@ data class MountedVolume(
     val uriKey: String,
     val dirPath: String = "",
     val entries: List<VaultEntry> = emptyList(),
-    val truncated: Boolean = false
+    val truncated: Boolean = false,
+    val readOnly: Boolean = false
 )
 
 /** Session slot list. This session only; not a system drive letter. */
@@ -144,6 +152,7 @@ class MainActivity : AppCompatActivity() {
     private val busyState = mutableStateOf(false)
     private val useBackupHeaderState = mutableStateOf(false)
     private val readOnlyOpenState = mutableStateOf(false)
+    private val idleMinutesState = mutableIntStateOf(0)
     private val trueCryptModeState = mutableStateOf(false)
     private val protectHiddenState = mutableStateOf(false)
     private val tabState = mutableIntStateOf(0)
@@ -165,6 +174,14 @@ class MainActivity : AppCompatActivity() {
     private val newPasswordState = mutableStateOf("")
     private val hiddenProtectPasswordState = mutableStateOf("")
     private var suppressLock = false
+    private val idleHandler = Handler(Looper.getMainLooper())
+    private val idleRunnable = Runnable {
+        if (!suppressLock && NativeBridge.isOpen(handleState.value)) {
+            lockSession()
+            statusState.value = "Idle timeout. Volume closed."
+        }
+    }
+    private var screenOffReceiver: BroadcastReceiver? = null
     private var lastUnlockPassword = ""
     private var lastUnlockPim = "0"
     private var pendingContainerPfd: ParcelFileDescriptor? = null
@@ -508,6 +525,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     @androidx.annotation.VisibleForTesting
+    fun testingFireIdleTimeout() {
+        runOnUiThread {
+            idleHandler.removeCallbacks(idleRunnable)
+            lockSession()
+            statusState.value = "Idle timeout. Volume closed."
+        }
+    }
+
+    @androidx.annotation.VisibleForTesting
+    fun testingHashSelected(name: String) {
+        runOnUiThread {
+            val entry = entriesState.value.firstOrNull { it.name == name } ?: return@runOnUiThread
+            hashVaultFiles(handleState.value, dirPathState.value, listOf(entry)) { statusState.value = it }
+        }
+    }
+
+    @androidx.annotation.VisibleForTesting
+    fun testingPimEstimate(): String = PimEstimator.describe(createKdfState.value, pimState.value)
+
+    @androidx.annotation.VisibleForTesting
     fun testingVolumeInfo(): String? {
         val handle = handleState.value
         if (!NativeBridge.isOpen(handle)) return null
@@ -515,6 +552,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun lookPrefs() = getSharedPreferences("vc_port_look", MODE_PRIVATE)
+
+    private fun sessionPrefs() = getSharedPreferences("vc_port_session", MODE_PRIVATE)
+
+    private fun loadIdleMinutes(): Int {
+        val n = sessionPrefs().getInt("idle_minutes", 0)
+        return if (n in SessionIdle.MINUTES) n else 0
+    }
+
+    private fun saveIdleMinutes(minutes: Int) {
+        sessionPrefs().edit().putInt("idle_minutes", minutes).apply()
+        idleMinutesState.intValue = minutes
+        armIdleTimer()
+    }
+
+    private fun armIdleTimer() {
+        idleHandler.removeCallbacks(idleRunnable)
+        val minutes = idleMinutesState.intValue
+        if (minutes <= 0 || !NativeBridge.isOpen(handleState.value)) return
+        idleHandler.postDelayed(idleRunnable, minutes * 60_000L)
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN || ev.action == MotionEvent.ACTION_MOVE) {
+            armIdleTimer()
+        }
+        return super.dispatchTouchEvent(ev)
+    }
 
     private fun loadSkin(): VcSkin {
         val name = lookPrefs().getString("skin", VcSkin.Desktop.name) ?: VcSkin.Desktop.name
@@ -532,7 +596,22 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Hardening.protectWindow(this)
+        idleMinutesState.intValue = loadIdleMinutes()
         handleIncoming(intent)
+        screenOffReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF && NativeBridge.isOpen(handleState.value)) {
+                    lockSession()
+                    statusState.value = "Screen locked. Volume closed."
+                }
+            }
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        }
         usbPermissionReceiver = OtgUsb.registerPermissionReceiver(this) { device ->
             openUsbMassStorage(device)
         }
@@ -599,6 +678,7 @@ class MainActivity : AppCompatActivity() {
                 var headerKdf by remember { mutableStateOf("(keep current)") }
                 var useBackupHeader by useBackupHeaderState
                 var readOnlyOpen by readOnlyOpenState
+                var idleMinutes by idleMinutesState
                 var trueCryptMode by trueCryptModeState
                 var protectHidden by protectHiddenState
                 var hiddenProtectPassword by hiddenProtectPasswordState
@@ -1018,6 +1098,7 @@ class MainActivity : AppCompatActivity() {
                                 busy = busy,
                                 mounts = mountedVolumes,
                                 activeMount = activeMountIndex,
+                                readOnly = mountedVolumes.getOrNull(activeMountIndex)?.readOnly == true,
                                 onSelectMount = { index ->
                                     persistActiveMount(dirPath, entries, listTruncated)
                                     activeMountIndex = index
@@ -1136,6 +1217,14 @@ class MainActivity : AppCompatActivity() {
                                         status = "This folder is empty."
                                     } else {
                                         status = formatEntryProperties(entry)
+                                    }
+                                },
+                                onHashSelected = {
+                                    val files = entries.filter { it.name in selectedNames && !it.isDir }
+                                    if (files.isEmpty()) {
+                                        status = "Tap a file, then SHA-256 in volume."
+                                    } else {
+                                        hashVaultFiles(handle, dirPath, files) { status = it }
                                     }
                                 },
                                 onWipeFreeSpace = {
@@ -1884,6 +1973,39 @@ class MainActivity : AppCompatActivity() {
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Test vectors") }
+                                            VcHint(PimEstimator.describe(createKdf, createPim))
+                                            OutlinedButton(
+                                                onClick = {
+                                                    status = PimEstimator.describe(createKdf, createPim)
+                                                },
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth().testTag("tools_pim_estimate")
+                                            ) { Text("PIM iteration estimate") }
+                                        }
+                                        VcCard {
+                                            Text("Idle dismount", style = MaterialTheme.typography.titleMedium)
+                                            VcHint("Home and screen lock already close an open volume. Idle is for walking away with the app still in front. Off keeps that Home/lock behavior only.")
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                SessionIdle.MINUTES.forEach { mins ->
+                                                    val selected = idleMinutes == mins
+                                                    if (selected) {
+                                                        Button(
+                                                            onClick = { saveIdleMinutes(mins) },
+                                                            enabled = !busy,
+                                                            modifier = Modifier.weight(1f).testTag("idle_$mins")
+                                                        ) { Text(SessionIdle.label(mins), style = MaterialTheme.typography.labelSmall) }
+                                                    } else {
+                                                        OutlinedButton(
+                                                            onClick = { saveIdleMinutes(mins) },
+                                                            enabled = !busy,
+                                                            modifier = Modifier.weight(1f).testTag("idle_$mins")
+                                                        ) { Text(SessionIdle.label(mins), style = MaterialTheme.typography.labelSmall) }
+                                                    }
+                                                }
+                                            }
                                         }
                                         VcCard {
                                             Text("Wipe cached passwords", style = MaterialTheme.typography.titleMedium)
@@ -2396,6 +2518,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
         usbPermissionReceiver = null
+        screenOffReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {
+            }
+        }
+        screenOffReceiver = null
+        idleHandler.removeCallbacks(idleRunnable)
         pendingOtgScsi?.close()
         pendingOtgScsi = null
         pendingOtgFile = null
@@ -3509,7 +3639,8 @@ class MainActivity : AppCompatActivity() {
                             uriKey = uriKey,
                             dirPath = "",
                             entries = files,
-                            truncated = truncated
+                            truncated = truncated,
+                            readOnly = readOnly
                         )
                         mountedVolumesState.value = next
                         refreshDocumentRoots()
@@ -3522,7 +3653,9 @@ class MainActivity : AppCompatActivity() {
                         dirPathState.value = ""
                         listTruncatedState.value = truncated
                         tabState.intValue = 3
+                        armIdleTimer()
                         var msg = "Mounted in this app. Size $volumeBytes bytes. Slots are on the Mounted tab. Tap a folder to open it, or a file to select it. Copy to volume moves selected files into another mounted container."
+                        if (readOnly) msg = "Read-only. Writes are refused. $msg"
                         if (next.size > 1) msg = "${next.size} volumes mounted. $msg"
                         if (protectHidden) msg = "Hidden volume is being protected against damage. $msg"
                         if (truncated) msg += " Listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more."
@@ -3542,6 +3675,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleIncoming(intent: Intent?) {
         if (intent == null) return
+        if (intent.action == PanicIntents.ACTION || intent.getBooleanExtra(PanicIntents.EXTRA, false)) {
+            panicWipe()
+            statusState.value = "Panic wipe complete. Cache, clipboard, and leftovers are gone."
+            return
+        }
         val uris = mutableListOf<Uri>()
         when (intent.action) {
             Intent.ACTION_SEND -> {
@@ -4049,6 +4187,54 @@ class MainActivity : AppCompatActivity() {
         return "$kind ${entry.name}$size, modified ${formatFatStamp(entry.dosDate, entry.dosTime)}. Browsed in this app; this is not a mounted drive."
     }
 
+    private fun hashVaultFiles(
+        handle: Long,
+        dirPath: String,
+        files: List<VaultEntry>,
+        onStatus: (String) -> Unit
+    ) {
+        if (!NativeBridge.isOpen(handle) || files.isEmpty()) {
+            onStatus("Tap a file, then SHA-256 in volume.")
+            return
+        }
+        beginWork("Hashing ${files.size} file(s) inside the volume…")
+        Thread {
+            val lines = mutableListOf<String>()
+            try {
+                for (entry in files) {
+                    val dest = File(cacheDir, "hash-${entry.name}")
+                    val rc = NativeBridge.exportFile(handle, joinDir(dirPath, entry.name), dest.absolutePath)
+                    if (rc != 0 || !dest.isFile) {
+                        lines.add("${entry.name}: hash failed")
+                        Hardening.wipeFile(dest)
+                        continue
+                    }
+                    val hex = dest.inputStream().use { stream ->
+                        val md = java.security.MessageDigest.getInstance("SHA-256")
+                        val buf = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = stream.read(buf)
+                            if (n <= 0) break
+                            md.update(buf, 0, n)
+                        }
+                        md.digest().joinToString("") { b -> "%02x".format(b) }
+                    }
+                    Hardening.wipeFile(dest)
+                    lines.add("${entry.name}: $hex")
+                }
+                runOnUiThread {
+                    endWork()
+                    onStatus("SHA-256 in volume (temp wiped): " + lines.joinToString(" · "))
+                }
+            } catch (_: Exception) {
+                runOnUiThread {
+                    endWork()
+                    onStatus("SHA-256 in volume failed.")
+                }
+            }
+        }.start()
+    }
+
     private fun mkdirInVolume(
         handle: Long,
         dirPath: String,
@@ -4405,6 +4591,7 @@ private fun VaultPane(
     busy: Boolean,
     mounts: List<MountedVolume>,
     activeMount: Int,
+    readOnly: Boolean,
     onSelectMount: (Int) -> Unit,
     onDismountMount: (Int) -> Unit,
     onOpenAnother: () -> Unit,
@@ -4424,6 +4611,7 @@ private fun VaultPane(
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onProperties: () -> Unit,
+    onHashSelected: () -> Unit,
     onWipeFreeSpace: () -> Unit,
     onSelectAll: () -> Unit,
     onMore: () -> Unit
@@ -4447,6 +4635,17 @@ private fun VaultPane(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
+        if (readOnly) {
+            Text(
+                "Read-only. This slot refuses writes (wipe, import, delete, rename).",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.error,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .testTag("read_only_banner")
+            )
+        }
         Row(
             Modifier
                 .fillMaxWidth()
@@ -4487,6 +4686,11 @@ private fun VaultPane(
                 enabled = !busy && live,
                 modifier = Modifier.testTag("wipe_free_space")
             ) { Text("Wipe free space") }
+            TextButton(
+                onClick = onHashSelected,
+                enabled = !busy && live,
+                modifier = Modifier.testTag("hash_in_volume")
+            ) { Text("SHA-256 in volume") }
             Box {
                 TextButton(onClick = { folderMenu = true }, enabled = !busy && live) { Text("Folder") }
                 DropdownMenu(expanded = folderMenu, onDismissRequest = { folderMenu = false }) {

@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import CryptoKit
+import UIKit
 
 private let mountSlots = 8
 
@@ -12,6 +13,7 @@ private struct MountedVolume: Identifiable {
     var dirPath: String
     var entries: [VaultEntry]
     var truncated: Bool
+    var readOnly: Bool = false
 }
 
 struct ContentView: View {
@@ -85,6 +87,8 @@ struct ContentView: View {
     @State private var hiddenKeyfileImporterPresented = false
 
     @State private var selectedTab = 0
+    @AppStorage("vc_port_idle_minutes") private var idleMinutes = 0
+    @State private var idleTask: Task<Void, Never>?
 
     private var selectableFileNames: Set<String> {
         Set(entries.filter { !$0.isDir }.map(\.name))
@@ -289,7 +293,19 @@ struct ContentView: View {
                 if phase == .background && !holdingForPicker && !busy {
                     dismountOnLeave()
                 }
+                if phase == .active {
+                    bumpIdle()
+                }
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
+                if volumeHandle != nil {
+                    lockSession()
+                    status = "Screen locked. Volume closed."
+                }
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0).onChanged { _ in bumpIdle() }
+            )
             .onChange(of: basketURLs) { _ in syncCreateSizeFromBasket() }
             .onChange(of: createHidden) { _ in syncCreateSizeFromBasket() }
             .onChange(of: createHiddenSizeAmount) { _ in syncCreateSizeFromBasket() }
@@ -407,6 +423,11 @@ struct ContentView: View {
                 Text("Slots are this session only. Not a system drive. Select files, then Copy to volume / Copy to device, or Copy from device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if mountedVolumes.indices.contains(activeMountIndex), mountedVolumes[activeMountIndex].readOnly {
+                    Text("Read-only. This slot refuses writes (wipe, import, delete, rename).")
+                        .foregroundStyle(.red)
+                        .portTag("read_only_banner")
+                }
                 HStack {
                     Text("No.")
                         .frame(width: 28, alignment: .leading)
@@ -558,6 +579,8 @@ struct ContentView: View {
                     .portTag("new_folder")
                     Button("Wipe free space") { wipeFreeSpace() }
                         .portTag("wipe_free_space")
+                    Button("SHA-256 in volume") { hashSelectedInVolume() }
+                        .portTag("hash_in_volume")
                 }
                 Menu("Folder") {
                     Button("Copy from device") {
@@ -927,6 +950,22 @@ struct ContentView: View {
                     .portTag("tools_generate_keyfile")
                 Button("Benchmark") { runBenchmark() }
                 Button("Test vectors") { runTestVectors() }
+                Text(PimEstimator.describe(kdf: createKdf, pimText: pim))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("PIM iteration estimate") {
+                    status = PimEstimator.describe(kdf: createKdf, pimText: pim)
+                }
+                .portTag("tools_pim_estimate")
+                Picker("Idle dismount", selection: $idleMinutes) {
+                    ForEach(SessionIdle.minutes, id: \.self) { mins in
+                        Text(SessionIdle.label(mins)).tag(mins)
+                    }
+                }
+                .portTag("idle_picker")
+                Text("Home and screen lock already close an open volume. Idle is for walking away with the app still in front.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Button("Wipe cached passwords") {
                     lockSession()
                     status = "Wipe cached passwords complete. Volume closed."
@@ -1329,7 +1368,8 @@ struct ContentView: View {
                             label: url.lastPathComponent,
                             dirPath: "",
                             entries: files,
-                            truncated: truncated
+                            truncated: truncated,
+                            readOnly: readOnly
                         )
                     )
                     activeMountIndex = mountedVolumes.count - 1
@@ -1342,7 +1382,11 @@ struct ContentView: View {
                     rememberUnlock(text, pimText)
                     wipeUnlockForm()
                     selectedTab = 3
+                    bumpIdle()
                     var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Slots are on the Mounted tab. Tap Open on a folder, or select files. Copy to volume moves selected files into another mounted container."
+                    if readOnly {
+                        msg = "Read-only. Writes are refused. " + msg
+                    }
                     if mountedVolumes.count > 1 {
                         msg = "\(mountedVolumes.count) volumes mounted. " + msg
                     }
@@ -2388,6 +2432,50 @@ struct ContentView: View {
         status = "\(kind) \(entry.name)\(size), modified \(formatFatStamp(entry.dosDate, entry.dosTime)). Browsed in this app; this is not a mounted drive."
     }
 
+    private func bumpIdle() {
+        idleTask?.cancel()
+        guard idleMinutes > 0, volumeHandle != nil else { return }
+        let mins = idleMinutes
+        idleTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(mins) * 60 * 1_000_000_000)
+            guard !Task.isCancelled, volumeHandle != nil else { return }
+            lockSession()
+            status = "Idle timeout. Volume closed."
+        }
+    }
+
+    private func hashSelectedInVolume() {
+        let files = entries.filter { selectedNames.contains($0.name) && !$0.isDir }
+        guard let handle = volumeHandle, !files.isEmpty else {
+            status = "Tap a file, then SHA-256 in volume."
+            return
+        }
+        beginWork("Hashing \(files.count) file(s) inside the volume…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            var lines: [String] = []
+            for entry in files {
+                let dest = FileManager.default.temporaryDirectory.appendingPathComponent("hash-\(entry.name)")
+                try? FileManager.default.removeItem(at: dest)
+                let rc = VcMobileBridge.exportFile(handle, name: joinDir(dirPath, entry.name), dest: dest.path)
+                if rc != 0 {
+                    lines.append("\(entry.name): hash failed")
+                    continue
+                }
+                if let data = try? Data(contentsOf: dest) {
+                    let hex = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+                    lines.append("\(entry.name): \(hex)")
+                } else {
+                    lines.append("\(entry.name): hash failed")
+                }
+                try? FileManager.default.removeItem(at: dest)
+            }
+            DispatchQueue.main.async {
+                endWork()
+                status = "SHA-256 in volume (temp wiped): " + lines.joined(separator: " · ")
+            }
+        }
+    }
+
     private func wipeFreeSpace() {
         guard let handle = volumeHandle else {
             status = "Open a volume first."
@@ -2814,6 +2902,16 @@ struct ContentView: View {
         testing.startPreview = { startInAppPreview() }
         testing.previewName = { previewItem?.name }
         testing.otgDiskEnabled = { FossConfig.enableOtgDisk }
+        testing.fireIdleTimeout = {
+            idleTask?.cancel()
+            lockSession()
+            status = "Idle timeout. Volume closed."
+        }
+        testing.hashSelected = { name in
+            selectedNames = [name]
+            hashSelectedInVolume()
+        }
+        testing.pimEstimate = { PimEstimator.describe(kdf: createKdf, pimText: pim) }
         testing.ready = true
     }
 
