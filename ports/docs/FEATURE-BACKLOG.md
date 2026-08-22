@@ -38,4 +38,4 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 
 ## Merge note
 
-`experimental-otg-master` last local UI walk passed (session + fake USB + in-app preview). Merge to `master` after this pass’s host contracts and a 10-phase UI walk on this Mac.
+Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Good-ideas in “This pass” are **built**. Later: metadata scrub, batch queue, `verify-build.sh`.
