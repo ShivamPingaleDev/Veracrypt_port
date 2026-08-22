@@ -27,9 +27,10 @@ Pin today: VeraCrypt 1.26.29 / `b48e31f5…` (see `ports/UPSTREAM_COMMIT`).
 
 | Build | Network | Updates |
 | --- | --- | --- |
-| Android (all flavors on master) | none | Refuses. A newer app is a git rebuild you sign. |
-| iOS (master) | none | Refuses. A newer IPA is a rebuild you sign. |
-| `experimental-otg-master` | none (same as master) | USB + in-app preview. No fingerprint extra. Live Check for updates is **not** here. `experimental-biometrics` is **stale**. |
+| Android (all flavors on **master**) | none | Refuses. A newer app is a git rebuild you sign. |
+| iOS (**master**) | none | Refuses. A newer IPA is a rebuild you sign. |
+
+`experimental-otg-master` is **ignored** for freeze (OTG + in-app preview already shipped on master). `experimental-biometrics` is **stale**. Live Check for updates is **not** here.
 
 If official VeraCrypt is newer than the baked-in pin, rebuild from source after `scripts/sync-upstream.sh`. The APK cannot rewrite `src/`. Live phone Check for updates is not on master.
 

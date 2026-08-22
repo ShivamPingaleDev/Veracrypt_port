@@ -15,6 +15,24 @@ object SizeUnits {
     const val MIN_VOLUME = 2L * 1024L * 1024L
     const val MAX_VOLUME = 64L * 1024L * 1024L * 1024L
     const val FAT_MAX_FILE = 0xFFFFFFFFL
+    /** Extra room besides the payload when copying a container into app cache. */
+    const val APP_STORAGE_HEADROOM = 32L shl 20
+
+    const val APP_STORAGE_UNREADABLE =
+        "Could not copy the container into app storage. Pick it again from Files."
+
+    fun appStorageNeed(payload: Long): Long = payload + APP_STORAGE_HEADROOM
+
+    fun notEnoughAppStorage(payload: Long, free: Long): String {
+        val need = appStorageNeed(payload)
+        return "Not enough free space in app storage. Needs ${formatBytes(need)}; this phone has ${formatBytes(free)}."
+    }
+
+    fun shortageInAppStorage(payload: Long, free: Long): String? {
+        if (payload <= 0L) return null
+        if (free < appStorageNeed(payload)) return notEnoughAppStorage(payload, free)
+        return null
+    }
 
     fun toBytes(amount: Long, unit: SizeUnit): Long {
         if (amount <= 0L) return 0L

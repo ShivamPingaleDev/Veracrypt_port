@@ -1,6 +1,6 @@
 # Experimental: OTG Master–style USB disk (no auto-mount)
 
-This branch is **`experimental-otg-master`**. It is not master. It is not 1.0. It is not unbreakable.
+OTG + in-app preview **ship on `master`** (from 0.3.9). The old `experimental-otg-master` branch is **ignored** for freeze. Do not add commits there. This is not 1.0. It is not unbreakable.
 
 ## Citation
 
@@ -26,7 +26,7 @@ There is **no** `USB_DEVICE_ATTACHED` auto-open and **no** auto-unlock of plain 
 
 Native Open uses `/vcport-otg-dev/N`, never `/proc/self/fd/`.
 
-**Allow Files app to browse** is off until the user ticks it. DocumentsProvider is a seizure leak versus master.
+**Allow Files app to browse** is off until the user ticks it. DocumentsProvider is a seizure leak versus “slots this session only.”
 
 ## In-app file preview (this branch)
 
@@ -44,17 +44,6 @@ No LibreOffice, no VLCKit. Whole-disk USB Open is Android-only. iPhone keeps fil
 
 Flags: Android `ENABLE_IN_APP_PREVIEW`, iOS `VCPortEnableInAppPreview`. Preview cache is `cache/preview` (Android) / tmp `preview/` (iOS), wiped on Close, Dismount, and Panic.
 
-## Merge into master later
-
-Keep this branch modular. A future master merge should be flag flips plus a review, not a rewrite:
-
-1. Android `ENABLE_OTG_DISK=false` (foss + github). USB UI is `OtgVolumePanel.kt` behind that flag.
-2. CMake `-DVC_PORT_OTG=OFF` (iOS already forces this) uses `vc_otg_stub.cpp` and skips `vc_otg_usb_test`.
-3. Drop flavor `VolumeDocumentsProvider` from foss/github manifests if master must not export to Files.
-4. In-app preview can merge on its own: `InAppPreview.kt` / `InAppPreview.swift`, `ENABLE_IN_APP_PREVIEW` / `VCPortEnableInAppPreview`.
-
-OTG-only Kotlin: `OtgUsb.kt`, `OtgScsi.kt`, `OtgPartitions.kt`, `OtgBlockStore.kt`, `OtgVolumePanel.kt`, `VolumeDocumentsProvider.kt`.
-
 ## Builds
 
 ```bash
@@ -62,4 +51,4 @@ ports/scripts/build-phones.sh
 # Android: assembleFossRelease and assembleGithubRelease (both no biometrics)
 ```
 
-Do not merge this to `master` without a separate review. Master stays in-app browse only.
+OTG Kotlin: `OtgUsb.kt`, `OtgScsi.kt`, `OtgPartitions.kt`, `OtgBlockStore.kt`, `OtgVolumePanel.kt`, `VolumeDocumentsProvider.kt`.

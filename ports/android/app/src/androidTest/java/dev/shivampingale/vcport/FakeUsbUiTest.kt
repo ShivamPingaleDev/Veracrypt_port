@@ -2,6 +2,7 @@ package dev.shivampingale.vcport
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
@@ -9,6 +10,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -84,7 +87,7 @@ class FakeUsbUiTest {
 
         rule.onNodeWithTag("tab_volume").performClick()
         rule.waitForIdle()
-        rule.onNodeWithText("Scan USB disks").performScrollTo().assertIsDisplayed()
+        revealTag("scan_usb")
         rule.onAllNodesWithText("See OTG Master", substring = true).onFirst().assertIsDisplayed()
         holdUi(2_000)
 
@@ -134,6 +137,26 @@ class FakeUsbUiTest {
         rule.onNodeWithTag("in_app_preview").assertIsDisplayed()
         rule.onNodeWithText("usb-ui-ok", substring = true).assertIsDisplayed()
         holdUi(3_000)
+    }
+
+    private fun revealTag(tag: String) {
+        rule.waitUntil(12_000) {
+            rule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        }
+        repeat(10) {
+            try {
+                rule.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
+                return
+            } catch (_: AssertionError) {
+            } catch (_: IllegalStateException) {
+            }
+            try {
+                rule.onNodeWithTag("open_volume_form").performTouchInput { swipeUp() }
+            } catch (_: AssertionError) {
+            }
+            rule.waitForIdle()
+        }
+        rule.onNodeWithTag(tag).performScrollTo().assertIsDisplayed()
     }
 
     private fun waitStatus(substring: String, timeoutMs: Long) {

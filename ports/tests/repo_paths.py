@@ -37,3 +37,36 @@ def read(rel: str) -> str:
             raise unittest.SkipTest(f"missing {rel} (Veracrypt_port full tree)")
         raise FileNotFoundError(path)
     return path.read_text(encoding="utf-8")
+
+
+def _join_existing(rels: list[str]) -> str:
+    parts: list[str] = []
+    for rel in rels:
+        path = resolve(rel)
+        if path.is_file():
+            parts.append(path.read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
+def read_android_ui() -> str:
+    """MainActivity plus extracted Open/Mounted/Create/Tools screens."""
+    return _join_existing(
+        [
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt",
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt",
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/VaultPane.kt",
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/CreateVolumeForm.kt",
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/ToolsPane.kt",
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/SizeUnits.kt",
+        ]
+    )
+
+
+def read_ios_ui() -> str:
+    """ContentView plus extracted Open/Mounted/Create/Tools extensions."""
+    view_dir = resolve("ports/ios/VCPort")
+    files = [view_dir / "ContentView.swift"]
+    files.extend(sorted(view_dir.glob("ContentView+*.swift")))
+    files.append(view_dir / "AppStorageSpace.swift")
+    files.append(view_dir / "PasswordEntropy.swift")
+    return "\n".join(p.read_text(encoding="utf-8") for p in files if p.is_file())

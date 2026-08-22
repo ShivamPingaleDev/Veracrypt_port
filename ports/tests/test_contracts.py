@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from repo_paths import ROOT, PORTS, FULL_TREE, read, resolve  # noqa: E402
+from repo_paths import ROOT, PORTS, FULL_TREE, read, resolve, read_android_ui, read_ios_ui  # noqa: E402
 
 
 def load_version() -> dict:
@@ -121,7 +121,7 @@ class VersionMatrixTests(unittest.TestCase):
     def test_android_update_checkers(self) -> None:
         pin = read("ports/android/app/src/main/java/dev/shivampingale/vcport/SourcePin.kt")
         checker = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UpdateChecker.kt")
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main = read_android_ui()
         self.assertIn("BuildConfig.PORT_VERSION", pin)
         self.assertIn("BuildConfig.SOURCE_MANIFEST", pin)
         self.assertIn("never downloads or installs", pin)
@@ -185,7 +185,7 @@ class VersionMatrixTests(unittest.TestCase):
     def test_ios_update_checker(self) -> None:
         swift = read("ports/ios/VCPort/UpdateChecker.swift")
         pin = read("ports/ios/VCPort/SourcePin.swift")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         self.assertIn("SourcePin.localVersion", swift)
         self.assertIn("This build has no network", swift)
         self.assertNotIn("URLSession", swift)
@@ -266,8 +266,8 @@ class NamingAndAttributionTests(unittest.TestCase):
         self.assertIn("foolproof build against", threat.lower())
         self.assertIn("claiming that would be a lie", threat.lower())
         blob = (
-            read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-            + read("ports/ios/VCPort/ContentView.swift")
+            read_android_ui()
+            + read_ios_ui()
             + read("ports/android/fastlane/metadata/android/en-US/full_description.txt")
         )
         for claim in (
@@ -375,7 +375,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertNotIn("finishAndRemoveTask", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
         self.assertIn("FLAG_SECURE", read("ports/android/app/src/main/java/dev/shivampingale/vcport/Hardening.kt"))
         self.assertIn("fun fit(", read("ports/android/app/src/main/java/dev/shivampingale/vcport/SizeUnits.kt"))
-        self.assertIn("SizeUnitPicker", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
+        self.assertIn("SizeUnitPicker", read_android_ui())
         self.assertIn('android:launchMode="singleTask"', manifest)
         self.assertIn('android:exported="false"', manifest)
         self.assertIn("${applicationId}.share", manifest)
@@ -427,9 +427,8 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("sanitizeKeyfileName", share)
 
     def test_keyfiles_are_multiple_and_desktop_mount_options(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         for blob in (main, view):
             self.assertIn("Generate keyfile and add", blob)
             self.assertIn("Add keyfiles", blob)
@@ -484,9 +483,9 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn('newPimState.value = "0"', create_wipe)
         leave = main.split("private fun dismountOnLeave()")[1].split("private fun wipeCreateSecrets()")[0]
         self.assertIn('newPimState.value = "0"', leave)
-        ios_wipe = view.split("private func wipeCreateSecrets()")[1].split("private func clearMountOptions()")[0]
+        ios_wipe = view.split("func wipeCreateSecrets()")[1].split("func clearMountOptions()")[0]
         self.assertIn('newPim = "0"', ios_wipe)
-        ios_leave = view.split("private func dismountOnLeave()")[1].split("private func isTemporaryContainer")[0]
+        ios_leave = view.split("func dismountOnLeave()")[1].split("func isTemporaryContainer")[0]
         self.assertIn('newPim = "0"', ios_leave)
 
     def test_volume_unlock_form_wiped_after_successful_open(self) -> None:
@@ -495,13 +494,13 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("lastUnlockPassword", main)
         self.assertIn("lastUnlockPassword", view)
         self.assertIn("private fun wipeUnlockForm()", main)
-        self.assertIn("private func wipeUnlockForm()", view)
+        self.assertIn("func wipeUnlockForm()", view)
         self.assertIn("rememberUnlock(text, pimText)", main)
         self.assertIn("rememberUnlock(text, pimText)", view)
         android_open = main.split("private fun openVolumeWithFactors")[1].split("private fun handleIncoming")[0]
         self.assertNotIn("unlockPassword(", android_open)
         self.assertIn("wipeUnlockForm()", android_open)
-        ios_open = view.split("private func startOpenVolume()")[1].split("private func wipeFile")[0]
+        ios_open = view.split("func startOpenVolume()")[1].split("func wipeFile")[0]
         self.assertNotIn("unlockPassword()", ios_open)
         self.assertIn("wipeUnlockForm()", ios_open)
         self.assertIn("unlockPassword(password, useTextPassword)", main)
@@ -510,18 +509,18 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("forgetUnlock()", leave)
         ram = main.split("private fun wipeRamSecrets()")[1].split("private fun resetCreateWizard()")[0]
         self.assertIn("forgetUnlock()", ram)
-        ios_leave = view.split("private func dismountOnLeave()")[1].split("private func isTemporaryContainer")[0]
+        ios_leave = view.split("func dismountOnLeave()")[1].split("func isTemporaryContainer")[0]
         self.assertIn("forgetUnlock()", ios_leave)
-        ios_lock = view.split("private func lockSession()")[1].split("private func panicWipe()")[0]
+        ios_lock = view.split("func lockSession()")[1].split("func panicWipe()")[0]
         self.assertIn("forgetUnlock()", ios_lock)
         form = main.split("private fun wipeUnlockForm()")[1].split("/**")[0]
         self.assertNotIn("keyfileUrisState", form)
-        ios_form = view.split("private func wipeUnlockForm()")[1].split("private func currentUnlockPaths()")[0]
+        ios_form = view.split("func wipeUnlockForm()")[1].split("func currentUnlockPaths()")[0]
         self.assertNotIn("keyfileURLs", ios_form)
 
     def test_choose_container_keeps_session_and_shows_name(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         self.assertIn("Selected: $containerLabel", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt"))
         self.assertNotIn('label = { Text("Container path") }', main)
         self.assertNotIn("bindContainerFd", main)
@@ -548,7 +547,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         copy = main.split("private fun copyToCache")[1].split("\n}")[0]
         self.assertIn("uniqueNamed", copy)
         self.assertNotIn("File(cacheDir, name)", copy)
-        ios_save = view.split("SystemFiles.exportCopy(url: dest)")[1].split("private func openVolume()")[0]
+        ios_save = view.split("SystemFiles.exportCopy(url: dest)")[1].split("func openVolume()")[0]
         self.assertIn("wipeCreateSecrets()", ios_save)
         self.assertIn("containerURL = dest", ios_save)
         self.assertNotIn("containerURL = saved", ios_save)
@@ -557,8 +556,8 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("Create form kept", view)
 
     def test_mounted_tab_slot_column_on_android_and_ios(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         self.assertIn('testTag("tab_mounted")', main)
         self.assertIn("Text(\"Mounted\")", main)
         self.assertIn("MOUNT_SLOTS = 8", main)
@@ -589,12 +588,12 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertNotIn("if showOpenAnother || mountedVolumes.isEmpty", view)
 
     def test_hash_and_pim_show_progress_not_background(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         android_hash = main.split("private fun hashVaultFiles")[1].split("private fun mkdirInVolume")[0]
         self.assertIn("NativeBridge.setProgress", android_hash)
         self.assertIn("hashResultState", android_hash)
-        ios_hash = view.split("private func hashSelectedInVolume()")[1].split("private func wipeFreeSpace()")[0]
+        ios_hash = view.split("func hashSelectedInVolume()")[1].split("func wipeFreeSpace()")[0]
         self.assertIn("setProgress", ios_hash)
         self.assertIn("hashResult", ios_hash)
         self.assertIn("pim_estimate_result", main)
@@ -641,7 +640,7 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("sys.boot_completed", emu)
         self.assertIn("OtgAbsentAndPreviewTests", walk)
         self.assertIn("lockSession()", read("ports/ios/VCPortTests/OtgAbsentAndPreviewTests.swift"))
-        self.assertIn("Whole-disk Open is not on iPhone", read("ports/ios/VCPort/ContentView.swift"))
+        self.assertIn("Whole-disk Open is not on iPhone", read_ios_ui())
         self.assertIn("enableOtgDisk: Bool { false }", read("ports/ios/VCPort/FossConfig.swift"))
         self.assertIn("class OtgAbsentAndPreviewTests", read("ports/ios/VCPortTests/OtgAbsentAndPreviewTests.swift"))
         self.assertIn("phase 2 probe MBR", read("ports/shared/test_otg_usb_main.cpp"))
@@ -659,8 +658,8 @@ class AndroidHighThreatTests(unittest.TestCase):
     def test_in_app_preview_stays_inside_app(self) -> None:
         android = read("ports/android/app/src/main/java/dev/shivampingale/vcport/InAppPreview.kt")
         ios = read("ports/ios/VCPort/InAppPreview.swift")
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("ENABLE_IN_APP_PREVIEW", gradle)
         self.assertIn("View in app", main)
@@ -686,7 +685,8 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("ENABLE_OTG_DISK", gradle)
         self.assertIn("vc_otg_stub.cpp", cmake)
         self.assertIn("OtgVolumePanel.kt", docs)
-        self.assertIn("Merge into master later", docs)
+        self.assertIn("ship on `master`", docs)
+        self.assertIn("ignored", docs.lower())
 
     def test_no_gms_firebase_play_integrity(self) -> None:
         blob = ""
@@ -703,7 +703,7 @@ class AndroidHighThreatTests(unittest.TestCase):
             self.assertNotIn(needle, blob)
 
     def test_compelled_biometrics_copy(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main = read_android_ui()
         self.assertIn("compelled", main.lower())
         self.assertIn("not unbreakable", main.lower())
         threat = read("ports/THREAT-MODEL.md")
@@ -711,19 +711,22 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("They still win", threat)
 
     def test_about_has_cypherpunk_quote(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         for blob in (main, view):
             self.assertIn("We must defend our own privacy if we expect to have any", blob)
             self.assertIn("Eric Hughes", blob)
             self.assertIn("https://github.com/ShivamPingaleDev/Veracrypt_port", blob)
-            self.assertIn("github.com/sponsors/ShivamPingaleDev", blob)
-            self.assertIn("/releases", blob)
             self.assertIn("shivampingaledev@proton.me", blob)
+            self.assertNotIn("github.com/sponsors", blob)
             self.assertNotIn("programming noob", blob.lower())
             self.assertNotIn("internship", blob.lower())
             self.assertNotIn("Not on this phone", blob)
             self.assertNotIn("Root / jailbreak", blob)
+        self.assertNotIn("LocalUriHandler", main)
+        self.assertNotIn("openUri", main)
+        self.assertNotIn("Link(\"Repo\"", view)
+        self.assertNotIn("Link(\"Sponsor\"", view)
 
     def test_never_save_history_is_default(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
@@ -735,9 +738,9 @@ class AndroidHighThreatTests(unittest.TestCase):
 
     def test_create_defaults_match_desktop_wizard(self) -> None:
         bridge = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main = read_android_ui()
         ios = read("ports/ios/VCPort/VcMobileBridge.swift")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         blob = bridge + main + ios + view
         self.assertIn("AES(Twofish(Serpent))", blob)
         self.assertIn("HMAC-SHA-512", blob)
@@ -779,7 +782,7 @@ class IosHighThreatTests(unittest.TestCase):
         self.assertNotIn("icloud", ent.lower())
 
     def test_ios_has_no_whole_disk_usb(self) -> None:
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         foss = read("ports/ios/VCPort/FossConfig.swift")
         native = read("ports/ios/build-native.sh")
         cmake = read("ports/shared/CMakeLists.txt")
@@ -796,7 +799,7 @@ class IosHighThreatTests(unittest.TestCase):
         self.assertIn("enableInAppPreview", foss)
 
     def test_compelled_biometrics_copy(self) -> None:
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         self.assertIn("compelled", view.lower())
         self.assertIn("not unbreakable", view.lower())
         self.assertIn("Panic", view)
@@ -805,7 +808,7 @@ class IosHighThreatTests(unittest.TestCase):
         self.assertIn("They still win", threat)
 
     def test_never_save_history_is_default(self) -> None:
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         self.assertIn("neverSaveHistory()", view)
         self.assertGreaterEqual(view.count("SecureField("), 5)
         self.assertGreaterEqual(view.count(".neverSaveHistory()"), 5)
@@ -841,7 +844,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
     """Same discussed features must appear in every device GUI."""
 
     def test_wrap_panic_share_stay_offline_on_android(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main = read_android_ui()
         self.assertIn("Panic wipe", main)
         self.assertNotIn("Decrypt wrap", main)
         self.assertNotIn("Leftover wrap", main)
@@ -861,7 +864,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn('testTag("create_password")', main)
 
     def test_wrap_panic_share_stay_offline_on_ios(self) -> None:
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         self.assertIn("Panic wipe", view)
         self.assertNotIn("Decrypt wrap", view)
         self.assertNotIn("Leftover wrap", view)
@@ -870,7 +873,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("compelled", view.lower())
         self.assertIn("Copy once", view)
         self.assertIn("64-character password", view)
-        lock = view.split("private func lockSession()")[1].split("private func panicWipe()")[0]
+        lock = view.split("func lockSession()")[1].split("func panicWipe()")[0]
         self.assertNotIn("SensitivePaste.forget()", lock)
         self.assertIn("dismountOnLeave()", view)
         self.assertIn("Create form kept", view)
@@ -880,9 +883,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn('portTag("create_password")', view)
 
     def test_volume_tools_on_android_and_ios(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
         header = read("ports/shared/vc_mobile.h")
         for blob in (main, view):
@@ -905,8 +907,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("vc_generate_keyfile", header)
 
     def test_copy_move_device_files_on_android_and_ios(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
         header = read("ports/shared/vc_mobile.h")
         for blob in (main, view):
@@ -935,8 +937,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("vc_delete_file", header)
 
     def test_create_basket_on_android_and_ios(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         for blob in (main, view):
             self.assertIn("Add files to basket", blob)
             self.assertIn("Empty basket", blob)
@@ -947,9 +949,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
             self.assertIn("Volume password", blob)
 
     def test_desktop_file_ops_on_android_and_ios(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
         header = read("ports/shared/vc_mobile.h")
         for blob in (main, view):
@@ -990,9 +991,9 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("beginWork", view)
 
     def test_disguise_filenames_on_android_and_ios(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main = read_android_ui()
         helper = read("ports/android/app/src/main/java/dev/shivampingale/vcport/ShareHelper.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         for blob in (main, helper, view):
             self.assertIn("photo.jpg", blob)
             self.assertIn("model.safetensors", blob)
@@ -1144,6 +1145,66 @@ class OverlayInventoryTests(unittest.TestCase):
             self.skipTest("owned overlay files live in Veracrypt_port")
         for rel in self._list("ports/overlay/owned.txt"):
             self.assertTrue((ROOT / rel).is_file(), rel)
+
+
+class FreezeArchitectureTests(unittest.TestCase):
+    """0.3.11 freeze: one tree, named cache errors, one closer, one Open suite."""
+
+    def test_verify_build_script_is_the_reviewer_path(self) -> None:
+        script = read("ports/scripts/verify-build.sh")
+        self.assertIn("sha256", script.lower())
+        self.assertIn("build-phones.sh", script)
+        self.assertIn("debug-signed", script)
+        self.assertIn("version.json", script)
+        self.assertIn("--rebuild", script)
+        self.assertIn("--hash-only", script)
+        self.assertTrue(resolve("ports/scripts/verify-build.sh").is_file())
+
+    def test_cache_copy_names_need_and_free(self) -> None:
+        android = read_android_ui()
+        ios = read_ios_ui()
+        for blob in (android, ios):
+            self.assertIn("Not enough free space in app storage. Needs", blob)
+            self.assertIn("this phone has", blob)
+            self.assertIn("Could not copy the container into app storage", blob)
+        self.assertNotIn(
+            "Not enough free space, or the Files picker could not be read",
+            android,
+        )
+
+    def test_one_open_suite_and_one_session_closer(self) -> None:
+        android = read_android_ui()
+        ios = read_ios_ui()
+        self.assertIn("BindOpenVolumeForm", android)
+        self.assertIn("openVolumeForm(mountedSlot:", ios)
+        self.assertIn('closeOpenVolumes("Wipe cached passwords complete. Volume closed.")', android)
+        self.assertIn('closeOpenVolumes("Wipe cached passwords complete. Volume closed.")', ios)
+        self.assertIn('closeOpenVolumes("Idle timeout. Volume closed.")', android)
+        self.assertIn('closeOpenVolumes("Idle timeout. Volume closed.")', ios)
+        self.assertIn('closeOpenVolumes("Screen locked. Volume closed.")', android)
+        self.assertIn('closeOpenVolumes("Screen locked. Volume closed.")', ios)
+        self.assertIn("Do not grow a fifth path", android)
+        self.assertIn("Do not grow a fifth path", ios)
+        onstop = android.split("override fun onStop()")[1].split("private fun closeMountedVolume()")[0]
+        self.assertIn("dismountOnLeave()", onstop)
+        self.assertNotIn("closeOpenVolumes", onstop)
+        self.assertIn("WorkOverlay", android)
+        self.assertIn("WorkOverlay", ios)
+        self.assertIn("fun VaultPane", android)
+        self.assertIn("CreateVolumePane", android)
+        self.assertIn("ToolsPane", android)
+        self.assertIn("extension ContentView", read("ports/ios/VCPort/ContentView+Open.swift"))
+        self.assertIn("extension ContentView", read("ports/ios/VCPort/ContentView+Mounted.swift"))
+        self.assertIn("extension ContentView", read("ports/ios/VCPort/ContentView+Create.swift"))
+        self.assertIn("extension ContentView", read("ports/ios/VCPort/ContentView+Tools.swift"))
+
+    def test_master_is_the_freeze_tree(self) -> None:
+        backlog = read("ports/docs/FEATURE-BACKLOG.md")
+        upstream = read("ports/UPSTREAM.md")
+        self.assertIn("one shipping branch", backlog.lower())
+        self.assertIn("experimental-otg-master", backlog.lower())
+        self.assertIn("ignore", backlog.lower())
+        self.assertIn("master", upstream.lower())
 
 
 if __name__ == "__main__":

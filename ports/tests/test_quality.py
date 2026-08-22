@@ -16,7 +16,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from repo_paths import read, resolve  # noqa: E402
+from repo_paths import read, resolve, read_android_ui, read_ios_ui  # noqa: E402
 
 _REL = None
 
@@ -331,9 +331,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("applySessionKeyfiles", ios_view)
         self.assertIn("headerKeyfileURLs", ios_view)
         self.assertIn("clearMountOptions", ios_view)
-        main = read(
-            "ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"
-        )
+        main = read_android_ui()
         self.assertIn("testingFinishCreateSave", main)
         self.assertIn("testingSkipSystemPickers", main)
         self.assertIn("testingRestoreHeader", main)
@@ -384,8 +382,8 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("vc_runtime_start", life)
 
     def test_user_never_sees_install_from_the_app(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         self.assertIn("does not install itself", main)
         self.assertIn("does not install itself", view)
 
@@ -451,8 +449,8 @@ class IntegrationTests(unittest.TestCase):
 
 class FunctionalTests(unittest.TestCase):
     def test_copy_move_open_wipe_on_both_clients(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         for blob in (main, view):
             self.assertIn("Copy from device", blob)
             self.assertIn("Wipe free space", blob)
@@ -487,9 +485,7 @@ class FunctionalTests(unittest.TestCase):
         self.assertFalse(resolve("ports/android/app/src/main/res/drawable/ic_look_unit01.xml").is_file())
         self.assertTrue(resolve("archive/looks/VcPortTheme.kt").is_file())
         self.assertTrue(resolve("archive/looks/drawable/ic_look_magi.xml").is_file())
-        main = read(
-            "ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"
-        )
+        main = read_android_ui()
         self.assertIn("Appearance", main)
         self.assertNotIn("Looks (this phone)", main)
         self.assertIn("struct WorkOverlay", view)
@@ -501,19 +497,18 @@ class FunctionalTests(unittest.TestCase):
         self.assertNotIn("Working…", view)
 
     def test_nested_volume_has_no_open_time_checkbox(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
+        main = read_android_ui()
         self.assertIn("no open-time hidden checkbox", main.lower())
         self.assertNotIn("isHiddenVolume", main)
         self.assertIn("Protect hidden volume against damage", main)
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         self.assertIn("Protect hidden volume against damage", view)
 
 
 class SmokeSanityTests(unittest.TestCase):
     def test_version_json_parses(self) -> None:
         v = json.loads(read("ports/version.json"))
-        self.assertEqual(v["port_version"], "0.3.10")
+        self.assertEqual(v["port_version"], "0.3.11")
         self.assertEqual(len(v["upstream_commit"]), 40)
 
     def test_pin_file_matches_json(self) -> None:
@@ -610,7 +605,7 @@ class CompatibilityTests(unittest.TestCase):
         self.assertIn("--write-compat", volume)
 
     def test_exfat_stays_unsupported(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main = read_android_ui()
         self.assertIn("exFAT", main)
 
 
@@ -619,7 +614,7 @@ class RecoveryTests(unittest.TestCase):
         header = read("ports/shared/vc_mobile.h")
         self.assertIn("vc_backup_headers", header)
         self.assertIn("vc_restore_headers", header)
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main = read_android_ui()
         self.assertIn("Restore from embedded backup header", main)
 
 
@@ -792,20 +787,20 @@ class PimAndSessionContractTests(unittest.TestCase):
             self.assertIn("500_000", blob)
             self.assertIn("Not a crack-time estimate", blob)
             self.assertIn("Argon2", blob)
-        self.assertIn("tools_pim_estimate", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
-        self.assertIn("tools_pim_estimate", read("ports/ios/VCPort/ContentView.swift"))
+        self.assertIn("tools_pim_estimate", read_android_ui())
+        self.assertIn("tools_pim_estimate", read_ios_ui())
 
     def test_nested_size_is_adjustable(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         self.assertIn("create_hidden_size", main)
         self.assertIn("create_hidden_size", view)
         self.assertIn("less than half the outer size", main)
         self.assertIn("less than half the outer size", view)
 
     def test_idle_and_read_only_banner_and_hash(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read_android_ui()
+        view = read_ios_ui()
         for blob in (main, view):
             self.assertIn("read_only_banner", blob)
             self.assertIn("hash_in_volume", blob)
@@ -825,8 +820,8 @@ class PimAndSessionContractTests(unittest.TestCase):
         self.assertIn("github: ShivamPingaleDev", read(".github/FUNDING.yml"))
         self.assertIn("github.com/sponsors/ShivamPingaleDev", read("README.md"))
         self.assertIn("github.com/sponsors/ShivamPingaleDev", read("SUPPORT.md"))
-        self.assertIn("github.com/sponsors/ShivamPingaleDev", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
-        self.assertIn("github.com/sponsors/ShivamPingaleDev", read("ports/ios/VCPort/ContentView.swift"))
+        self.assertNotIn("github.com/sponsors", read_android_ui())
+        self.assertNotIn("github.com/sponsors", read_ios_ui())
 
     def test_session_walk_covers_new_tools(self) -> None:
         android = read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/AppInterfaceSessionTest.kt")

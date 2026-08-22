@@ -21,6 +21,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "0.3.11",
+          "buildVersion": "16",
+          "date": "2026-08-23T00:00:00-00:00",
+          "localizedDescription": "Stable alpha. Freeze maintenance: named app-storage errors, split Open/Mounted/Create/Tools, one session closer. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "0.3.10",
           "buildVersion": "15",
           "date": "2026-08-22T00:00:00-00:00",

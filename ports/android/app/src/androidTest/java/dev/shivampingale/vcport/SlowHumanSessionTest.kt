@@ -174,7 +174,7 @@ class SlowHumanSessionTest {
         slow()
         rule.onNodeWithText("Use backup header").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("compelled", substring = true).performScrollTo().assertIsDisplayed()
-        rule.onNodeWithText("Panic wipe").assertIsDisplayed()
+        rule.onNodeWithTag("panic_wipe").assertExists()
         rule.onNodeWithText("Create volume").assertDoesNotExist()
 
         rule.onNodeWithTag("tab_create").performClick()

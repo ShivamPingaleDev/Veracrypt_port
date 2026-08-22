@@ -78,7 +78,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
@@ -117,66 +116,66 @@ data class MountedVolume(
 )
 
 /** Session slot list. This session only; not a system drive letter. */
-private const val MOUNT_SLOTS = 8
+internal const val MOUNT_SLOTS = 8
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : AppCompatActivity() {
-    private val pathState = mutableStateOf("")
-    private val containerUriState = mutableStateOf<Uri?>(null)
-    private val statusState = mutableStateOf("Stay offline. Select a VeraCrypt container, or share an encrypted file as-is.")
-    private val otgDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
-    private val otgCandidatesState = mutableStateOf<List<OtgCandidate>>(emptyList())
+    internal val pathState = mutableStateOf("")
+    internal val containerUriState = mutableStateOf<Uri?>(null)
+    internal val statusState = mutableStateOf("Stay offline. Select a VeraCrypt container, or share an encrypted file as-is.")
+    internal val otgDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
+    internal val otgCandidatesState = mutableStateOf<List<OtgCandidate>>(emptyList())
     private var pendingOtgScsi: OtgScsiDevice? = null
     private var pendingOtgFile: File? = null
     private var usbPermissionReceiver: BroadcastReceiver? = null
-    private val incomingState = mutableStateOf<File?>(null)
-    private val passwordState = mutableStateOf("")
-    private val pimState = mutableStateOf("0")
-    private val createPimState = mutableStateOf("0")
-    private val createHiddenPimState = mutableStateOf("0")
-    private val newPimState = mutableStateOf("0")
-    private val hiddenProtectPimState = mutableStateOf("0")
-    private val keyfileUrisState = mutableStateOf(listOf<Uri>())
-    private val headerKeyfileUrisState = mutableStateOf(listOf<Uri>())
-    private val basketUrisState = mutableStateOf(listOf<Uri>())
-    private val basketHashesState = mutableStateOf(mapOf<String, String>())
-    private val hiddenKeyfileUrisState = mutableStateOf(listOf<Uri>())
-    private val keyfileGenNameState = mutableStateOf("keyfile.bin")
-    private val keyfileGenCountState = mutableStateOf("1")
-    private val containerLabelState = mutableStateOf("")
-    private val handleState = mutableStateOf(0L)
-    private val mountedVolumesState = mutableStateOf(listOf<MountedVolume>())
-    private val activeMountIndexState = mutableIntStateOf(0)
-    private val entriesState = mutableStateOf(listOf<VaultEntry>())
-    private val selectedNamesState = mutableStateOf(setOf<String>())
-    private val dirPathState = mutableStateOf("")
-    private val listTruncatedState = mutableStateOf(false)
-    private val busyState = mutableStateOf(false)
-    private val hashResultState = mutableStateOf("")
-    private val pimEstimateResultState = mutableStateOf("")
-    private val useBackupHeaderState = mutableStateOf(false)
-    private val readOnlyOpenState = mutableStateOf(false)
-    private val idleMinutesState = mutableIntStateOf(0)
-    private val trueCryptModeState = mutableStateOf(false)
-    private val protectHiddenState = mutableStateOf(false)
-    private val tabState = mutableIntStateOf(0)
-    private val lastPlainFilesState = mutableStateOf(listOf<File>())
-    private val previewFileState = mutableStateOf<File?>(null)
-    private val previewNameState = mutableStateOf("")
-    private val createPasswordState = mutableStateOf("")
-    private val createHiddenPasswordState = mutableStateOf("")
-    private val createCipherState = mutableStateOf(NativeBridge.DEFAULT_CIPHER)
-    private val createKdfState = mutableStateOf(NativeBridge.DEFAULT_KDF)
-    private val createFilesystemState = mutableStateOf("FAT")
-    private val createFileNameState = mutableStateOf("volume.hc")
-    private val createSizeAmountState = mutableStateOf("16")
-    private val createSizeUnitState = mutableStateOf(SizeUnit.MiB)
-    private val createHiddenState = mutableStateOf(false)
-    private val createHiddenSizeAmountState = mutableStateOf("4")
-    private val createHiddenSizeUnitState = mutableStateOf(SizeUnit.MiB)
-    private val entropyPercentState = mutableIntStateOf(0)
-    private val newPasswordState = mutableStateOf("")
-    private val hiddenProtectPasswordState = mutableStateOf("")
+    internal val incomingState = mutableStateOf<File?>(null)
+    internal val passwordState = mutableStateOf("")
+    internal val pimState = mutableStateOf("0")
+    internal val createPimState = mutableStateOf("0")
+    internal val createHiddenPimState = mutableStateOf("0")
+    internal val newPimState = mutableStateOf("0")
+    internal val hiddenProtectPimState = mutableStateOf("0")
+    internal val keyfileUrisState = mutableStateOf(listOf<Uri>())
+    internal val headerKeyfileUrisState = mutableStateOf(listOf<Uri>())
+    internal val basketUrisState = mutableStateOf(listOf<Uri>())
+    internal val basketHashesState = mutableStateOf(mapOf<String, String>())
+    internal val hiddenKeyfileUrisState = mutableStateOf(listOf<Uri>())
+    internal val keyfileGenNameState = mutableStateOf("keyfile.bin")
+    internal val keyfileGenCountState = mutableStateOf("1")
+    internal val containerLabelState = mutableStateOf("")
+    internal val handleState = mutableStateOf(0L)
+    internal val mountedVolumesState = mutableStateOf(listOf<MountedVolume>())
+    internal val activeMountIndexState = mutableIntStateOf(0)
+    internal val entriesState = mutableStateOf(listOf<VaultEntry>())
+    internal val selectedNamesState = mutableStateOf(setOf<String>())
+    internal val dirPathState = mutableStateOf("")
+    internal val listTruncatedState = mutableStateOf(false)
+    internal val busyState = mutableStateOf(false)
+    internal val hashResultState = mutableStateOf("")
+    internal val pimEstimateResultState = mutableStateOf("")
+    internal val useBackupHeaderState = mutableStateOf(false)
+    internal val readOnlyOpenState = mutableStateOf(false)
+    internal val idleMinutesState = mutableIntStateOf(0)
+    internal val trueCryptModeState = mutableStateOf(false)
+    internal val protectHiddenState = mutableStateOf(false)
+    internal val tabState = mutableIntStateOf(0)
+    internal val lastPlainFilesState = mutableStateOf(listOf<File>())
+    internal val previewFileState = mutableStateOf<File?>(null)
+    internal val previewNameState = mutableStateOf("")
+    internal val createPasswordState = mutableStateOf("")
+    internal val createHiddenPasswordState = mutableStateOf("")
+    internal val createCipherState = mutableStateOf(NativeBridge.DEFAULT_CIPHER)
+    internal val createKdfState = mutableStateOf(NativeBridge.DEFAULT_KDF)
+    internal val createFilesystemState = mutableStateOf("FAT")
+    internal val createFileNameState = mutableStateOf("volume.hc")
+    internal val createSizeAmountState = mutableStateOf("16")
+    internal val createSizeUnitState = mutableStateOf(SizeUnit.MiB)
+    internal val createHiddenState = mutableStateOf(false)
+    internal val createHiddenSizeAmountState = mutableStateOf("4")
+    internal val createHiddenSizeUnitState = mutableStateOf(SizeUnit.MiB)
+    internal val entropyPercentState = mutableIntStateOf(0)
+    internal val newPasswordState = mutableStateOf("")
+    internal val hiddenProtectPasswordState = mutableStateOf("")
     private var suppressLock = false
     private val idleHandler = Handler(Looper.getMainLooper())
     private val idleRunnable = Runnable {
@@ -189,8 +188,10 @@ class MainActivity : AppCompatActivity() {
     private var lastUnlockPim = "0"
     private var pendingContainerPfd: ParcelFileDescriptor? = null
     private val liveContainerPfds = mutableMapOf<Long, ParcelFileDescriptor>()
+    /** Last SAF/cache copy failure (space vs unreadable). Read on the UI thread after bind. */
+    private var lastContainerCopyError = ""
     /** File pickers stop this activity. Do not wipe session fields in that gap. */
-    private fun holdLockForPicker() {
+    internal fun holdLockForPicker() {
         suppressLock = true
     }
 
@@ -590,7 +591,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveSkin(skin: VcSkin) {
+    internal fun saveSkin(skin: VcSkin) {
         lookPrefs().edit().putString("skin", skin.name).apply()
     }
 
@@ -732,7 +733,7 @@ class MainActivity : AppCompatActivity() {
                         copyContainerAsync(uri) { copied ->
                             path = copied
                             status = if (copied.isEmpty())
-                                "Could not open the container. Not enough free space, or the Files picker could not be read."
+                                lastContainerCopyError.ifEmpty { SizeUnits.APP_STORAGE_UNREADABLE }
                             else
                                 "Selected $containerLabel. Open volume to browse folders here."
                         }
@@ -974,13 +975,15 @@ class MainActivity : AppCompatActivity() {
                                         colors = ButtonDefaults.textButtonColors(contentColor = colors.onPrimary)
                                     ) { Text("Dismount") }
                                 }
-                                TextButton(
+                                IconButton(
                                     onClick = { runPanic() },
-                                    colors = ButtonDefaults.textButtonColors(contentColor = colors.error)
+                                    modifier = Modifier.testTag("panic_wipe")
                                 ) {
-                                    Icon(Icons.Filled.Warning, contentDescription = null)
-                                    Spacer(Modifier.padding(4.dp))
-                                    Text("Panic wipe")
+                                    Icon(
+                                        Icons.Filled.Warning,
+                                        contentDescription = "Panic wipe",
+                                        tint = colors.error
+                                    )
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
@@ -1058,7 +1061,10 @@ class MainActivity : AppCompatActivity() {
                                         containerLabel = file.name
                                         containerUri = null
                                         tab = 0
-                                        status = "Selected ${file.name}. Open volume to browse folders here."
+                                        status = if (path.isEmpty())
+                                            lastContainerCopyError.ifEmpty { SizeUnits.APP_STORAGE_UNREADABLE }
+                                        else
+                                            "Selected ${file.name}. Open volume to browse folders here."
                                     },
                                     enabled = !busy,
                                     modifier = Modifier.fillMaxWidth()
@@ -1475,810 +1481,70 @@ class MainActivity : AppCompatActivity() {
                             ) {
                                 when (tab) {
                                     1 -> {
-                                        VcCard {
-                                            Text("File basket", style = MaterialTheme.typography.titleMedium)
-                                            VcHint("Copied into the new volume. Originals stay. SHA-256 is session-only; BASKET.sha256 is written inside.")
-                                            if (basketUris.isEmpty()) {
-                                                Text("No files in the basket.", style = MaterialTheme.typography.bodySmall)
-                                            } else {
-                                                Text(
-                                                    basketSummary(
-                                                        basketUris,
-                                                        if (createHidden) {
-                                                            SizeUnits.toBytes(
-                                                                createHiddenSizeAmount.toLongOrNull() ?: 0L,
-                                                                createHiddenSizeUnit
-                                                            )
-                                                        } else {
-                                                            0L
-                                                        }
-                                                    ),
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
-                                                basketUris.forEach { uri ->
-                                                    val hex = basketHashes[uri.toString()]
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Column(Modifier.weight(1f)) {
-                                                            Text(
-                                                                ShareHelper.displayName(this@MainActivity, uri) ?: uri.toString(),
-                                                                style = MaterialTheme.typography.bodySmall
-                                                            )
-                                                            Text(
-                                                                hex?.let { "SHA-256 ${BasketHash.shortHex(it)}" } ?: "SHA-256 …",
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                                color = colors.onSurfaceVariant
-                                                            )
-                                                        }
-                                                        TextButton(onClick = {
-                                                            basketUris = basketUris.filterNot { it == uri }
-                                                            basketHashes = basketHashes - uri.toString()
-                                                        }) { Text("Remove") }
-                                                    }
-                                                }
-                                            }
-                                            OutlinedButton(
-                                                onClick = {
+                                        CreateVolumePane(
+                                            busy = busy,
+                                            onPickBasket = {
+                                                holdLockForPicker()
+                                                basketPicker.launch(arrayOf("*/*"))
+                                            },
+                                            onPickKeyfiles = {
+                                                holdLockForPicker()
+                                                keyfilePicker.launch(arrayOf("*/*"))
+                                            },
+                                            onPickHiddenKeyfiles = {
+                                                holdLockForPicker()
+                                                hiddenKeyfilePicker.launch(arrayOf("*/*"))
+                                            },
+                                            onSaveGeneratedKeyfile = { file, name ->
+                                                pendingExportFile = file
+                                                holdLockForPicker()
+                                                window.decorView.post {
                                                     holdLockForPicker()
-                                                    basketPicker.launch(arrayOf("*/*"))
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Add files to basket") }
-                                            if (basketUris.isNotEmpty()) {
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        basketUris = emptyList()
-                                                        basketHashes = emptyMap()
-                                                        status = "Basket emptied. Files on the phone were not deleted."
-                                                    },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Empty basket") }
-                                            }
-                                        }
-                                        VcCard {
-                                            Text("Encryption Options", style = MaterialTheme.typography.titleMedium)
-                                            VcHint("Opening ignores the extension. Opening uses whichever password you type — there is no open-time hidden checkbox.")
-                                            OptionDropdown(
-                                                "Encryption Algorithm",
-                                                NativeBridge.CIPHERS,
-                                                createCipher,
-                                                { createCipher = it },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("create_cipher")
-                                            )
-                                            OptionDropdown(
-                                                "KDF",
-                                                NativeBridge.KDFS,
-                                                createKdf,
-                                                { createKdf = it },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("create_kdf")
-                                            )
-                                            OptionDropdown(
-                                                "Inside the volume",
-                                                listOf("FAT", "exFAT"),
-                                                createFilesystem,
-                                                { createFilesystem = it },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("create_filesystem")
-                                            )
-                                            VcHint("exFAT if a file is over 4 GiB.")
-                                            OutlinedTextField(
-                                                createFileName,
-                                                { createFileName = it.filterNot { ch -> ch == '/' || ch == '\\' }.take(120) },
-                                                label = { Text("File name (any extension)") },
-                                                modifier = Modifier.fillMaxWidth().testTag("create_filename"),
-                                                enabled = !busy,
-                                                singleLine = true
-                                            )
-                                            VcHint("The name is only a disguise — volume.hc, photo.jpg, image.png, model.safetensors, adapter.lora.")
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                OutlinedTextField(
-                                                    createSizeAmount,
-                                                    { createSizeAmount = it.filter { ch -> ch.isDigit() }.take(6) },
-                                                    label = { Text("Size") },
-                                                    modifier = Modifier.weight(1f).testTag("create_size"),
-                                                    enabled = !busy,
-                                                    singleLine = true,
-                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                                )
-                                                SizeUnitPicker(
-                                                    createSizeUnit,
-                                                    { createSizeUnit = it },
-                                                    enabled = !busy
-                                                )
-                                            }
-                                            VcHint("2 MiB–64 GiB.")
-                                            SecretField(
-                                                createPassword,
-                                                { createPassword = it },
-                                                "Volume password (never stored)",
-                                                modifier = Modifier.testTag("create_password"),
-                                                enabled = !busy
-                                            )
-                                            Text(PasswordEntropy.label(createPassword), style = MaterialTheme.typography.bodySmall)
-                                            OutlinedTextField(
-                                                createPim,
-                                                { createPim = it },
-                                                label = { Text("PIM (0 = default)") },
-                                                modifier = Modifier.fillMaxWidth().testTag("create_pim"),
-                                                enabled = !busy,
-                                                singleLine = true,
-                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                            )
-                                            FilledTonalButton(
-                                                onClick = {
-                                                    val generated = NativeBridge.generatePassword(64)
-                                                    if (generated != null) {
-                                                        createPassword = generated
-                                                        status = PasswordEntropy.label(generated) + " Generated a 64-character password in memory. Copy once if you need it elsewhere. It is not saved."
-                                                    }
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Generate strong password") }
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        if (createPassword.isNotEmpty()) {
-                                                            SensitiveClipboard.copyOnce(this@MainActivity, createPassword)
-                                                            status = "Copied once. Clipboard clears in 30 seconds. No history is kept."
-                                                        }
-                                                    },
-                                                    modifier = Modifier.weight(1f).testTag("copy_once")
-                                                ) { Text("Copy once") }
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        SensitiveClipboard.forget(this@MainActivity)
-                                                        createPassword = ""
-                                                        status = "Password forgotten. Clipboard cleared."
-                                                    },
-                                                    modifier = Modifier.weight(1f)
-                                                ) { Text("Forget password") }
-                                            }
-                                            Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
-                                            VcHint("Pick several in Files (long-press). Any extension. VeraCrypt mixes the first 1 MiB of each. Generate more below.")
-                                            if (keyfileUris.isEmpty()) {
-                                                Text("No keyfiles in this session.", style = MaterialTheme.typography.bodySmall)
-                                            }
-                                            keyfileUris.forEach { uri ->
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(
-                                                        ShareHelper.displayName(this@MainActivity, uri) ?: uri.toString(),
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        modifier = Modifier.weight(1f)
-                                                    )
-                                                    TextButton(onClick = { keyfileUris = keyfileUris.filterNot { it == uri } }) {
-                                                        Text("Remove")
-                                                    }
+                                                    toolSaver.launch(name)
                                                 }
-                                            }
-                                            OutlinedButton(
-                                                onClick = {
+                                            },
+                                            onSaveCreatedVolume = { name ->
+                                                holdLockForPicker()
+                                                window.decorView.post {
                                                     holdLockForPicker()
-                                                    keyfilePicker.launch(arrayOf("*/*"))
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Add keyfiles") }
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                OutlinedTextField(
-                                                    keyfileGenName,
-                                                    { keyfileGenName = it.take(120) },
-                                                    label = { Text("Keyfile name (any extension)") },
-                                                    modifier = Modifier.weight(1f).testTag("create_keyfile_name"),
-                                                    enabled = !busy,
-                                                    singleLine = true
-                                                )
-                                                OutlinedTextField(
-                                                    keyfileGenCount,
-                                                    { keyfileGenCount = it.filter { ch -> ch.isDigit() }.take(1) },
-                                                    label = { Text("How many") },
-                                                    modifier = Modifier.width(96.dp).testTag("create_keyfile_count"),
-                                                    enabled = !busy,
-                                                    singleLine = true,
-                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                                )
+                                                    createSaver.launch(name)
+                                                }
                                             }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = false)
-                                                    if (files.isEmpty()) {
-                                                        status = "Keyfile generator failed."
-                                                    } else if (testingSkipSystemPickers) {
-                                                        status = "Generated and added ${files.first().name}. Save a copy."
-                                                    } else {
-                                                        offerGeneratedKeyfileCopies(files, { status = it }) { name ->
-                                                            pendingExportFile = files.first()
-                                                            holdLockForPicker()
-                                                            window.decorView.post {
-                                                                holdLockForPicker()
-                                                                toolSaver.launch(name)
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("create_generate_keyfile")
-                                            ) { Text("Generate keyfile and add") }
-                                            EntropyPad(
-                                                percent = entropyPercent,
-                                                enabled = !busy,
-                                                onSample = { sample ->
-                                                    NativeBridge.addEntropy(sample)
-                                                    entropyPercent = NativeBridge.entropyPercent()
-                                                }
-                                            )
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .testTag("create_hidden")
-                                                    .toggleable(
-                                                        value = createHidden,
-                                                        enabled = !busy,
-                                                        role = Role.Checkbox,
-                                                        onValueChange = { createHidden = it }
-                                                    )
-                                            ) {
-                                                Checkbox(
-                                                    createHidden,
-                                                    onCheckedChange = null,
-                                                    enabled = !busy
-                                                )
-                                                Text("Nested volume (VeraCrypt hidden volume)")
-                                            }
-                                            if (createHidden) {
-                                                Text(
-                                                    "Same cipher and KDF. Different password. Do not fill the outer volume.",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = colors.onSurfaceVariant
-                                                )
-                                                SecretField(
-                                                    createHiddenPassword,
-                                                    { createHiddenPassword = it },
-                                                    "Nested volume password",
-                                                    modifier = Modifier.testTag("create_hidden_password"),
-                                                    enabled = !busy
-                                                )
-                                                Text(PasswordEntropy.label(createHiddenPassword), style = MaterialTheme.typography.bodySmall)
-                                                FilledTonalButton(
-                                                    onClick = {
-                                                        val generated = NativeBridge.generatePassword(64)
-                                                        if (generated != null) {
-                                                            createHiddenPassword = generated
-                                                            status = PasswordEntropy.label(generated) + " Nested password generated in memory. Copy once if you need it elsewhere. It is not saved."
-                                                        }
-                                                    },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Generate nested password") }
-                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            if (createHiddenPassword.isNotEmpty()) {
-                                                                SensitiveClipboard.copyOnce(this@MainActivity, createHiddenPassword)
-                                                                status = "Copied nested password once. Clipboard clears in 30 seconds. No history is kept."
-                                                            }
-                                                        },
-                                                        modifier = Modifier.weight(1f).testTag("copy_nested_once")
-                                                    ) { Text("Copy nested once") }
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            SensitiveClipboard.forget(this@MainActivity)
-                                                            createHiddenPassword = ""
-                                                            status = "Nested password forgotten. Clipboard cleared."
-                                                        },
-                                                        modifier = Modifier.weight(1f)
-                                                    ) { Text("Forget nested") }
-                                                }
-                                                OutlinedTextField(
-                                                    createHiddenPim,
-                                                    { createHiddenPim = it },
-                                                    label = { Text("Nested PIM (0 = default)") },
-                                                    modifier = Modifier.fillMaxWidth().testTag("create_hidden_pim"),
-                                                    enabled = !busy,
-                                                    singleLine = true,
-                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                                )
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    OutlinedTextField(
-                                                        createHiddenSizeAmount,
-                                                        { createHiddenSizeAmount = it.filter { ch -> ch.isDigit() }.take(6) },
-                                                        label = { Text("Nested size") },
-                                                        modifier = Modifier.weight(1f).testTag("create_hidden_size"),
-                                                        enabled = !busy,
-                                                        singleLine = true,
-                                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                                    )
-                                                    SizeUnitPicker(
-                                                        createHiddenSizeUnit,
-                                                        { createHiddenSizeUnit = it },
-                                                        enabled = !busy
-                                                    )
-                                                }
-                                                Text("Nested keyfiles", style = MaterialTheme.typography.titleSmall)
-                                                hiddenKeyfileUris.forEach { uri ->
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Text(
-                                                            ShareHelper.displayName(this@MainActivity, uri) ?: uri.toString(),
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            modifier = Modifier.weight(1f)
-                                                        )
-                                                        TextButton(onClick = { hiddenKeyfileUris = hiddenKeyfileUris.filterNot { it == uri } }) {
-                                                            Text("Remove")
-                                                        }
-                                                    }
-                                                }
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        holdLockForPicker()
-                                                        hiddenKeyfilePicker.launch(arrayOf("*/*"))
-                                                    },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Add nested keyfiles") }
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = true)
-                                                        if (files.isEmpty()) {
-                                                            status = "Nested keyfile generator failed."
-                                                        } else if (testingSkipSystemPickers) {
-                                                            status = "Generated nested keyfile ${files.first().name}. Save a copy."
-                                                        } else {
-                                                            offerGeneratedKeyfileCopies(files, { status = it }) { name ->
-                                                                pendingExportFile = files.first()
-                                                                holdLockForPicker()
-                                                                window.decorView.post {
-                                                                    holdLockForPicker()
-                                                                    toolSaver.launch(name)
-                                                                }
-                                                            }
-                                                        }
-                                                    },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth().testTag("create_generate_nested_keyfile")
-                                                ) { Text("Generate nested keyfile and add") }
-                                            }
-                                            Button(
-                                                onClick = {
-                                                    createContainer(
-                                                        password = createPassword,
-                                                        pimText = createPim,
-                                                        sizeBytes = SizeUnits.toBytes(
-                                                            createSizeAmount.toLongOrNull() ?: 0L,
-                                                            createSizeUnit
-                                                        ),
-                                                        cipher = createCipher,
-                                                        kdf = createKdf,
-                                                        keyfileUris = keyfileUris,
-                                                        hidden = createHidden,
-                                                        hiddenPassword = createHiddenPassword,
-                                                        hiddenPimText = createHiddenPim,
-                                                        hiddenSizeBytes = SizeUnits.toBytes(
-                                                            createHiddenSizeAmount.toLongOrNull() ?: 0L,
-                                                            createHiddenSizeUnit
-                                                        ),
-                                                        hiddenKeyfileUris = hiddenKeyfileUris,
-                                                        fileName = createFileName,
-                                                        filesystem = createFilesystem,
-                                                        entropyPercent = entropyPercent,
-                                                        basketUris = basketUris,
-                                                        onPath = {
-                                                            path = it
-                                                            containerLabel = File(it).name
-                                                        },
-                                                        onStatus = { status = it },
-                                                        onSaved = {
-                                                            NativeBridge.resetEntropy()
-                                                            entropyPercent = 0
-                                                            if (!testingSkipSystemPickers) {
-                                                                holdLockForPicker()
-                                                                window.decorView.post {
-                                                                    holdLockForPicker()
-                                                                    createSaver.launch(ShareHelper.sanitizeDisguiseName(createFileName))
-                                                                }
-                                                            }
-                                                        }
-                                                    )
-                                                },
-                                                enabled = !busy && entropyPercent >= 100,
-                                                modifier = Modifier.fillMaxWidth().testTag("create_volume")
-                                            ) { Text("Create volume") }
-                                        }
+                                        )
                                     }
                                     3 -> {
-                                        VcCard {
-                                            Text("Appearance", style = MaterialTheme.typography.titleMedium)
-                                            VcHint("Original is the VeraCrypt-like look. Dark mode is a dark theme. Pick is stored on this phone only.")
-                                            VcSkin.entries.forEach { option ->
-                                                val selected = skin == option
-                                                if (selected) {
-                                                    Button(
-                                                        onClick = {
-                                                            skin = option
-                                                            saveSkin(option)
-                                                        },
-                                                        enabled = !busy,
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .testTag(option.tag),
-                                                        colors = ButtonDefaults.buttonColors(
-                                                            containerColor = colors.primary,
-                                                            contentColor = colors.onPrimary
-                                                        )
-                                                    ) { Text(if (selected) "●  ${option.picker}" else option.picker) }
-                                                } else {
-                                                    OutlinedButton(
-                                                        onClick = {
-                                                            skin = option
-                                                            saveSkin(option)
-                                                        },
-                                                        enabled = !busy,
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .testTag(option.tag)
-                                                    ) { Text(if (selected) "●  ${option.picker}" else option.picker) }
+                                        ToolsPane(
+                                            busy = busy,
+                                            path = path,
+                                            password = password,
+                                            pim = pim,
+                                            useTextPassword = useTextPassword,
+                                            keyfileUris = keyfileUris,
+                                            useBackupHeader = useBackupHeader,
+                                            headerKdf = headerKdf,
+                                            onHeaderKdf = { headerKdf = it },
+                                            handle = handle,
+                                            onHandle = { handle = it },
+                                            onEntries = { entries = it },
+                                            skin = skin,
+                                            onSkin = { skin = it },
+                                            onPickRestoreHeader = {
+                                                holdLockForPicker()
+                                                restoreHeaderPicker.launch(arrayOf("*/*"))
+                                            },
+                                            onPickKeyfiles = {
+                                                holdLockForPicker()
+                                                keyfilePicker.launch(arrayOf("*/*"))
+                                            },
+                                            onSaveGeneratedKeyfile = { file, name ->
+                                                pendingExportFile = file
+                                                holdLockForPicker()
+                                                window.decorView.post {
+                                                    holdLockForPicker()
+                                                    toolSaver.launch(name)
                                                 }
                                             }
-                                        }
-                                        VcCard {
-                                            Text("Volume header", style = MaterialTheme.typography.titleMedium)
-                                            SecretField(
-                                                newPassword,
-                                                { newPassword = it },
-                                                "New password (empty = keep current)",
-                                                modifier = Modifier.testTag("tools_new_password"),
-                                                enabled = !busy
-                                            )
-                                            OutlinedTextField(
-                                                newPim,
-                                                { newPim = it },
-                                                label = { Text("New PIM (0 = VeraCrypt default)") },
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_new_pim"),
-                                                enabled = !busy,
-                                                singleLine = true,
-                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                            )
-                                            Button(
-                                                onClick = {
-                                                    runChangeHeader(
-                                                        path = path,
-                                                        password = password,
-                                                        pimText = pim,
-                                                        useTextPassword = useTextPassword,
-                                                        keyfileUris = keyfileUris,
-                                                        useBackupHeader = useBackupHeader,
-                                                        newPassword = newPassword,
-                                                        newPimText = newPim,
-                                                        newKdf = "",
-                                                        keepKeyfiles = true,
-                                                        onHandle = { handle = it },
-                                                        onEntries = { entries = it },
-                                                        onStatus = { status = it },
-                                                        successMessage = "Changed volume password. Open with the new password and the same keyfiles."
-                                                    )
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_change_password")
-                                            ) { Text("Change volume password") }
-                                            OptionDropdown(
-                                                "Header KDF",
-                                                listOf("(keep current)") + NativeBridge.KDFS,
-                                                headerKdf,
-                                                { headerKdf = it },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_header_kdf")
-                                            )
-                                            OutlinedButton(
-                                                onClick = {
-                                                    val kdf = if (headerKdf == "(keep current)") "" else headerKdf
-                                                    if (kdf.isEmpty()) {
-                                                        status = "Pick a KDF other than keep current."
-                                                    } else {
-                                                        runChangeHeader(
-                                                            path = path,
-                                                            password = password,
-                                                            pimText = pim,
-                                                            useTextPassword = useTextPassword,
-                                                                    keyfileUris = keyfileUris,
-                                                            useBackupHeader = useBackupHeader,
-                                                            newPassword = "",
-                                                            newPimText = newPim,
-                                                            newKdf = kdf,
-                                                            keepKeyfiles = true,
-                                                            onHandle = { handle = it },
-                                                            onEntries = { entries = it },
-                                                            onStatus = { status = it },
-                                                            successMessage = "Set header key derivation algorithm to $kdf."
-                                                        )
-                                                    }
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_set_kdf")
-                                            ) { Text("Set header key derivation algorithm") }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    runChangeHeader(
-                                                        path = path,
-                                                        password = password,
-                                                        pimText = pim,
-                                                        useTextPassword = useTextPassword,
-                                                        keyfileUris = keyfileUris,
-                                                        useBackupHeader = useBackupHeader,
-                                                        newPassword = "",
-                                                        newPimText = newPim,
-                                                        newKdf = "",
-                                                        keepKeyfiles = true,
-                                                        applySessionKeyfiles = true,
-                                                        onHandle = { handle = it },
-                                                        onEntries = { entries = it },
-                                                        onStatus = { status = it },
-                                                        successMessage = "Applied the current keyfile list (Add/Remove keyfiles) to the volume header."
-                                                    )
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_apply_keyfiles")
-                                            ) { Text("Add/Remove keyfiles to/from volume") }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    runChangeHeader(
-                                                        path = path,
-                                                        password = password,
-                                                        pimText = pim,
-                                                        useTextPassword = useTextPassword,
-                                                        keyfileUris = keyfileUris,
-                                                        useBackupHeader = useBackupHeader,
-                                                        newPassword = "",
-                                                        newPimText = newPim,
-                                                        newKdf = "",
-                                                        keepKeyfiles = false,
-                                                        onHandle = { handle = it },
-                                                        onEntries = { entries = it },
-                                                        onStatus = { status = it },
-                                                        successMessage = "Removed all keyfiles from volume. Open with the password only."
-                                                    )
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_remove_all_keyfiles")
-                                            ) { Text("Remove all keyfiles from volume") }
-                                            HorizontalDivider()
-                                            Button(
-                                                onClick = {
-                                                    backupVolumeHeader(
-                                                        volumePath = path,
-                                                        password = password,
-                                                        pimText = pim,
-                                                        useTextPassword = useTextPassword,
-                                                        keyfileUris = keyfileUris,
-                                                        onHandle = { handle = it },
-                                                        onEntries = { entries = it },
-                                                        onStatus = { status = it },
-                                                        onSaved = { file ->
-                                                            pendingExportFile = file
-                                                            if (!testingSkipSystemPickers) {
-                                                                holdLockForPicker()
-                                                                window.decorView.post {
-                                                                    holdLockForPicker()
-                                                                    toolSaver.launch("volume-header.bak")
-                                                                }
-                                                            }
-                                                        }
-                                                    )
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_backup_header")
-                                            ) { Text("Backup volume header") }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    holdLockForPicker()
-                                                    restoreHeaderPicker.launch(arrayOf("*/*"))
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Restore volume header") }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    restoreEmbeddedHeader(
-                                                        volumePath = path,
-                                                        password = password,
-                                                        pimText = pim,
-                                                        useTextPassword = useTextPassword,
-                                                        keyfileUris = keyfileUris,
-                                                        onHandle = { handle = it },
-                                                        onEntries = { entries = it },
-                                                        onStatus = { status = it }
-                                                    )
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_restore_embedded")
-                                            ) { Text("Restore from embedded backup header") }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    if (!NativeBridge.isOpen(handle)) {
-                                                        status = "Open the volume first for Volume properties."
-                                                    } else {
-                                                        status = NativeBridge.volumeInfo(handle)
-                                                            ?: "Could not read volume properties."
-                                                    }
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_volume_properties")
-                                            ) { Text("Volume properties") }
-                                        }
-                                        VcCard {
-                                            Text("Keyfile generator", style = MaterialTheme.typography.titleMedium)
-                                            VcHint("Any extension. Generate several, then Add keyfiles if they are not already in this session.")
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                OutlinedTextField(
-                                                    keyfileGenName,
-                                                    { keyfileGenName = it.take(120) },
-                                                    label = { Text("Keyfile name (any extension)") },
-                                                    modifier = Modifier.weight(1f).testTag("tools_keyfile_name"),
-                                                    enabled = !busy,
-                                                    singleLine = true
-                                                )
-                                                OutlinedTextField(
-                                                    keyfileGenCount,
-                                                    { keyfileGenCount = it.filter { ch -> ch.isDigit() }.take(1) },
-                                                    label = { Text("How many") },
-                                                    modifier = Modifier.width(96.dp),
-                                                    enabled = !busy,
-                                                    singleLine = true,
-                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                                )
-                                            }
-                                            Button(
-                                                onClick = {
-                                                    val files = generateSessionKeyfiles(keyfileGenCount, keyfileGenName, nested = false)
-                                                    if (files.isEmpty()) {
-                                                        status = "Keyfile generator failed."
-                                                    } else if (testingSkipSystemPickers) {
-                                                        status = "Generated and added ${files.first().name}. Save a copy."
-                                                    } else {
-                                                        offerGeneratedKeyfileCopies(files, { status = it }) { name ->
-                                                            pendingExportFile = files.first()
-                                                            holdLockForPicker()
-                                                            window.decorView.post {
-                                                                holdLockForPicker()
-                                                                toolSaver.launch(name)
-                                                            }
-                                                        }
-                                                    }
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_generate_keyfile")
-                                            ) { Text("Keyfile generator") }
-                                        }
-                                        VcCard {
-                                            Text("Benchmark / test vectors", style = MaterialTheme.typography.titleMedium)
-                                            OutlinedButton(
-                                                onClick = {
-                                                    beginWork("Running encryption benchmark…")
-                                                    Thread {
-                                                        val result = NativeBridge.benchmark() ?: "Benchmark failed."
-                                                        runOnUiThread {
-                                                            endWork()
-                                                            status = result
-                                                        }
-                                                    }.start()
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Benchmark") }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    beginWork("Running known-answer test vectors…")
-                                                    Thread {
-                                                        val rc = NativeBridge.testVectors()
-                                                        runOnUiThread {
-                                                            endWork()
-                                                            status = if (rc == 0)
-                                                                "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests."
-                                                            else
-                                                                "Test vectors failed."
-                                                        }
-                                                    }.start()
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Test vectors") }
-                                            VcHint(PimEstimator.describe(createKdf, createPim))
-                                            if (pimEstimateResult.isNotEmpty()) {
-                                                Text(
-                                                    pimEstimateResult,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    modifier = Modifier.testTag("pim_estimate_result")
-                                                )
-                                            }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    beginWork("Estimating header iterations…")
-                                                    Thread {
-                                                        val text = PimEstimator.describe(
-                                                            createKdfState.value,
-                                                            createPimState.value
-                                                        )
-                                                        NativeBridge.setProgress(100, text)
-                                                        runOnUiThread {
-                                                            pimEstimateResult = text
-                                                            status = text
-                                                            endWork()
-                                                        }
-                                                    }.start()
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("tools_pim_estimate")
-                                            ) { Text("PIM iteration estimate") }
-                                        }
-                                        VcCard {
-                                            Text("Wipe cached passwords", style = MaterialTheme.typography.titleMedium)
-                                            OutlinedButton(
-                                                onClick = {
-                                                    lockSession()
-                                                    password = ""
-                                                    handle = 0
-                                                    entries = emptyList()
-                                                    status = "Wipe cached passwords complete. Volume closed."
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Wipe cached passwords") }
-                                        }
-                                        VcCard {
-                                            val uriHandler = LocalUriHandler.current
-                                            Text(
-                                                "“We must defend our own privacy if we expect to have any.” — Eric Hughes, A Cypherpunk’s Manifesto (1993)",
-                                                style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                                                color = colors.onSurfaceVariant
-                                            )
-                                            Text(
-                                                "Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com",
-                                                style = MaterialTheme.typography.bodySmall
-                                            )
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                TextButton(
-                                                    onClick = { uriHandler.openUri("https://github.com/ShivamPingaleDev/Veracrypt_port") },
-                                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                                ) { Text("Repo") }
-                                                TextButton(
-                                                    onClick = { uriHandler.openUri("https://github.com/sponsors/ShivamPingaleDev") },
-                                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                                ) { Text("Sponsor") }
-                                                TextButton(
-                                                    onClick = { uriHandler.openUri("https://github.com/ShivamPingaleDev/Veracrypt_port/releases") },
-                                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                                ) { Text("Releases") }
-                                            }
-                                            TextButton(
-                                                onClick = { uriHandler.openUri("http://www.truecrypt.org/") },
-                                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-                                            ) {
-                                                Text(
-                                                    "Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = colors.onSurfaceVariant
-                                                )
-                                            }
-                                            VcHint("Apache-2.0 / TrueCrypt License 3.0. Not named VeraCrypt. The app does not install itself.")
-                                            VcHint(SourcePin.describeBuild())
-                                        }
+                                        )
                                     }
                                     else -> {
                                         BindOpenVolumeForm(mountedSlot = false, onCancel = null)
@@ -2603,7 +1869,12 @@ class MainActivity : AppCompatActivity() {
         NativeBridge.resetEntropy()
     }
 
-    private fun closeOpenVolumes(reason: String) {
+    /**
+     * Full closer: idle, screen-lock, Tools wipe-cache, Dismount.
+     * Home / Recents uses [dismountOnLeave] so Create can continue. Panic adds
+     * [Hardening.panic] after lock. Do not grow a fifth path.
+     */
+    internal fun closeOpenVolumes(reason: String) {
         if (NativeBridge.isOpen(handleState.value) || mountedVolumesState.value.isNotEmpty()) {
             beginWork(reason)
             NativeBridge.setProgress(100, reason)
@@ -2636,13 +1907,13 @@ class MainActivity : AppCompatActivity() {
         basketUrisState.value = emptyList()
     }
 
-    private fun beginWork(title: String = "", updateStatus: Boolean = true) {
+    internal fun beginWork(title: String = "", updateStatus: Boolean = true) {
         NativeBridge.resetProgress()
         if (updateStatus && title.isNotEmpty()) statusState.value = title
         busyState.value = true
     }
 
-    private fun endWork() {
+    internal fun endWork() {
         NativeBridge.resetProgress()
         busyState.value = false
     }
@@ -2674,7 +1945,7 @@ class MainActivity : AppCompatActivity() {
         return -1L
     }
 
-    private fun volumeBytesForBasket(askedBytes: Long, uris: List<Uri>, hiddenBytes: Long): Long {
+    internal fun volumeBytesForBasket(askedBytes: Long, uris: List<Uri>, hiddenBytes: Long): Long {
         var payload = 0L
         for (uri in uris) {
             val n = uriLength(uri)
@@ -2687,7 +1958,7 @@ class MainActivity : AppCompatActivity() {
         return bytes
     }
 
-    private fun basketSummary(uris: List<Uri>, hiddenBytes: Long = 0L): String {
+    internal fun basketSummary(uris: List<Uri>, hiddenBytes: Long = 0L): String {
         var bytes = 0L
         var unknown = false
         for (uri in uris) {
@@ -2779,7 +2050,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun createContainer(
+    internal fun createContainer(
         password: String,
         pimText: String,
         sizeBytes: Long,
@@ -2836,8 +2107,8 @@ class MainActivity : AppCompatActivity() {
             onStatus("Basket is too large for a 64 GiB phone volume. Remove files.")
             return
         }
-        if (bytes > cacheDir.usableSpace - (32L shl 20)) {
-            onStatus("Not enough free space on this phone for ${SizeUnits.formatBytes(bytes)}.")
+        SizeUnits.shortageInAppStorage(bytes, cacheDir.usableSpace)?.let {
+            onStatus(it)
             return
         }
         if (hidden) {
@@ -3006,7 +2277,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun generateSessionKeyfiles(countText: String, pattern: String, nested: Boolean): List<File> {
+    internal fun generateSessionKeyfiles(countText: String, pattern: String, nested: Boolean): List<File> {
         val n = (countText.toIntOrNull() ?: 1).coerceIn(1, 8)
         val name = ShareHelper.sanitizeKeyfileName(pattern)
         val dir = KeyfileIo.keyfileDir(this)
@@ -3028,7 +2299,7 @@ class MainActivity : AppCompatActivity() {
         return files
     }
 
-    private fun offerGeneratedKeyfileCopies(
+    internal fun offerGeneratedKeyfileCopies(
         files: List<File>,
         onStatus: (String) -> Unit,
         saveOne: (String) -> Unit
@@ -3062,7 +2333,7 @@ class MainActivity : AppCompatActivity() {
         return Pair(temps, null)
     }
 
-    private fun runChangeHeader(
+    internal fun runChangeHeader(
         path: String,
         password: String,
         pimText: String,
@@ -3177,7 +2448,7 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun backupVolumeHeader(
+    internal fun backupVolumeHeader(
         volumePath: String,
         password: String,
         pimText: String,
@@ -3602,7 +2873,10 @@ class MainActivity : AppCompatActivity() {
         tabState.intValue = 0
         pathState.value = copyIncomingAsContainer(first)
         containerLabelState.value = first.name
-        statusState.value = "Received ${first.name}. Any extension can be a volume. Open with the correct password, PIM, and keyfiles, or share as-is."
+        statusState.value = if (pathState.value.isEmpty())
+            lastContainerCopyError.ifEmpty { SizeUnits.APP_STORAGE_UNREADABLE }
+        else
+            "Received ${first.name}. Any extension can be a volume. Open with the correct password, PIM, and keyfiles, or share as-is."
     }
 
     private fun beginShare() {
@@ -4251,7 +3525,7 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun restoreEmbeddedHeader(
+    internal fun restoreEmbeddedHeader(
         volumePath: String,
         password: String,
         pimText: String,
@@ -4328,6 +3602,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun copyIncomingAsContainer(file: File): String {
+        lastContainerCopyError = ""
         val name = ShareHelper.sanitizeDisguiseName(file.name)
         if (file.absolutePath.startsWith(cacheDir.absolutePath) ||
             file.absolutePath.startsWith(filesDir.absolutePath)
@@ -4335,10 +3610,16 @@ class MainActivity : AppCompatActivity() {
             return file.absolutePath
         }
         val outFile = KeyfileIo.uniqueNamed(File(cacheDir, "containers").apply { mkdirs() }, name)
-        if (file.length() > 0 && cacheDir.usableSpace < file.length() + (32L shl 20)) {
+        SizeUnits.shortageInAppStorage(file.length(), cacheDir.usableSpace)?.let {
+            lastContainerCopyError = it
             return ""
         }
         file.copyTo(outFile, overwrite = false)
+        if (!outFile.exists() || outFile.length() == 0L) {
+            outFile.delete()
+            lastContainerCopyError = SizeUnits.APP_STORAGE_UNREADABLE
+            return ""
+        }
         return outFile.absolutePath
     }
 
@@ -4467,13 +3748,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun copyToCache(uri: Uri): String {
+        lastContainerCopyError = ""
         val display = ShareHelper.displayName(this, uri) ?: "volume.hc"
         val name = ShareHelper.sanitizeDisguiseName(display)
         val len = uriLength(uri)
-        if (len > 0 && cacheDir.usableSpace < len + (32L shl 20)) {
+        SizeUnits.shortageInAppStorage(len, cacheDir.usableSpace)?.let {
+            lastContainerCopyError = it
             return ""
         }
-        val input = KeyfileIo.openReadable(this, uri) ?: return ""
+        val input = KeyfileIo.openReadable(this, uri)
+        if (input == null) {
+            lastContainerCopyError = SizeUnits.APP_STORAGE_UNREADABLE
+            return ""
+        }
         val outFile = KeyfileIo.uniqueNamed(File(cacheDir, "containers").apply { mkdirs() }, name)
         try {
             outFile.outputStream().use { output ->
@@ -4484,380 +3771,14 @@ class MainActivity : AppCompatActivity() {
         }
         if (!outFile.exists() || outFile.length() == 0L) {
             outFile.delete()
+            lastContainerCopyError = SizeUnits.APP_STORAGE_UNREADABLE
             return ""
         }
         if (len > 0 && outFile.length() < len) {
             outFile.delete()
+            lastContainerCopyError = SizeUnits.APP_STORAGE_UNREADABLE
             return ""
         }
         return outFile.absolutePath
     }
-}
-
-@Composable
-private fun VaultPane(
-    modifier: Modifier = Modifier,
-    dirPath: String,
-    entries: List<VaultEntry>,
-    selectedNames: Set<String>,
-    truncated: Boolean,
-    busy: Boolean,
-    mounts: List<MountedVolume>,
-    activeMount: Int,
-    readOnly: Boolean,
-    onSelectMount: (Int) -> Unit,
-    onDismountMount: (Int) -> Unit,
-    onOpenAnother: () -> Unit,
-    hashResult: String = "",
-    canTransfer: Boolean,
-    onCopyToVolume: () -> Unit,
-    onMoveToVolume: () -> Unit,
-    onUp: () -> Unit,
-    onGoToPath: (String) -> Unit,
-    onOpen: (VaultEntry) -> Unit,
-    onPreview: () -> Unit,
-    onShare: (List<VaultEntry>) -> Unit,
-    onCopyFromDevice: () -> Unit,
-    onMoveFromDevice: () -> Unit,
-    onCopyToDevice: () -> Unit,
-    onMoveToDevice: () -> Unit,
-    onNewFolder: () -> Unit,
-    onRename: () -> Unit,
-    onDelete: () -> Unit,
-    onProperties: () -> Unit,
-    onHashSelected: () -> Unit,
-    onWipeFreeSpace: () -> Unit,
-    onSelectAll: () -> Unit,
-    onMore: () -> Unit
-) {
-    val colors = MaterialTheme.colorScheme
-    val fileCount = entries.count { !it.isDir }
-    val allFilesSelected = fileCount > 0 && entries.filter { !it.isDir }.all { it.name in selectedNames }
-    val live = mounts.isNotEmpty()
-    var folderMenu by remember { mutableStateOf(false) }
-    Column(modifier.fillMaxSize()) {
-        Text(
-            if (mounts.size > 1) "${mounts.size} volumes mounted" else "Mounted in this app",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
-        )
-        Text(
-            "Slots are this session only. Not a system drive. Select files, then Copy to volume / Copy to device, or Copy from device.",
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (readOnly) {
-            Text(
-                "Read-only. This slot refuses writes (wipe, import, delete, rename).",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.error,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .testTag("read_only_banner")
-            )
-        }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = onOpenAnother, enabled = !busy) { Text("Open another container") }
-            if (BuildConfig.ENABLE_IN_APP_PREVIEW) {
-                TextButton(
-                    onClick = onPreview,
-                    enabled = !busy && live,
-                    modifier = Modifier.testTag("view_in_app")
-                ) { Text("View in app") }
-            }
-            TextButton(onClick = onSelectAll, enabled = !busy && live && fileCount > 0) {
-                Text(if (allFilesSelected) "Clear selection" else "Select files")
-            }
-            if (canTransfer) {
-                TextButton(
-                    onClick = onCopyToVolume,
-                    enabled = !busy && live,
-                    modifier = Modifier.testTag("copy_to_volume")
-                ) { Text("Copy to volume") }
-                TextButton(
-                    onClick = onMoveToVolume,
-                    enabled = !busy && live,
-                    modifier = Modifier.testTag("move_to_volume")
-                ) { Text("Move to volume") }
-            }
-            TextButton(
-                onClick = onNewFolder,
-                enabled = !busy && live,
-                modifier = Modifier.testTag("new_folder")
-            ) { Text("New folder") }
-            TextButton(
-                onClick = onWipeFreeSpace,
-                enabled = !busy && live,
-                modifier = Modifier.testTag("wipe_free_space")
-            ) { Text("Wipe free space") }
-            TextButton(
-                onClick = onHashSelected,
-                enabled = !busy && live,
-                modifier = Modifier.testTag("hash_in_volume")
-            ) { Text("SHA-256 in volume") }
-            Box {
-                TextButton(onClick = { folderMenu = true }, enabled = !busy && live) { Text("Folder") }
-                DropdownMenu(expanded = folderMenu, onDismissRequest = { folderMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Copy from device") },
-                        onClick = { folderMenu = false; onCopyFromDevice() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Move from device") },
-                        onClick = { folderMenu = false; onMoveFromDevice() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Copy to device") },
-                        onClick = { folderMenu = false; onCopyToDevice() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Move to device") },
-                        onClick = { folderMenu = false; onMoveToDevice() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Rename") },
-                        onClick = { folderMenu = false; onRename() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete") },
-                        onClick = { folderMenu = false; onDelete() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Properties") },
-                        onClick = { folderMenu = false; onProperties() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Share decrypted") },
-                        onClick = {
-                            folderMenu = false
-                            onShare(entries.filter { it.name in selectedNames && !it.isDir })
-                        }
-                    )
-                }
-            }
-        }
-        HorizontalDivider(color = colors.outline.copy(alpha = 0.25f))
-        Row(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            Column(
-                Modifier
-                    .width(120.dp)
-                    .fillMaxHeight()
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 8.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
-            ) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text("No.", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(22.dp))
-                    Text("Volume", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-                }
-                for (slot in 0 until MOUNT_SLOTS) {
-                    val vol = mounts.getOrNull(slot)
-                    val selected = vol != null && slot == activeMount
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(if (selected) colors.primaryContainer else Color.Transparent)
-                            .clickable(enabled = !busy) {
-                                if (vol != null) onSelectMount(slot) else onOpenAnother()
-                            }
-                            .padding(horizontal = 8.dp, vertical = 7.dp)
-                            .testTag("mount_slot_$slot"),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "${slot + 1}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colors.onSurfaceVariant,
-                            modifier = Modifier.width(22.dp)
-                        )
-                        Text(
-                            vol?.label ?: "Empty",
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = if (vol == null) colors.onSurfaceVariant else colors.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (vol != null) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = "Dismount ${vol.label}",
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clickable(enabled = !busy) { onDismountMount(slot) }
-                            )
-                        }
-                    }
-                }
-            }
-            Box(
-                Modifier
-                    .width(1.dp)
-                    .fillMaxHeight()
-                    .background(colors.outline.copy(alpha = 0.4f))
-            )
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-        if (hashResult.isNotEmpty()) {
-            Text(
-                hashResult,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .testTag("hash_result")
-            )
-        }
-        Row(
-            Modifier
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (dirPath.isNotEmpty()) {
-                OutlinedButton(onClick = onUp, enabled = !busy, modifier = Modifier.testTag("vault_up")) { Text("Up") }
-                Spacer(Modifier.padding(8.dp))
-            }
-            val parts = dirPath.split('/').filter { it.isNotEmpty() }
-            TextButton(
-                onClick = { onGoToPath("") },
-                enabled = !busy && dirPath.isNotEmpty()
-            ) { Text("/") }
-            parts.forEachIndexed { index, part ->
-                Text("›", color = colors.onSurfaceVariant)
-                val target = parts.take(index + 1).joinToString("/")
-                TextButton(
-                    onClick = { onGoToPath(target) },
-                    enabled = !busy && index < parts.lastIndex
-                ) { Text(part) }
-            }
-        }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Text("Name", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-            Text("Size", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-        }
-        if (entries.isEmpty() && !busy) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    if (!live) "No volume in this slot." else "This folder is empty.",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    if (!live) {
-                        "Open volume on the Volume tab, or tap an empty slot. This is not a system drive."
-                    } else {
-                        "Tap a folder to open it, or Copy from device to add files. Copy to device writes files Files can open."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant
-                )
-            }
-        }
-        LazyColumn(
-            modifier = Modifier.weight(1f).testTag("vault_list"),
-            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)
-        ) {
-            itemsIndexed(entries, key = { index, entry -> "$index:${entry.name}" }) { _, entry ->
-                val selected = entry.name in selectedNames
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(if (selected) colors.primaryContainer else colors.surface)
-                        .clickable(enabled = !busy) { onOpen(entry) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        Modifier
-                            .padding(end = 12.dp)
-                            .size(28.dp)
-                            .background(
-                                if (selected) colors.primary else colors.surfaceVariant,
-                                RoundedCornerShape(14.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (selected) {
-                            Icon(
-                                Icons.Filled.Check,
-                                contentDescription = "Selected",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        } else {
-                            Text(
-                                if (entry.isDir) "▸" else "•",
-                                color = colors.onSurfaceVariant,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                        }
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text(entry.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (entry.isDir) {
-                            Text(
-                                "Folder — tap to open",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colors.onSurfaceVariant
-                            )
-                        }
-                    }
-                    if (!entry.isDir) {
-                        Text(
-                            formatSize(entry.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.onSurfaceVariant
-                        )
-                    }
-                }
-                HorizontalDivider(color = colors.outline.copy(alpha = 0.4f))
-            }
-            if (truncated) {
-                item {
-                    OutlinedButton(
-                        onClick = onMore,
-                        enabled = !busy,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) { Text("Load more") }
-                }
-            }
-        }
-            }
-        }
-    }
-}
-
-private fun formatSize(size: Long): String {
-    if (size < 1024) return "$size B"
-    if (size < 1024 * 1024) return "${size / 1024} KB"
-    if (size < 1024L * 1024 * 1024) return "${size / (1024 * 1024)} MB"
-    return "${size / (1024L * 1024 * 1024)} GB"
 }

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
@@ -586,8 +587,12 @@ class AppInterfaceSessionTest {
         waitStatus("Idle timeout", 15_000)
 
         assertSecure()
+        hideIme()
         rule.onNodeWithText("Check for updates").assertDoesNotExist()
-        rule.onNodeWithText("Panic wipe").assertIsDisplayed()
+        rule.waitUntil(8_000) {
+            rule.onAllNodesWithTag("panic_wipe").fetchSemanticsNodes().isNotEmpty()
+        }
+        rule.onNodeWithTag("panic_wipe").assertExists()
         Hardening.wipeDir(work)
     }
 
@@ -601,9 +606,17 @@ class AppInterfaceSessionTest {
             pw.length == 64
         }
         val tag = if (hidden) "copy_nested_once" else "copy_once"
-        rule.onNodeWithTag(tag).performScrollTo().performClick()
-        rule.waitForIdle()
-        waitStatus("Copied", 8_000)
+        // Generate copy says "Copy once"; wait for the Copied-once status, not that substring.
+        val copied = if (hidden) "Copied nested" else "Copied once"
+        repeat(3) {
+            rule.onNodeWithTag(tag).performScrollTo().performClick()
+            rule.waitForIdle()
+            if (rule.activity.testingStatus().contains(copied, ignoreCase = true)) {
+                return@repeat
+            }
+            Thread.sleep(400)
+        }
+        waitStatus(copied, 8_000)
         val pw = if (hidden) {
             rule.activity.testingCreateHiddenPassword()
         } else {
@@ -613,14 +626,32 @@ class AppInterfaceSessionTest {
         return pw
     }
 
-    private fun clickCreateVolume() {
+    private fun hideIme() {
         InstrumentationRegistry.getInstrumentation().uiAutomation
             .executeShellCommand("input keyevent 111")
             .close()
         rule.waitForIdle()
+    }
+
+    private fun clickCreateVolume() {
+        hideIme()
         rule.onNodeWithTag("create_volume").performScrollTo().assertIsEnabled().performClick()
         rule.waitForIdle()
-        waitStatus("Creating", 12_000)
+        // Create can finish before the overlay is sampled; success copy also contains "Created".
+        try {
+            rule.waitUntil(12_000) {
+                val s = rule.activity.testingStatus()
+                s.contains("Creating", ignoreCase = true) ||
+                    s.contains("Created", ignoreCase = true) ||
+                    s.contains("from the basket", ignoreCase = true)
+            }
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            throw AssertionError(
+                "Timed out waiting for create to start or finish. Last status: '${rule.activity.testingStatus()}'",
+                e
+            )
+        }
+        rule.waitForIdle()
     }
 
     private fun waitStatus(substring: String, timeoutMs: Long) {

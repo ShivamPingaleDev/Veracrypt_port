@@ -1,8 +1,27 @@
 # Feature backlog
 
-VC Port stays **100% free**. Optional support is GitHub-only. No paid unlocks. No stronger crypto for donors.
+VC Port stays **100% free**. Optional support is GitHub-only (README / SUPPORT.md). No paid unlocks. No stronger crypto for donors. **No browser links inside the app.**
+
+## Feature freeze (still alpha)
+
+Started after **0.3.10**; freeze maintenance shipped in **0.3.11**. Still **stable alpha**, not 1.0, not a store build.
+
+**One shipping branch:** freeze is **`master` only**. Ignore `experimental-otg-master` (OTG is already on master). Do not add commits to stale `experimental-biometrics` or `vcport-github`.
+
+**Frozen:** Open, Create (nested size), Mounted (8 slots + Empty popup), Tools headers, panic, idle-on-open, Android OTG, in-app preview. No new user-facing volume features.
+
+**Still allowed:** bug fixes, host/UI-walk regressions, splitting the two giant screens, cache/space error copy.
+
+**Not in this freeze:** metadata scrub, batch queue, File Provider, favorites, in-app updates, biometrics.
 
 Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer entropy (opt-in conflict with GrapheneOS skepticism).
+
+## Architecture (lock in)
+
+- **One Open suite.** Volume tab and Mounted Empty popup both call `openVolumeWithFactors` / `openVolume()` through `OpenVolumeForm` / `openVolumeForm`. New mount options go in that one form.
+- **One session closer.** Idle, screen-lock, panic, and Tools Wipe cached passwords call `closeOpenVolumes`. Home / Recents uses `dismountOnLeave` so Create can continue. Do not grow a fifth path.
+- **Native work stays off the UI thread; WorkOverlay is the only progress UI.** No silent background jobs.
+- **Host contracts stay grep + lifecycle.** They catch tab order and `/proc/self/fd`. They do not replace the emulator walk.
 
 ## Nested volume size
 
@@ -16,6 +35,7 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 - Progress overlay (percent + phase)
 - Basket SHA-256 → `BASKET.sha256`
 - Preview / export temps wiped on panic/close
+- `ports/scripts/verify-build.sh` — this git tag → SHA-256 of the FOSS APK and unsigned IPA. GitHub APKs stay debug-signed previews; do not write those hashes into `version.json`.
 
 ## This pass (good ideas, no conflict)
 
@@ -26,16 +46,18 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 | PIM iteration estimator | **Built** — Tools helper; not a crack-time claim; not Benchmark |
 | In-container SHA-256 before export | **Built** — hash selected file(s) inside the volume, wipe the temp |
 | Read-only banner | **Built** — Mounted tab shouts when the slot is read-only |
+| SAF cache/space error | **Built** — names need vs free in app storage |
+| Mega-screen split | **Built** — Open / Mounted / Create / Tools are their own files |
+| `verify-build.sh` | **Built** — reviewer rebuilds FOSS and compares SHA-256 |
 | Metadata scrub on export | **Later** — optional EXIF/timestamp; easy to get wrong |
 | Batch queue + ETA | **Later** — reuse progress hooks |
-| `verify-build.sh` | **Later** — trust, not user-facing crypto |
 
 ## Priority
 
-1. Idle + screen lock, panic tile
-2. Read-only banner, in-volume hash, PIM estimator
-3. Later: reproducible APK verify, export metadata scrub, transfer queue
+1. Record the 10-phase UI walk on 0.3.11
+2. Production-signed FOSS APK (your keystore) and signed IPA from this Mac
+3. Later: transfer queue; metadata scrub only default-off on export copies
 
 ## Merge note
 
-Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Good-ideas in “This pass” are **built**. Later: metadata scrub, batch queue, `verify-build.sh`.
+Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11** on master. Later: metadata scrub, batch queue.

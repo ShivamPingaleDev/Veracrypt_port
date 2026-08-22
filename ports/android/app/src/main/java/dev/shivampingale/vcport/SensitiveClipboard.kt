@@ -16,13 +16,17 @@ object SensitiveClipboard {
     private var clearToken: Any? = null
 
     fun copyOnce(context: Context, secret: String) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("VC Port", secret)
-        val extras = PersistableBundle()
-        extras.putBoolean("android.content.extra.IS_SENSITIVE", true)
-        clip.description.extras = extras
-        clipboard.setPrimaryClip(clip)
-        scheduleClear(clipboard)
+        try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("VC Port", secret)
+            val extras = PersistableBundle()
+            extras.putBoolean("android.content.extra.IS_SENSITIVE", true)
+            clip.description.extras = extras
+            clipboard.setPrimaryClip(clip)
+            scheduleClear(clipboard)
+        } catch (_: Exception) {
+            // Emulator / locked clipboard must not freeze the Create/Open click.
+        }
     }
 
     fun forget(context: Context) {

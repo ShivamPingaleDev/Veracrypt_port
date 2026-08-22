@@ -8,6 +8,14 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
+## 0.3.11
+
+Stable alpha: freeze maintenance on **master** (not 1.0). Tools About stays text only — it does not open a browser.
+
+- Named app-storage space errors; `verify-build.sh` (tag → APK/IPA SHA-256); Open/Mounted/Create/Tools split out of the two mega screens; one session closer (`closeOpenVolumes`).
+- Android Create Copy once sets status before the clipboard (emulator clipboard must not freeze the click). UI walk keeps the AVD awake and restarts it if Gradle loses the device.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.11.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.11-unsigned-preview.ipa`). Same `applicationId` as 0.3.10; it replaces the old install. Still alpha (not 1.0, not a store build).
+
 ## 0.3.10
 
 Stable alpha: tabs Volume → Create → Mounted → Tools; Empty Mounted slots open a scrollable Open popup; typed idle time on Open; compact Tools About.

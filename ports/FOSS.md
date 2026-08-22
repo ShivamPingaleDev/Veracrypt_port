@@ -44,6 +44,15 @@ Appearance is Original plus Dark mode. Cyberpunk, Matrix, and MAGI are archived 
 
 GitHub Actions APKs are **debug-signed previews**. The GitHub Release for this version attaches **one** FOSS APK and an unsigned iOS IPA. CI builds both in parallel. Sign anything called production yourself (`VC_PORT_IOS_TEAM` / `VC_PORT_RELEASE_STORE_FILE`).
 
+A reviewer rebuilds this git tag and compares SHA-256 (do not write debug hashes into `version.json`):
+
+```bash
+ports/scripts/verify-build.sh --rebuild
+# or, after build-phones.sh:
+ports/scripts/verify-build.sh
+ports/scripts/verify-build.sh --hash-only path/to.apk path/to.ipa
+```
+
 Contact: Shivam Mangesh Pingale — shivampingaledev@proton.me · shivampingaledev@gmail.com. See [SECURITY.md](../SECURITY.md).
 
 **Footnote:** A programming noob still doing a five-year IT engineering degree (graduate summer 2027). Just trying to make something better that he likes to use, without much knowledge. Open to suggestions and advice.

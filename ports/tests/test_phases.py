@@ -15,7 +15,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from repo_paths import FULL_TREE, ROOT, read, resolve  # noqa: E402
+from repo_paths import FULL_TREE, ROOT, read, resolve, read_android_ui, read_ios_ui  # noqa: E402
 
 
 def load_version() -> dict:
@@ -121,8 +121,8 @@ class Phase3FatFolderTests(unittest.TestCase):
         self.assertIn("changeHeader", test)
 
     def test_android_and_ios_browse_folders(self) -> None:
-        android = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
-        ios = read("ports/ios/VCPort/ContentView.swift")
+        android = read_android_ui()
+        ios = read_ios_ui()
         self.assertIn("listDir", android)
         self.assertIn("Tap a folder", android)
         self.assertIn("Mounted in this app", android)
@@ -175,7 +175,7 @@ class Phase4AndroidTests(unittest.TestCase):
         self.assertNotIn("play-services", gradle)
 
     def test_open_list_extract_errors_are_explicit(self) -> None:
-        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main = read_android_ui()
         self.assertIn("FAT and exFAT", main)
         self.assertIn("Wrong password", main)
         self.assertIn("Could not extract", main)
@@ -217,13 +217,13 @@ class Phase5IosTests(unittest.TestCase):
         readme = read("ports/ios/README.md")
         self.assertIn("There is **no** File Provider extension", readme)
         self.assertNotIn("The File Provider extension should", readme)
-        view = read("ports/ios/VCPort/ContentView.swift")
+        view = read_ios_ui()
         self.assertIn("Not enough memory to open the volume.", view)
         self.assertIn("Missing path or password argument.", view)
         self.assertIn("does not install itself", view)
-        self.assertIn("private var sessionRoot:", view)
-        self.assertIn("private var sessionPickers:", view)
-        self.assertIn("private var sessionDialogs:", view)
+        self.assertIn("var sessionRoot:", view)
+        self.assertIn("var sessionPickers:", view)
+        self.assertIn("var sessionDialogs:", view)
         self.assertIn("sync-upstream.sh", read("ports/UPSTREAM.md"))
 
     def test_ipad_simulator_and_sideload_sign(self) -> None:
@@ -327,21 +327,21 @@ class Phase8CiTests(unittest.TestCase):
 
 
 class Phase9LegalVersionTests(unittest.TestCase):
-    def test_current_version_is_0_3_10(self) -> None:
+    def test_current_version_is_0_3_11(self) -> None:
         v = load_version()
-        self.assertEqual(v["port_version"], "0.3.10")
+        self.assertEqual(v["port_version"], "0.3.11")
         self.assertEqual(v["upstream_version"], "1.26.29")
         self.assertEqual(v["upstream_commit"], "b48e31f5b47da7d41025e3f0e02751675e15005a")
         self.assertEqual(v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
         self.assertEqual(v["upstream_tag"], "VeraCrypt_1.26.29")
         plist = read("ports/ios/VCPort/Info.plist")
-        self.assertIn("0.3.10", plist)
+        self.assertIn("0.3.11", plist)
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
-        self.assertEqual(v["android_version_code"], 15)
-        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/15.txt")
-        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 15")
+        self.assertEqual(v["android_version_code"], 16)
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/16.txt")
+        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 16")
         self.assertIn("session tests", notes.read_text(encoding="utf-8").lower())
         self.assertIn("not unbreakable", notes.read_text(encoding="utf-8").lower())
         self.assertIn("stable alpha", notes.read_text(encoding="utf-8").lower())
@@ -354,7 +354,7 @@ class Phase9LegalVersionTests(unittest.TestCase):
 
     def test_about_and_contact_on_every_surface(self) -> None:
         android = read("ports/android/app/src/main/res/values/strings.xml")
-        ios = read("ports/ios/VCPort/ContentView.swift")
+        ios = read_ios_ui()
         for blob in (android, ios):
             self.assertIn("shivampingaledev@proton.me", blob)
             self.assertIn("shivampingaledev@gmail.com", blob)

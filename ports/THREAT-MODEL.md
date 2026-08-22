@@ -56,7 +56,7 @@ Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and a se
 
 - **OWASP MASVS-STORAGE**: no backups, wipe session files, Keystore/StrongBox, no exported DocumentsProvider
 - **OWASP MASVS-CRYPTO**: Argon2id wrap KDF 32 MiB, AES-256, HMAC-SHA256, constant-time MAC compare, CSPRNG passwords
-- **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only, no incoming sockets, no background traffic. Master and this branch have no INTERNET. Live Check for updates lived on `experimental-biometrics`, which is **stale**. Fetched JSON is never executed. This does not detect unknown bugs in VeraCrypt itself.
+- **OWASP MASVS-NETWORK**: no cleartext, system trust anchors only, no incoming sockets, no background traffic. Master and this branch have no INTERNET. The Tools About screen does **not** open a browser (Repo / Sponsor / Releases / TrueCrypt stay as printed text). Live Check for updates lived on `experimental-biometrics`, which is **stale**. Fetched JSON is never executed. This does not detect unknown bugs in VeraCrypt itself.
 - **OWASP MASVS-PRIVACY**: no telemetry, no crash reporters. Stay offline by default.
 - **NIST SP 800-63**: biometrics are not a knowledge factor
 - **FOSS hygiene**: no GMS, no trackers, Gradle wrapper with published SHA-256

@@ -79,6 +79,7 @@ vcport_wait_boot() {
 			_boot="$("$_adb" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
 			if [ "$_boot" = "1" ]; then
 				"$_adb" shell input keyevent 82 >/dev/null 2>&1 || true
+				vcport_keep_awake
 				return 0
 			fi
 		fi
@@ -86,6 +87,15 @@ vcport_wait_boot() {
 		sleep 4
 	done
 	return 1
+}
+
+# Keep the AVD from sleeping between Gradle connectedAndroidTest runs.
+vcport_keep_awake() {
+	_adb="$(vcport_adb)" || return 0
+	"$_adb" shell svc power stayon true >/dev/null 2>&1 || true
+	"$_adb" shell settings put global stay_on_while_plugged_in 3 >/dev/null 2>&1 || true
+	"$_adb" shell settings put system screen_off_timeout 1800000 >/dev/null 2>&1 || true
+	"$_adb" shell input keyevent 82 >/dev/null 2>&1 || true
 }
 
 vcport_emulator_running() {
@@ -148,6 +158,7 @@ vcport_ensure_emulator() {
 	: >"${TMPDIR:-/tmp}/vcport-emu.log"
 	echo "Starting AVD $_avd (gpu=$_gpu ${_win:-windowed})..."
 	# shellcheck disable=SC2086
+	# nohup so a Cursor/agent shell exit does not SIGHUP qemu.
 	nohup "$_emu" -avd "$_avd" \
 		-no-snapshot-load -no-snapshot-save -no-boot-anim -no-audio \
 		-gpu "$_gpu" $_win \

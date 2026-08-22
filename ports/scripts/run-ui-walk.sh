@@ -67,6 +67,25 @@ pick_ios_udid() {
 
 android_walk() {
 	cd "$PORTS/android"
+	if ! vcport_have_device || ! vcport_wait_boot 15; then
+		echo "Android device gone; restarting emulator..."
+		vcport_ensure_emulator || return 1
+	fi
+	vcport_keep_awake
+	set +e
+	./gradlew :app:connectedFossDebugAndroidTest --no-daemon \
+		"-Pandroid.testInstrumentationRunnerArguments.class=${android_classes}"
+	_rc=$?
+	set -e
+	if [ "$_rc" -eq 0 ]; then
+		return 0
+	fi
+	if vcport_have_device; then
+		return "$_rc"
+	fi
+	echo "Gradle saw no device; restarting emulator and retrying once..."
+	vcport_ensure_emulator || return 1
+	vcport_keep_awake
 	./gradlew :app:connectedFossDebugAndroidTest --no-daemon \
 		"-Pandroid.testInstrumentationRunnerArguments.class=${android_classes}"
 }

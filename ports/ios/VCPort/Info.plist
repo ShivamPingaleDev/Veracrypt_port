@@ -28,9 +28,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>dev.shivampingale.vcport</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.3.10</string>
+	<string>0.3.11</string>
 	<key>CFBundleVersion</key>
-	<string>15</string>
+	<string>16</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<true/>
 	<key>VCPortEnableUpdateCheck</key>
