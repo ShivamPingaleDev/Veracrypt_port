@@ -24,6 +24,8 @@ VC Port is **100% free**. Same features for everyone. Support helps the author k
 
 <iframe src="https://github.com/sponsors/ShivamPingaleDev/button" title="Sponsor ShivamPingaleDev" height="32" width="114" style="border: 0; border-radius: 6px;"></iframe>
 
+<iframe src="https://github.com/sponsors/ShivamPingaleDev/card" title="Sponsor ShivamPingaleDev" height="225" width="600" style="border: 0;"></iframe>
+
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/shivampingaledev)
 [![Donate on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ShivamPingaleDev/donate)
