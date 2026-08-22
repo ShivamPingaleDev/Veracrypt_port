@@ -6,6 +6,8 @@ Package id: `dev.shivampingale.vcport`
 
 The full macOS port and VeraCrypt source tree live in [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is the mobile apps plus the shared native core.
 
+Optional support (GitHub only, not in the app): [GitHub Sponsors](https://github.com/sponsors/ShivamPingaleDev) · [SUPPORT.md on Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port/blob/master/SUPPORT.md)
+
 ## What it does
 
 - Open a VeraCrypt container (FAT root listing and file extract)
