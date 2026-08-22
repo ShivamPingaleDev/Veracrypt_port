@@ -4,6 +4,7 @@ This is **one app** (VC Port). The real git history lives in [Veracrypt_port](ht
 
 Newest first. Same work as the [changelog](CHANGELOG.md).
 
+- [`f14a1a49`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/f14a1a49cfc7dd7cdaf482c1cbbee2a6f97b257d) 2026-08-23 — Ship VC Port 0.3.12 with session keyfile mix and Create-save wipe fixes.
 - [`c8f365a5`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/c8f365a5cce462eed8d7d889f45aca2e92847ec9) 2026-08-23 — Ship VC Port 0.3.11 with freeze maintenance, split screens, and a green UI walk.
 - [`07484fd7`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/07484fd747ba02e820cf19f0b5915c970c3b879b) 2026-08-23 — Ship VC Port 0.3.10 with Mounted Open popup, typed idle, and a compact Tools About.
 - [`6f773464`](https://github.com/ShivamPingaleDev/Veracrypt_port/commit/6f7734646c29d49465d5904bb3c1aff906e52860) 2026-08-22 — Ship VC Port 0.3.9 with USB Open, in-app preview, and the full Mounted Open form.
