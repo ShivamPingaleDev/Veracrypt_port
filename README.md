@@ -71,14 +71,14 @@ See [License.txt](License.txt) and [ports/FOSS.md](ports/FOSS.md).
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-**0.3.8 is a stable alpha**, not 1.0, not a store build. Copies: [GitHub Release v0.3.8](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.8). The APK there is a **debug-signed preview**. The IPA is **unsigned**. Production is a FOSS APK you build and sign with your own keystore, plus an IPA you sign with your Team ID. Installing one Android copy replaces the others. This repo does not ship a PC or Mac app — use official VeraCrypt on a computer.
+**0.3.9 is a stable alpha**, not 1.0, not a store build. Copies: [GitHub Release v0.3.9](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.9). The APK there is a **debug-signed preview**. The IPA is **unsigned**. Production is a FOSS APK you build and sign with your own keystore, plus an IPA you sign with your Team ID. Installing one Android copy replaces the others. This repo does not ship a PC or Mac app — use official VeraCrypt on a computer.
 
 ## iPhone — install (you sign it)
 
 Apple will not let us send you a finished app. You put it on the iPhone with **your Apple ID**. We never see that ID.
 
 1. On a computer, install [AltStore](https://altstore.io/) or [SideStore](https://sidestore.io/).
-2. Download `VCPort-0.3.8-unsigned-preview.ipa` from the [v0.3.8 release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.8).
+2. Download `VCPort-0.3.9-unsigned-preview.ipa` from the [v0.3.9 release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.9).
 3. Open that file in AltStore or SideStore. When it asks, sign in with **your Apple ID**.
 4. On the iPhone: **Settings → General → VPN & Device Management** → tap your Apple ID → **Trust**.
 5. Open **VC Port**.

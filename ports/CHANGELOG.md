@@ -4,13 +4,21 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 ## Unreleased
 
-- This branch has **no** fingerprint / Face ID extra. Harden USB + preview first. `experimental-biometrics` is **stale**. Live Check for updates is not here.
+- This line has **no** fingerprint / Face ID extra. `experimental-biometrics` is **stale**. Live Check for updates is not here.
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
-## experimental-otg-master (not a release)
+## 0.3.9
 
-USB whole-disk Open without auto-mount. No fingerprint / Face ID extra (foss and github). Optional DocumentsProvider. In-app **View in app** preview (not VLC). Do not treat as 1.0.
+Stable alpha: Android USB whole-disk Open without auto-mount, in-app preview, idle close, and the full Open-volume form on Mounted slots.
+
+- Android can open a whole USB mass-storage disk (Scan USB disks). Nothing auto-mounts. Idea from [OTG Master](https://github.com/moylali/OTGMaster) by moylali. iPhone has no whole-disk USB Open.
+- **View in app** previews a decrypted file inside VC Port (not VLC / Files).
+- Idle / screen-lock close, panic quick-settings tile, PIM estimate, and SHA-256 in volume show WorkOverlay progress.
+- Empty Mounted slots use the same Open path as the Volume tab (password, PIM, keyfiles, backup header, read-only, TrueCrypt Mode, hidden-volume protection).
+- GitHub Actions: host Python contracts + parallel APK/IPA builds. wrap-test and host-macos are gone. Phone UI walks stay on a Mac.
+- App stays **100% free**. Support links are on GitHub only.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.9.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.9-unsigned-preview.ipa`). Same `applicationId` as 0.3.8; it replaces the old install. Still alpha (not 1.0, not a store build).
 
 ## 0.3.8
 

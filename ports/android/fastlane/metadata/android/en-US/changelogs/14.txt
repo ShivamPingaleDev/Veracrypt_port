@@ -1,0 +1,1 @@
+VC Port 0.3.9 stable alpha: USB whole-disk Open without auto-mount, in-app preview, idle close, and the full Open form on Mounted slots. Session tests still cover the app interface. GitHub APKs stay debug-signed previews. Not unbreakable.

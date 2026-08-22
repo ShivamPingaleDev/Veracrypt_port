@@ -5,6 +5,7 @@ import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -104,7 +105,7 @@ class AppInterfaceSessionTest {
         val keyfiles = rule.activity.testingSnapshotKeyfiles(File(work, "keys"))
         assertTrue("Generate keyfile and add must produce a file", keyfiles.isNotEmpty())
 
-        rule.onNodeWithTag("create_volume").performScrollTo().performClick()
+        clickCreateVolume()
         waitStatus("from the basket into the volume", 180_000)
         val basketDest = File(work, "basket.jpg")
         assertTrue(rule.activity.testingFinishCreateSave(basketDest))
@@ -154,7 +155,8 @@ class AppInterfaceSessionTest {
             .performTextReplacement("photos.jpg")
         rule.waitForIdle()
 
-        rule.onNodeWithTag("create_volume").performScrollTo().performClick()
+        scribbleUntilFull()
+        clickCreateVolume()
         waitStatus("Nested volume is inside", 240_000)
         val nestedDest = File(work, "photos.jpg")
         assertTrue(rule.activity.testingFinishCreateSave(nestedDest))
@@ -607,6 +609,16 @@ class AppInterfaceSessionTest {
         }
         assertEquals("Generate must leave a 64-character password in the Create field", 64, pw.length)
         return pw
+    }
+
+    private fun clickCreateVolume() {
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("input keyevent 111")
+            .close()
+        rule.waitForIdle()
+        rule.onNodeWithTag("create_volume").performScrollTo().assertIsEnabled().performClick()
+        rule.waitForIdle()
+        waitStatus("Creating", 12_000)
     }
 
     private fun waitStatus(substring: String, timeoutMs: Long) {
