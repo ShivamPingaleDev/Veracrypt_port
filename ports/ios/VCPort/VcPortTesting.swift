@@ -85,6 +85,7 @@ final class VcPortTesting {
     var copyHeaderBackup: (URL) -> Bool = { _ in false }
     var homeLeave: () -> Void = {}
     var selectMountSlot: (Int) -> Void = { _ in }
+    var openMountedSlot: () -> Void = {}
     var selectNames: (Set<String>) -> Void = { _ in }
     var startPreview: () -> Void = {}
     var previewName: () -> String? = { nil }

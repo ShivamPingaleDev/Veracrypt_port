@@ -228,6 +228,8 @@ class BlackBoxTests(unittest.TestCase):
         )
         gradle = read("ports/android/app/build.gradle")
         script = read("ports/android/run_device_sim.sh")
+        self.assertIn("android-dev.sh", script)
+        self.assertIn("vcport_ensure_emulator", script)
         self.assertIn("createStoreEncryptDecryptReopen", sim)
         self.assertIn("hiddenVolumeWriteProtection", sim)
         self.assertIn("phoneSessionFlows", sim)
@@ -500,6 +502,7 @@ class FunctionalTests(unittest.TestCase):
 
     def test_nested_volume_has_no_open_time_checkbox(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
         self.assertIn("no open-time hidden checkbox", main.lower())
         self.assertNotIn("isHiddenVolume", main)
         self.assertIn("Protect hidden volume against damage", main)
@@ -531,6 +534,12 @@ class RegressionTests(unittest.TestCase):
         license_txt = read("LICENSE")
         self.assertIn("TrueCrypt License version 3.0", license_txt)
         self.assertIn("Apache License 2.0", license_txt)
+
+    def test_mainactivity_has_one_broadcastreceiver_import(self) -> None:
+        main = read(
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"
+        )
+        self.assertEqual(main.count("import android.content.BroadcastReceiver"), 1)
 
 
 class SecurityTamperTests(unittest.TestCase):
@@ -815,6 +824,8 @@ class PimAndSessionContractTests(unittest.TestCase):
         for blob in (android, ios):
             self.assertIn("Idle timeout", blob)
             self.assertIn("SHA-256 in volume", blob)
+        self.assertIn("open_volume_form", android)
+        self.assertIn("openMountedSlot", ios)
         self.assertIn("create_hidden_size", android)
         self.assertIn("read_only_banner", android)
 

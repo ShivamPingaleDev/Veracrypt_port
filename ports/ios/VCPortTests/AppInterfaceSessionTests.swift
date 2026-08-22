@@ -177,6 +177,10 @@ final class AppInterfaceSessionTests: XCTestCase {
             t.entryNames().contains { $0.localizedCaseInsensitiveContains("INBOX") }
         }
 
+        onMain { t.selectTab(3) }
+        onMain { t.openMountedSlot() }
+        onMain { t.selectMountSlot(0) }
+
         onMain { t.selectTab(0) }
         onMain { t.clearKeyfiles() }
         onMain { t.selectContainer(nestedDest) }

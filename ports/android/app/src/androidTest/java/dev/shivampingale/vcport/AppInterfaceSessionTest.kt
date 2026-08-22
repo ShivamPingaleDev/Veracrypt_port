@@ -245,6 +245,18 @@ class AppInterfaceSessionTest {
             rule.activity.testingEntryNames().any { it.contains("INBOX", ignoreCase = true) }
         }
 
+        rule.onNodeWithTag("mount_slot_1").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("open_volume_form").assertIsDisplayed()
+        rule.onNodeWithTag("use_backup_header").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("read_only").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("protect_hidden").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("add_keyfiles").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("TrueCrypt Mode").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithTag("mounted_open_cancel").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.onNodeWithTag("new_folder").assertIsDisplayed()
+
         rule.onNodeWithTag("tab_volume").performClick()
         rule.waitForIdle()
         rule.activity.testingClearKeyfiles()
@@ -561,6 +573,7 @@ class AppInterfaceSessionTest {
         rule.waitForIdle()
         rule.onNodeWithTag("tools_pim_estimate").performScrollTo().performClick()
         waitStatus("header iterations", 8_000)
+        rule.onNodeWithTag("pim_estimate_result").assertIsDisplayed()
         assertTrue(rule.activity.testingPimEstimate().contains("500,000") || rule.activity.testingPimEstimate().contains("1,000"))
 
         rule.onNodeWithTag("idle_1").performScrollTo().performClick()

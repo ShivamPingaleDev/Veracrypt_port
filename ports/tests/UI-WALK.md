@@ -10,6 +10,8 @@ ports/scripts/run-ui-walk.sh
 
 This is **not** GitHub Actions (no emulator there). CI builds APK/IPA and runs **host Python contracts** only. Run this walk on this Mac after each new feature.
 
+Android walk boots AVD `vcport-api35` itself when `adb` is empty: Java 17 from `JAVA_HOME`, `/usr/libexec/java_home`, or Homebrew `openjdk@17`; headless SwiftShader + `nohup` so qemu is not killed when the launching shell exits. Waits for `adb` `device` + `sys.boot_completed`, not the emulator launcher PID. If qemu for that AVD is already running, the walk waits instead of starting a second emulator. `VC_PORT_EMU_WINDOW=1` keeps a window. Do not treat a missing emulator as SKIP — the walk fails with the qemu log.
+
 ## 10 phases (session test)
 
 1. Basket + Create (cipher/KDF/PIM/disguise)

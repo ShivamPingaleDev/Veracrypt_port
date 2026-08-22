@@ -37,8 +37,9 @@ struct ContentView: View {
     @State private var volumeHandle: OpaquePointer?
     @State private var mountedVolumes: [MountedVolume] = []
     @State private var activeMountIndex = 0
-    @State private var pendingOpenAnother = false
-    @State private var showOpenAnotherUnlock = false
+    @State private var showOpenAnother = false
+    @State private var pimEstimateResult = ""
+    @State private var hashResult = ""
     @State private var transferMove: Bool? = nil
     @State private var dirPath = ""
     @State private var listTruncated = false
@@ -98,34 +99,63 @@ struct ContentView: View {
         holdLock || importerPresented
             || shareEncImporterPresented || keyfileImporterPresented
             || restoreHeaderPresented || copyFromDevicePresented || basketImporterPresented
-            || hiddenKeyfileImporterPresented || showOpenAnotherUnlock || pendingOpenAnother
+            || hiddenKeyfileImporterPresented
     }
 
     var body: some View {
         ZStack {
-        NavigationStack {
-            Group {
-                    TabView(selection: $selectedTab) {
-                        volumeTab
-                            .tag(0)
-                            .tabItem { Label("Volume", systemImage: "lock") }
-                            .portTag("tab_volume")
-                        createTab
-                            .tag(1)
-                            .tabItem { Label("Create", systemImage: "plus.rectangle.on.folder") }
-                            .portTag("tab_create")
-                        toolsTab
-                            .tag(2)
-                            .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
-                            .portTag("tab_tools")
-                        mountedVolumeForm
-                            .tag(3)
-                            .tabItem { Label("Mounted", systemImage: "externaldrive") }
-                            .portTag("tab_mounted")
-                    }
-                    .frame(maxWidth: horizontalSizeClass == .regular ? 760 : .infinity)
-                    .frame(maxWidth: .infinity)
+            NavigationStack {
+                sessionRoot
             }
+            .animation(.easeOut(duration: 0.15), value: busy)
+            if busy {
+                WorkOverlay(title: workTitle.isEmpty ? status : workTitle, percent: workPercent)
+                    .transition(.opacity)
+            }
+        }
+        .task(id: busy) {
+            guard busy else { return }
+            while !Task.isCancelled {
+                workPercent = VcMobileBridge.progressPercent()
+                let phase = VcMobileBridge.progressPhase()
+                if !phase.isEmpty {
+                    workTitle = phase
+                }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+        }
+        .onAppear { installTestingHooks() }
+        .onReceive(NotificationCenter.default.publisher(for: .vcPortTestingColdStart)) { _ in
+            resetLaunchState()
+            installTestingHooks()
+        }
+    }
+
+    private var sessionTabs: some View {
+        TabView(selection: $selectedTab) {
+            volumeTab
+                .tag(0)
+                .tabItem { Label("Volume", systemImage: "lock") }
+                .portTag("tab_volume")
+            createTab
+                .tag(1)
+                .tabItem { Label("Create", systemImage: "plus.rectangle.on.folder") }
+                .portTag("tab_create")
+            toolsTab
+                .tag(2)
+                .tabItem { Label("Tools", systemImage: "wrench.and.screwdriver") }
+                .portTag("tab_tools")
+            mountedVolumeForm
+                .tag(3)
+                .tabItem { Label("Mounted", systemImage: "externaldrive") }
+                .portTag("tab_mounted")
+        }
+        .frame(maxWidth: horizontalSizeClass == .regular ? 760 : .infinity)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var sessionChrome: some View {
+        sessionTabs
             .disabled(busy)
             .navigationTitle("VC Port")
             .tint(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
@@ -142,17 +172,16 @@ struct ContentView: View {
                     Button("Panic wipe", role: .destructive) { panicWipe() }
                 }
             }
+    }
+
+    private var sessionPickers: some View {
+        sessionChrome
             .fileImporter(isPresented: $importerPresented, allowedContentTypes: [.item, .data]) { result in
                 switch result {
                 case .success(let url):
                     ingestPickedContainer(url)
-                    if pendingOpenAnother {
-                        pendingOpenAnother = false
-                        showOpenAnotherUnlock = true
-                    }
                 case .failure:
                     holdLock = false
-                    pendingOpenAnother = false
                 }
             }
             .fileImporter(
@@ -235,6 +264,10 @@ struct ContentView: View {
                     importFromDevice(urls, move: moveFromDevice)
                 }
             }
+    }
+
+    private var sessionDialogs: some View {
+        sessionPickers
             .alert("New folder", isPresented: $newFolderPresented) {
                 TextField("Name", text: $namePromptValue)
                     .portTag("name_prompt")
@@ -246,19 +279,6 @@ struct ContentView: View {
                 TextField("Name", text: $namePromptValue)
                 Button("Rename") { renameSelected(namePromptValue) }
                 Button("Cancel", role: .cancel) {}
-            }
-            .alert("Open another container", isPresented: $showOpenAnotherUnlock) {
-                SecureField("Password", text: $password)
-                    .neverSaveHistory()
-                TextField("PIM (0 = default)", text: $pim)
-                    .keyboardType(.numberPad)
-                Button("Open") {
-                    persistActiveMount()
-                    startOpenVolume()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This session can keep several volumes mounted. Copy to volume / Move to volume sends selected files into the folder last opened on the other volume.")
             }
             .confirmationDialog(
                 transferMove == true ? "Move to volume" : "Copy to volume",
@@ -289,6 +309,10 @@ struct ContentView: View {
                     InAppPreview.wipe()
                 }
             }
+    }
+
+    private var sessionRoot: some View {
+        sessionDialogs
             .onChange(of: scenePhase) { phase in
                 if phase == .background && !holdingForPicker && !busy {
                     dismountOnLeave()
@@ -299,8 +323,7 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in
                 if volumeHandle != nil {
-                    lockSession()
-                    status = "Screen locked. Volume closed."
+                    closeOpenVolumes("Screen locked. Volume closed.")
                 }
             }
             .simultaneousGesture(
@@ -316,29 +339,6 @@ struct ContentView: View {
                 containerURL = url
                 status = "Received \(url.lastPathComponent). Any extension can be a volume. Open with the correct password, PIM, and keyfiles."
             }
-        }
-        .animation(.easeOut(duration: 0.15), value: busy)
-        if busy {
-            WorkOverlay(title: workTitle.isEmpty ? status : workTitle, percent: workPercent)
-                .transition(.opacity)
-        }
-        }
-        .task(id: busy) {
-            guard busy else { return }
-            while !Task.isCancelled {
-                workPercent = VcMobileBridge.progressPercent()
-                let phase = VcMobileBridge.progressPhase()
-                if !phase.isEmpty {
-                    workTitle = phase
-                }
-                try? await Task.sleep(nanoseconds: 100_000_000)
-            }
-        }
-        .onAppear { installTestingHooks() }
-        .onReceive(NotificationCenter.default.publisher(for: .vcPortTestingColdStart)) { _ in
-            resetLaunchState()
-            installTestingHooks()
-        }
     }
 
     @ViewBuilder
@@ -463,28 +463,28 @@ struct ContentView: View {
                             .accessibilityLabel("Dismount \(vol.label)")
                         } else {
                             Button {
-                                holdLock = true
-                                pendingOpenAnother = true
-                                importerPresented = true
+                                showOpenAnother = true
                             } label: {
                                 Text("Empty")
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .buttonStyle(.plain)
+                            .portTag("mount_slot_\(slot)")
                         }
                     }
                     .listRowBackground(vol != nil && slot == activeMountIndex ? Color.accentColor.opacity(0.12) : Color.clear)
                 }
                 Button("Open another container") {
-                    holdLock = true
-                    pendingOpenAnother = true
-                    importerPresented = true
+                    showOpenAnother = true
                 }
             } header: {
                 Text("Mounted in this app")
             }
 
+            if showOpenAnother || mountedVolumes.isEmpty {
+                openVolumeForm(mountedSlot: true)
+            } else {
             Section {
                 if mountedVolumes.isEmpty {
                     Text("No volume in this slot. Open volume on the Volume tab, or tap an empty slot. This is not a system drive.")
@@ -494,6 +494,11 @@ struct ContentView: View {
                     Text("This folder is empty. Tap a folder after Copy from device. FAT and exFAT folders are browsable. Copy from device can pick several files.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                if !hashResult.isEmpty {
+                    Text(hashResult)
+                        .font(.caption)
+                        .portTag("hash_result")
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 4) {
@@ -609,6 +614,7 @@ struct ContentView: View {
                     }
                 }
             }
+            }
 
             inFrontSection
             statusSection
@@ -616,11 +622,14 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var volumeTab: some View {
-        Form {
-            statusSection
-            incomingSection
+    private func openVolumeForm(mountedSlot: Bool) -> some View {
+        Group {
             Section {
+                if mountedSlot {
+                    Text("Open a container into this Mounted slot. Same Open volume as the Volume tab: password, PIM, keyfiles, backup header, read-only, TrueCrypt Mode, hidden-volume protection.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Text("Stay offline. A compelled password still wins. Not unbreakable.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -657,7 +666,9 @@ struct ContentView: View {
                     }
                 }
             }
-            inFrontSection
+            if !mountedSlot {
+                inFrontSection
+            }
             Section("Volume password") {
                 Toggle("Password", isOn: $useTextPassword)
                 if useTextPassword {
@@ -676,6 +687,7 @@ struct ContentView: View {
                 Toggle("Read-only", isOn: $readOnlyOpen)
                     .portTag("read_only")
                 Toggle("TrueCrypt Mode", isOn: $trueCryptMode)
+                    .portTag("truecrypt_mode")
                 Toggle("Protect hidden volume against damage caused by writing to outer volume", isOn: $protectHidden)
                     .portTag("protect_hidden")
                 if protectHidden {
@@ -686,9 +698,27 @@ struct ContentView: View {
                         .keyboardType(.numberPad)
                         .portTag("hidden_protect_pim")
                 }
-                Button("Open volume") { openVolume() }
-                    .portTag("open_volume")
+                Button("Open volume") {
+                    showOpenAnother = false
+                    persistActiveMount()
+                    openVolume()
+                }
+                .portTag("open_volume")
+                if mountedSlot, !mountedVolumes.isEmpty {
+                    Button("Back to files") { showOpenAnother = false }
+                        .portTag("mounted_open_cancel")
+                }
             }
+        }
+        .portTag("open_volume_form")
+    }
+
+    @ViewBuilder
+    private var volumeTab: some View {
+        Form {
+            statusSection
+            incomingSection
+            openVolumeForm(mountedSlot: false)
         }
     }
 
@@ -950,11 +980,21 @@ struct ContentView: View {
                     .portTag("tools_generate_keyfile")
                 Button("Benchmark") { runBenchmark() }
                 Button("Test vectors") { runTestVectors() }
-                Text(PimEstimator.describe(kdf: createKdf, pimText: pim))
+                Text(PimEstimator.describe(kdf: createKdf, pimText: createPim))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if !pimEstimateResult.isEmpty {
+                    Text(pimEstimateResult)
+                        .font(.caption)
+                        .portTag("pim_estimate_result")
+                }
                 Button("PIM iteration estimate") {
-                    status = PimEstimator.describe(kdf: createKdf, pimText: pim)
+                    beginWork("Estimating header iterations…")
+                    let text = PimEstimator.describe(kdf: createKdf, pimText: createPim)
+                    VcMobileBridge.setProgress(100, phase: text)
+                    pimEstimateResult = text
+                    status = text
+                    endWork()
                 }
                 .portTag("tools_pim_estimate")
                 Picker("Idle dismount", selection: $idleMinutes) {
@@ -1323,6 +1363,7 @@ struct ContentView: View {
             return
         }
         beginWork("Opening volume…")
+        showOpenAnother = false
         let backup = useBackupHeader
         let readOnly = readOnlyOpen
         let tcMode = trueCryptMode
@@ -1463,6 +1504,7 @@ struct ContentView: View {
 
     private func selectMount(_ index: Int) {
         guard index < mountedVolumes.count else { return }
+        showOpenAnother = false
         persistActiveMount()
         activeMountIndex = index
         let v = mountedVolumes[index]
@@ -1697,6 +1739,23 @@ struct ContentView: View {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
+    private func sha256Streaming(_ url: URL, index: Int, totalFiles: Int, name: String) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        let total = max((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 1, 1)
+        var hashed = 0
+        while true {
+            let data = handle.readData(ofLength: 64 * 1024)
+            if data.isEmpty { break }
+            hasher.update(data: data)
+            hashed += data.count
+            let filePct = ((index * 100) + ((hashed * 100) / total)) / max(totalFiles, 1)
+            VcMobileBridge.setProgress(Int32(min(max(filePct, 0), 99)), phase: "Hashing \(index + 1) of \(totalFiles): \(name)")
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
     private func sha256File(_ url: URL) -> String? {
         let accessed = url.startAccessingSecurityScopedResource()
         defer {
@@ -1831,9 +1890,21 @@ struct ContentView: View {
         clearMountOptions()
         wipeSessionFiles()
         forgetUnlock()
+        hashResult = ""
         endWork()
         if !status.hasPrefix("Panic") {
             status = "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays."
+        }
+    }
+
+    private func closeOpenVolumes(_ reason: String) {
+        if volumeHandle != nil {
+            beginWork(reason)
+            VcMobileBridge.setProgress(100, phase: reason)
+        }
+        lockSession()
+        if !status.hasPrefix("Panic") {
+            status = reason
         }
     }
 
@@ -2439,8 +2510,7 @@ struct ContentView: View {
         idleTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(mins) * 60 * 1_000_000_000)
             guard !Task.isCancelled, volumeHandle != nil else { return }
-            lockSession()
-            status = "Idle timeout. Volume closed."
+            closeOpenVolumes("Idle timeout. Volume closed.")
         }
     }
 
@@ -2453,25 +2523,30 @@ struct ContentView: View {
         beginWork("Hashing \(files.count) file(s) inside the volume…")
         DispatchQueue.global(qos: .userInitiated).async {
             var lines: [String] = []
-            for entry in files {
+            for (index, entry) in files.enumerated() {
+                let pct = Int32((index * 100) / files.count)
+                VcMobileBridge.setProgress(pct, phase: "Hashing \(index + 1) of \(files.count): \(entry.name)")
                 let dest = FileManager.default.temporaryDirectory.appendingPathComponent("hash-\(entry.name)")
                 try? FileManager.default.removeItem(at: dest)
                 let rc = VcMobileBridge.exportFile(handle, name: joinDir(dirPath, entry.name), dest: dest.path)
                 if rc != 0 {
                     lines.append("\(entry.name): hash failed")
+                    VcMobileBridge.setProgress(Int32(((index + 1) * 100) / files.count), phase: "Hash failed: \(entry.name)")
                     continue
                 }
-                if let data = try? Data(contentsOf: dest) {
-                    let hex = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+                if let hex = sha256Streaming(dest, index: index, totalFiles: files.count, name: entry.name) {
                     lines.append("\(entry.name): \(hex)")
+                    VcMobileBridge.setProgress(Int32(((index + 1) * 100) / files.count), phase: "Hashed \(entry.name)")
                 } else {
                     lines.append("\(entry.name): hash failed")
                 }
                 try? FileManager.default.removeItem(at: dest)
             }
             DispatchQueue.main.async {
+                let summary = "SHA-256 in volume (temp wiped): " + lines.joined(separator: " · ")
+                hashResult = summary
                 endWork()
-                status = "SHA-256 in volume (temp wiped): " + lines.joined(separator: " · ")
+                status = summary
             }
         }
     }
@@ -2898,14 +2973,17 @@ struct ContentView: View {
         }
         testing.homeLeave = { dismountOnLeave() }
         testing.selectMountSlot = { selectMount($0) }
+        testing.openMountedSlot = {
+            selectedTab = 3
+            showOpenAnother = true
+        }
         testing.selectNames = { selectedNames = $0 }
         testing.startPreview = { startInAppPreview() }
         testing.previewName = { previewItem?.name }
         testing.otgDiskEnabled = { FossConfig.enableOtgDisk }
         testing.fireIdleTimeout = {
             idleTask?.cancel()
-            lockSession()
-            status = "Idle timeout. Volume closed."
+            closeOpenVolumes("Idle timeout. Volume closed.")
         }
         testing.hashSelected = { name in
             selectedNames = [name]

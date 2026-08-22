@@ -428,6 +428,7 @@ class AndroidHighThreatTests(unittest.TestCase):
 
     def test_keyfiles_are_multiple_and_desktop_mount_options(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         for blob in (main, view):
             self.assertIn("Generate keyfile and add", blob)
@@ -521,7 +522,7 @@ class AndroidHighThreatTests(unittest.TestCase):
     def test_choose_container_keeps_session_and_shows_name(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
-        self.assertIn("Selected: $containerLabel", main)
+        self.assertIn("Selected: $containerLabel", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt"))
         self.assertNotIn('label = { Text("Container path") }', main)
         self.assertNotIn("bindContainerFd", main)
         self.assertIn("ensureContainerPath", main)
@@ -574,12 +575,37 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("selectedTab = 3", view)
         self.assertIn("slots are this session only", main.lower())
         self.assertIn("slots are this session only", view.lower())
+        form = read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
+        self.assertIn("open_volume_form", form)
+        self.assertIn("BindOpenVolumeForm", main)
+        self.assertIn("openingAnother", main)
+        self.assertNotIn("open_another_password", main)
+        self.assertIn("openVolumeForm(mountedSlot:", view)
+        self.assertIn("open_volume_form", view)
+        self.assertNotIn('alert("Open another container"', view)
+
+    def test_hash_and_pim_show_progress_not_background(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        android_hash = main.split("private fun hashVaultFiles")[1].split("private fun mkdirInVolume")[0]
+        self.assertIn("NativeBridge.setProgress", android_hash)
+        self.assertIn("hashResultState", android_hash)
+        ios_hash = view.split("private func hashSelectedInVolume()")[1].split("private func wipeFreeSpace()")[0]
+        self.assertIn("setProgress", ios_hash)
+        self.assertIn("hashResult", ios_hash)
+        self.assertIn("pim_estimate_result", main)
+        self.assertIn("pim_estimate_result", view)
+        self.assertIn("closeOpenVolumes", main)
+        self.assertIn("closeOpenVolumes", view)
+        self.assertIn("Estimating header iterations", main)
+        self.assertIn("Estimating header iterations", view)
 
     def test_experimental_otg_flavors_no_bio(self) -> None:
         foss = read("ports/android/app/src/foss/AndroidManifest.xml")
         github = read("ports/android/app/src/github/AndroidManifest.xml")
         gradle = read("ports/android/app/build.gradle")
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
         self.assertIn("VolumeDocumentsProvider", foss)
         self.assertIn("VolumeDocumentsProvider", github)
         self.assertNotIn("USE_BIOMETRIC", foss)
@@ -600,6 +626,15 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("class UiWalkSuite", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/UiWalkSuite.kt"))
         walk = read("ports/scripts/run-ui-walk.sh")
         self.assertIn("UiWalkSuite", walk)
+        self.assertIn("android-dev.sh", walk)
+        self.assertIn("vcport_ensure_emulator", walk)
+        self.assertIn("vcport_resolve_java", read("ports/scripts/android-dev.sh"))
+        emu = read("ports/scripts/android-dev.sh")
+        self.assertIn("no-snapshot-load", emu)
+        self.assertIn("swiftshader_indirect", emu)
+        self.assertIn("nohup", emu)
+        self.assertIn("do not start a second emulator", emu)
+        self.assertIn("sys.boot_completed", emu)
         self.assertIn("OtgAbsentAndPreviewTests", walk)
         self.assertIn("lockSession()", read("ports/ios/VCPortTests/OtgAbsentAndPreviewTests.swift"))
         self.assertIn("Whole-disk Open is not on iPhone", read("ports/ios/VCPort/ContentView.swift"))
@@ -839,6 +874,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
 
     def test_volume_tools_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
         header = read("ports/shared/vc_mobile.h")
@@ -908,6 +944,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
 
     def test_desktop_file_ops_on_android_and_ios(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        main += read("ports/android/app/src/main/java/dev/shivampingale/vcport/OpenVolumeForm.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         native = read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt")
         header = read("ports/shared/vc_mobile.h")

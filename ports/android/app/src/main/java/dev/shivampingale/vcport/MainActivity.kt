@@ -85,7 +85,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
-import android.content.BroadcastReceiver
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.CountDownLatch
@@ -150,6 +149,8 @@ class MainActivity : AppCompatActivity() {
     private val dirPathState = mutableStateOf("")
     private val listTruncatedState = mutableStateOf(false)
     private val busyState = mutableStateOf(false)
+    private val hashResultState = mutableStateOf("")
+    private val pimEstimateResultState = mutableStateOf("")
     private val useBackupHeaderState = mutableStateOf(false)
     private val readOnlyOpenState = mutableStateOf(false)
     private val idleMinutesState = mutableIntStateOf(0)
@@ -177,8 +178,7 @@ class MainActivity : AppCompatActivity() {
     private val idleHandler = Handler(Looper.getMainLooper())
     private val idleRunnable = Runnable {
         if (!suppressLock && NativeBridge.isOpen(handleState.value)) {
-            lockSession()
-            statusState.value = "Idle timeout. Volume closed."
+            closeOpenVolumes("Idle timeout. Volume closed.")
         }
     }
     private var screenOffReceiver: BroadcastReceiver? = null
@@ -528,8 +528,7 @@ class MainActivity : AppCompatActivity() {
     fun testingFireIdleTimeout() {
         runOnUiThread {
             idleHandler.removeCallbacks(idleRunnable)
-            lockSession()
-            statusState.value = "Idle timeout. Volume closed."
+            closeOpenVolumes("Idle timeout. Volume closed.")
         }
     }
 
@@ -601,8 +600,7 @@ class MainActivity : AppCompatActivity() {
         screenOffReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_SCREEN_OFF && NativeBridge.isOpen(handleState.value)) {
-                    lockSession()
-                    statusState.value = "Screen locked. Volume closed."
+                    closeOpenVolumes("Screen locked. Volume closed.")
                 }
             }
         }
@@ -642,6 +640,8 @@ class MainActivity : AppCompatActivity() {
                 var dirPath by dirPathState
                 var listTruncated by listTruncatedState
                 var busy by busyState
+                var hashResult by hashResultState
+                var pimEstimateResult by pimEstimateResultState
                 var tab by tabState
                 var previewFile by previewFileState
                 var previewName by previewNameState
@@ -1088,6 +1088,179 @@ class MainActivity : AppCompatActivity() {
                                 Tab(selected = tab == 2, onClick = { tab = 2 }, modifier = Modifier.testTag("tab_tools"), text = { Text("Tools") })
                                 Tab(selected = tab == 3, onClick = { tab = 3 }, modifier = Modifier.testTag("tab_mounted"), text = { Text("Mounted") })
                             }
+                            @Composable
+                            fun BindOpenVolumeForm(mountedSlot: Boolean, onCancel: (() -> Unit)?) {
+                                OpenVolumeForm(
+                                    busy = busy,
+                                    mountedSlot = mountedSlot,
+                                    containerLabel = containerLabel,
+                                    shownPath = path.takeIf { it.isNotEmpty() && !nativePathIsInternal(it) },
+                                    onChooseContainer = {
+                                        holdLockForPicker()
+                                        picker.launch(arrayOf("*/*"))
+                                    },
+                                    onShareEncryptedPick = {
+                                        holdLockForPicker()
+                                        shareEncPicker.launch(arrayOf("*/*"))
+                                    },
+                                    onShareThis = if (containerUri != null || path.isNotEmpty()) {
+                                        {
+                                            shareEncryptedVolume(containerUri, path) { status = it }
+                                        }
+                                    } else {
+                                        null
+                                    },
+                                    otgSlot = {
+                                        if (BuildConfig.ENABLE_OTG_DISK) {
+                                            OtgVolumePanel(
+                                                busy = busy,
+                                                devices = otgDevices,
+                                                candidates = otgCandidates,
+                                                shareWithFiles = shareWithFiles,
+                                                onShareWithFiles = {
+                                                    shareWithFiles = it
+                                                    OtgMountShare.shareWithFiles = it
+                                                    refreshDocumentRoots()
+                                                },
+                                                onScan = {
+                                                    pendingOtgFile = null
+                                                    otgDevices = OtgUsb.massStorageDevices(this@MainActivity)
+                                                    otgCandidates = emptyList()
+                                                    status = if (otgDevices.isEmpty()) {
+                                                        "No USB mass-storage device. Plug a stick, then Scan USB disks. This never auto-mounts."
+                                                    } else {
+                                                        "Found ${otgDevices.size} USB disk(s). Tap one. Grant permission. Then pick a partition and Open volume."
+                                                    }
+                                                },
+                                                onPickDevice = { device ->
+                                                    if (OtgUsb.hasPermission(this@MainActivity, device)) {
+                                                        openUsbMassStorage(device)
+                                                    } else {
+                                                        OtgUsb.requestPermission(this@MainActivity, device)
+                                                        status = "Grant USB permission, then the partition list appears. Still no auto-mount."
+                                                    }
+                                                },
+                                                onPickPartition = { cand ->
+                                                    val scsi = pendingOtgScsi
+                                                    val fake = pendingOtgFile
+                                                    when {
+                                                        scsi != null -> {
+                                                            try {
+                                                                pendingOtgScsi = null
+                                                                val otgPath = OtgBlockStore.bind(scsi, cand)
+                                                                path = otgPath
+                                                                containerUri = null
+                                                                containerLabel = cand.label
+                                                                status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
+                                                            } catch (_: Exception) {
+                                                                status = "Could not bind USB partition."
+                                                                scsi.close()
+                                                            }
+                                                        }
+                                                        fake != null -> {
+                                                            try {
+                                                                pendingOtgFile = null
+                                                                val otgPath = OtgBlockStore.bindFile(
+                                                                    fake,
+                                                                    cand.byteOffset,
+                                                                    cand.byteLength,
+                                                                    cand.label
+                                                                )
+                                                                path = otgPath
+                                                                containerUri = null
+                                                                containerLabel = cand.label
+                                                                status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
+                                                            } catch (_: Exception) {
+                                                                status = "Could not bind USB partition."
+                                                            }
+                                                        }
+                                                        else -> status = "Scan USB disks again."
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    },
+                                    useTextPassword = useTextPassword,
+                                    onUseTextPassword = { useTextPassword = it },
+                                    password = password,
+                                    onPassword = { password = it },
+                                    pim = pim,
+                                    onPim = { pim = it },
+                                    keyfileLabels = keyfileUris.map {
+                                        ShareHelper.displayName(this@MainActivity, it) ?: it.toString()
+                                    },
+                                    onRemoveKeyfile = { index ->
+                                        keyfileUris = keyfileUris.filterIndexed { i, _ -> i != index }
+                                    },
+                                    onAddKeyfiles = {
+                                        holdLockForPicker()
+                                        keyfilePicker.launch(arrayOf("*/*"))
+                                    },
+                                    biometricSlot = {
+                                        if (BuildConfig.ENABLE_BIOMETRIC) {
+                                            val vault = BiometricVault(this@MainActivity)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Checkbox(useBiometric, { useBiometric = it }, enabled = !busy)
+                                                Text(if (useBiometric) "On — extra keyfile mixed when opening" else "Fingerprint / face extra (off)")
+                                            }
+                                            VcHint("A compelled fingerprint still wins. GitHub flavor only. foss has no biometrics.")
+                                            OutlinedButton(
+                                                onClick = {
+                                                    if (path.isEmpty()) {
+                                                        status = "Choose a container or USB partition first."
+                                                        return@OutlinedButton
+                                                    }
+                                                    vault.load(this@MainActivity, path) { bundle ->
+                                                        if (bundle == null) {
+                                                            status = "Fingerprint unlock cancelled."
+                                                            return@load
+                                                        }
+                                                        password = bundle.password
+                                                        pim = bundle.pim.toString()
+                                                        useBiometric = bundle.hasBiometric()
+                                                        status = "Filled from fingerprint. Then tap Open volume."
+                                                    }
+                                                },
+                                                enabled = !busy,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) { Text("Unlock with fingerprint / face") }
+                                        }
+                                    },
+                                    useBackupHeader = useBackupHeader,
+                                    onBackupHeader = { useBackupHeader = it },
+                                    readOnly = readOnlyOpen,
+                                    onReadOnly = { readOnlyOpen = it },
+                                    trueCryptMode = trueCryptMode,
+                                    onTrueCryptMode = { trueCryptMode = it },
+                                    protectHidden = protectHidden,
+                                    onProtectHidden = { protectHidden = it },
+                                    hiddenPassword = hiddenProtectPassword,
+                                    onHiddenPassword = { hiddenProtectPassword = it },
+                                    hiddenPim = hiddenProtectPim,
+                                    onHiddenPim = { hiddenProtectPim = it },
+                                    onOpen = {
+                                        showOpenAnother = false
+                                        persistActiveMount(dirPath, entries, listTruncated)
+                                        openVolumeWithFactors(
+                                            path = path,
+                                            password = password,
+                                            pimText = pim,
+                                            useTextPassword = useTextPassword,
+                                            keyfileUris = keyfileUris,
+                                            useBackupHeader = useBackupHeader,
+                                            readOnly = readOnlyOpen,
+                                            trueCryptMode = trueCryptMode,
+                                            protectHidden = protectHidden,
+                                            hiddenPassword = hiddenProtectPassword,
+                                            hiddenPimText = hiddenProtectPim,
+                                            onHandle = { handle = it },
+                                            onEntries = { entries = it },
+                                            onStatus = { status = it }
+                                        )
+                                    },
+                                    onCancel = onCancel
+                                )
+                            }
                             if (tab == 3) {
                             VaultPane(
                                 modifier = Modifier.weight(1f),
@@ -1100,6 +1273,7 @@ class MainActivity : AppCompatActivity() {
                                 activeMount = activeMountIndex,
                                 readOnly = mountedVolumes.getOrNull(activeMountIndex)?.readOnly == true,
                                 onSelectMount = { index ->
+                                    showOpenAnother = false
                                     persistActiveMount(dirPath, entries, listTruncated)
                                     activeMountIndex = index
                                     val v = mountedVolumes[index]
@@ -1110,6 +1284,18 @@ class MainActivity : AppCompatActivity() {
                                 },
                                 onDismountMount = { dismountMountedAt(it) },
                                 onOpenAnother = { showOpenAnother = true },
+                                openingAnother = showOpenAnother || mountedVolumes.isEmpty(),
+                                openForm = {
+                                    BindOpenVolumeForm(
+                                        mountedSlot = true,
+                                        onCancel = if (mountedVolumes.isNotEmpty()) {
+                                            { showOpenAnother = false }
+                                        } else {
+                                            null
+                                        }
+                                    )
+                                },
+                                hashResult = hashResult,
                                 canTransfer = mountedVolumes.size > 1,
                                 onCopyToVolume = { transferMove = false },
                                 onMoveToVolume = { transferMove = true },
@@ -1974,9 +2160,28 @@ class MainActivity : AppCompatActivity() {
                                                 modifier = Modifier.fillMaxWidth()
                                             ) { Text("Test vectors") }
                                             VcHint(PimEstimator.describe(createKdf, createPim))
+                                            if (pimEstimateResult.isNotEmpty()) {
+                                                Text(
+                                                    pimEstimateResult,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    modifier = Modifier.testTag("pim_estimate_result")
+                                                )
+                                            }
                                             OutlinedButton(
                                                 onClick = {
-                                                    status = PimEstimator.describe(createKdf, createPim)
+                                                    beginWork("Estimating header iterations…")
+                                                    Thread {
+                                                        val text = PimEstimator.describe(
+                                                            createKdfState.value,
+                                                            createPimState.value
+                                                        )
+                                                        NativeBridge.setProgress(100, text)
+                                                        runOnUiThread {
+                                                            pimEstimateResult = text
+                                                            status = text
+                                                            endWork()
+                                                        }
+                                                    }.start()
                                                 },
                                                 enabled = !busy,
                                                 modifier = Modifier.fillMaxWidth().testTag("tools_pim_estimate")
@@ -2048,293 +2253,7 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                     else -> {
-                                        VcCard {
-                                            Text("VeraCrypt-compatible. This build has no network.")
-                                            VcHint("Stay offline. A compelled password still wins. Not unbreakable.")
-                                            Button(
-                                                onClick = {
-                                                    holdLockForPicker()
-                                                    picker.launch(arrayOf("*/*"))
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Choose container") }
-                                            if (containerLabel.isNotEmpty()) {
-                                                Text("Selected: $containerLabel", style = MaterialTheme.typography.bodyMedium)
-                                                val shownPath = path.takeIf { it.isNotEmpty() && !nativePathIsInternal(it) }
-                                                if (shownPath != null) {
-                                                    Text(shownPath, style = MaterialTheme.typography.bodySmall)
-                                                }
-                                            }
-                                            VcHint("USB/OTG file on a stick: Choose container. Whole-disk: Scan USB disks. See OTG Master. Nothing auto-mounts.")
-                                            if (BuildConfig.ENABLE_OTG_DISK) {
-                                                OtgVolumePanel(
-                                                    busy = busy,
-                                                    devices = otgDevices,
-                                                    candidates = otgCandidates,
-                                                    shareWithFiles = shareWithFiles,
-                                                    onShareWithFiles = {
-                                                        shareWithFiles = it
-                                                        OtgMountShare.shareWithFiles = it
-                                                        refreshDocumentRoots()
-                                                    },
-                                                    onScan = {
-                                                        pendingOtgFile = null
-                                                        otgDevices = OtgUsb.massStorageDevices(this@MainActivity)
-                                                        otgCandidates = emptyList()
-                                                        status = if (otgDevices.isEmpty()) {
-                                                            "No USB mass-storage device. Plug a stick, then Scan USB disks. This never auto-mounts."
-                                                        } else {
-                                                            "Found ${otgDevices.size} USB disk(s). Tap one. Grant permission. Then pick a partition and Open volume."
-                                                        }
-                                                    },
-                                                    onPickDevice = { device ->
-                                                        if (OtgUsb.hasPermission(this@MainActivity, device)) {
-                                                            openUsbMassStorage(device)
-                                                        } else {
-                                                            OtgUsb.requestPermission(this@MainActivity, device)
-                                                            status = "Grant USB permission, then the partition list appears. Still no auto-mount."
-                                                        }
-                                                    },
-                                                    onPickPartition = { cand ->
-                                                        val scsi = pendingOtgScsi
-                                                        val fake = pendingOtgFile
-                                                        when {
-                                                            scsi != null -> {
-                                                                try {
-                                                                    pendingOtgScsi = null
-                                                                    val otgPath = OtgBlockStore.bind(scsi, cand)
-                                                                    path = otgPath
-                                                                    containerUri = null
-                                                                    containerLabel = cand.label
-                                                                    status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
-                                                                } catch (_: Exception) {
-                                                                    status = "Could not bind USB partition."
-                                                                    scsi.close()
-                                                                }
-                                                            }
-                                                            fake != null -> {
-                                                                try {
-                                                                    pendingOtgFile = null
-                                                                    val otgPath = OtgBlockStore.bindFile(
-                                                                        fake,
-                                                                        cand.byteOffset,
-                                                                        cand.byteLength,
-                                                                        cand.label
-                                                                    )
-                                                                    path = otgPath
-                                                                    containerUri = null
-                                                                    containerLabel = cand.label
-                                                                    status = "Selected ${cand.label}. Type the volume password and Open volume. Files app stays closed until you tick Allow Files to browse."
-                                                                } catch (_: Exception) {
-                                                                    status = "Could not bind USB partition."
-                                                                }
-                                                            }
-                                                            else -> status = "Scan USB disks again."
-                                                        }
-                                                    }
-                                                )
-                                            }
-                                            Button(
-                                                onClick = {
-                                                    holdLockForPicker()
-                                                    shareEncPicker.launch(arrayOf("*/*"))
-                                                },
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Icon(Icons.Filled.Share, contentDescription = null)
-                                                Spacer(Modifier.padding(6.dp))
-                                                Text("Share encrypted file")
-                                            }
-                                            if (containerUri != null || path.isNotEmpty()) {
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        shareEncryptedVolume(containerUri, path) { status = it }
-                                                    },
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Share this encrypted file") }
-                                            }
-                                        }
-                                        VcCard {
-                                            Text("Volume password", style = MaterialTheme.typography.titleMedium)
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Checkbox(
-                                                    useTextPassword,
-                                                    { useTextPassword = it },
-                                                    enabled = !busy
-                                                )
-                                                Text("Password")
-                                            }
-                                            if (useTextPassword) {
-                                                SecretField(
-                                                    password,
-                                                    { password = it },
-                                                    "Password",
-                                                    modifier = Modifier.testTag("volume_password"),
-                                                    enabled = !busy
-                                                )
-                                            }
-                                            OutlinedTextField(
-                                                pim,
-                                                { pim = it },
-                                                label = { Text("PIM (0 = default)") },
-                                                modifier = Modifier.fillMaxWidth().testTag("volume_pim"),
-                                                enabled = !busy,
-                                                singleLine = true,
-                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                            )
-                                            Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
-                                            VcHint("Same as VeraCrypt on a computer: pick several in Files (long-press). Any extension. First 1 MiB of each.")
-                                            keyfileUris.forEach { uri ->
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(
-                                                        ShareHelper.displayName(this@MainActivity, uri) ?: uri.toString(),
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        modifier = Modifier.weight(1f)
-                                                    )
-                                                    TextButton(onClick = { keyfileUris = keyfileUris.filterNot { it == uri } }) {
-                                                        Text("Remove")
-                                                    }
-                                                }
-                                            }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    holdLockForPicker()
-                                                    keyfilePicker.launch(arrayOf("*/*"))
-                                                },
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) { Text("Add keyfiles") }
-                                            if (BuildConfig.ENABLE_BIOMETRIC) {
-                                                val vault = BiometricVault(this@MainActivity)
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Checkbox(useBiometric, { useBiometric = it }, enabled = !busy)
-                                                    Text(if (useBiometric) "On — extra keyfile mixed when opening" else "Fingerprint / face extra (off)")
-                                                }
-                                                VcHint("A compelled fingerprint still wins. GitHub flavor only. foss has no biometrics.")
-                                                OutlinedButton(
-                                                    onClick = {
-                                                        if (path.isEmpty()) {
-                                                            status = "Choose a container or USB partition first."
-                                                            return@OutlinedButton
-                                                        }
-                                                        vault.load(this@MainActivity, path) { bundle ->
-                                                            if (bundle == null) {
-                                                                status = "Fingerprint unlock cancelled."
-                                                                return@load
-                                                            }
-                                                            password = bundle.password
-                                                            pim = bundle.pim.toString()
-                                                            useBiometric = bundle.hasBiometric()
-                                                            status = "Filled from fingerprint. Then tap Open volume."
-                                                        }
-                                                    },
-                                                    enabled = !busy,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) { Text("Unlock with fingerprint / face") }
-                                            }
-                                            Text("Mount options", style = MaterialTheme.typography.titleSmall)
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .testTag("use_backup_header")
-                                                    .toggleable(
-                                                        value = useBackupHeader,
-                                                        enabled = !busy,
-                                                        role = Role.Checkbox,
-                                                        onValueChange = { useBackupHeader = it }
-                                                    )
-                                            ) {
-                                                Checkbox(useBackupHeader, onCheckedChange = null, enabled = !busy)
-                                                Text("Use backup header")
-                                            }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .testTag("read_only")
-                                                    .toggleable(
-                                                        value = readOnlyOpen,
-                                                        enabled = !busy,
-                                                        role = Role.Checkbox,
-                                                        onValueChange = { readOnlyOpen = it }
-                                                    )
-                                            ) {
-                                                Checkbox(readOnlyOpen, onCheckedChange = null, enabled = !busy)
-                                                Text("Read-only")
-                                            }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .testTag("truecrypt_mode")
-                                                    .toggleable(
-                                                        value = trueCryptMode,
-                                                        enabled = !busy,
-                                                        role = Role.Checkbox,
-                                                        onValueChange = { trueCryptMode = it }
-                                                    )
-                                            ) {
-                                                Checkbox(trueCryptMode, onCheckedChange = null, enabled = !busy)
-                                                Text("TrueCrypt Mode")
-                                            }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .testTag("protect_hidden")
-                                                    .toggleable(
-                                                        value = protectHidden,
-                                                        enabled = !busy,
-                                                        role = Role.Checkbox,
-                                                        onValueChange = { protectHidden = it }
-                                                    )
-                                            ) {
-                                                Checkbox(protectHidden, onCheckedChange = null, enabled = !busy)
-                                                Text("Protect hidden volume against damage caused by writing to outer volume")
-                                            }
-                                            if (protectHidden) {
-                                                SecretField(
-                                                    hiddenProtectPassword,
-                                                    { hiddenProtectPassword = it },
-                                                    "Password to hidden volume",
-                                                    modifier = Modifier.testTag("hidden_protect_password"),
-                                                    enabled = !busy
-                                                )
-                                                OutlinedTextField(
-                                                    hiddenProtectPim,
-                                                    { hiddenProtectPim = it },
-                                                    label = { Text("Hidden volume PIM (0 = default)") },
-                                                    modifier = Modifier.fillMaxWidth().testTag("hidden_protect_pim"),
-                                                    enabled = !busy,
-                                                    singleLine = true,
-                                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                                )
-                                            }
-                                            Button(
-                                                onClick = {
-                                                    persistActiveMount(dirPath, entries, listTruncated)
-                                                    openVolumeWithFactors(
-                                                        path = path,
-                                                        password = password,
-                                                        pimText = pim,
-                                                        useTextPassword = useTextPassword,
-                                                        keyfileUris = keyfileUris,
-                                                        useBackupHeader = useBackupHeader,
-                                                        readOnly = readOnlyOpen,
-                                                        trueCryptMode = trueCryptMode,
-                                                        protectHidden = protectHidden,
-                                                        hiddenPassword = hiddenProtectPassword,
-                                                        hiddenPimText = hiddenProtectPim,
-                                                        onHandle = { handle = it },
-                                                        onEntries = { entries = it },
-                                                        onStatus = { status = it }
-                                                    )
-                                                },
-                                                enabled = !busy,
-                                                modifier = Modifier.fillMaxWidth().testTag("open_volume")
-                                            ) { Text("Open volume") }
-                                        }
+                                        BindOpenVolumeForm(mountedSlot = false, onCancel = null)
                                     }
                                 }
                             }
@@ -2386,72 +2305,6 @@ class MainActivity : AppCompatActivity() {
                         InAppPreview.wipe(this@MainActivity)
                         previewFile = null
                         previewName = ""
-                    }
-                )
-            }
-            if (showOpenAnother) {
-                AlertDialog(
-                    onDismissRequest = { showOpenAnother = false },
-                    title = { Text("Open another container") },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("This session can keep several volumes mounted. Copy to volume / Move to volume sends selected files into the folder last opened on the other volume.")
-                            if (containerLabel.isNotEmpty()) {
-                                Text("Selected: $containerLabel")
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    holdLockForPicker()
-                                    picker.launch(arrayOf("*/*"))
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) { Text("Choose container") }
-                            if (useTextPassword) {
-                                SecretField(
-                                    password,
-                                    { password = it },
-                                    "Password",
-                                    modifier = Modifier.testTag("open_another_password"),
-                                    enabled = !busy
-                                )
-                            }
-                            OutlinedTextField(
-                                pim,
-                                { pim = it },
-                                label = { Text("PIM (0 = default)") },
-                                modifier = Modifier.fillMaxWidth().testTag("open_another_pim"),
-                                enabled = !busy,
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                showOpenAnother = false
-                                persistActiveMount(dirPath, entries, listTruncated)
-                                openVolumeWithFactors(
-                                    path = path,
-                                    password = password,
-                                    pimText = pim,
-                                    useTextPassword = useTextPassword,
-                                    keyfileUris = keyfileUris,
-                                    useBackupHeader = useBackupHeader,
-                                    readOnly = readOnlyOpen,
-                                    trueCryptMode = trueCryptMode,
-                                    protectHidden = protectHidden,
-                                    hiddenPassword = hiddenProtectPassword,
-                                    hiddenPimText = hiddenProtectPim,
-                                    onHandle = { handle = it },
-                                    onEntries = { entries = it },
-                                    onStatus = { status = it }
-                                )
-                            }
-                        ) { Text("Open") }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showOpenAnother = false }) { Text("Cancel") }
                     }
                 )
             }
@@ -2722,10 +2575,22 @@ class MainActivity : AppCompatActivity() {
         NativeBridge.resetEntropy()
     }
 
+    private fun closeOpenVolumes(reason: String) {
+        if (NativeBridge.isOpen(handleState.value) || mountedVolumesState.value.isNotEmpty()) {
+            beginWork(reason)
+            NativeBridge.setProgress(100, reason)
+        }
+        lockSession()
+        if (!statusState.value.startsWith("Panic")) {
+            statusState.value = reason
+        }
+    }
+
     private fun lockSession() {
         closeMountedVolume()
         releasePendingPfd()
         wipeRamSecrets()
+        hashResultState.value = ""
         endWork()
         Hardening.wipeSessionFiles(this)
         if (!statusState.value.startsWith("Panic")) {
@@ -4201,30 +4066,50 @@ class MainActivity : AppCompatActivity() {
         Thread {
             val lines = mutableListOf<String>()
             try {
-                for (entry in files) {
+                files.forEachIndexed { index, entry ->
+                    val pct = (index * 100) / files.size
+                    NativeBridge.setProgress(pct, "Hashing ${index + 1} of ${files.size}: ${entry.name}")
                     val dest = File(cacheDir, "hash-${entry.name}")
                     val rc = NativeBridge.exportFile(handle, joinDir(dirPath, entry.name), dest.absolutePath)
                     if (rc != 0 || !dest.isFile) {
                         lines.add("${entry.name}: hash failed")
                         Hardening.wipeFile(dest)
-                        continue
+                        NativeBridge.setProgress(
+                            ((index + 1) * 100) / files.size,
+                            "Hash failed: ${entry.name}"
+                        )
+                        return@forEachIndexed
                     }
                     val hex = dest.inputStream().use { stream ->
                         val md = java.security.MessageDigest.getInstance("SHA-256")
                         val buf = ByteArray(64 * 1024)
+                        var hashed = 0L
+                        val total = dest.length().coerceAtLeast(1L)
                         while (true) {
                             val n = stream.read(buf)
                             if (n <= 0) break
                             md.update(buf, 0, n)
+                            hashed += n
+                            val filePct = ((index * 100) + ((hashed * 100) / total).toInt()) / files.size
+                            NativeBridge.setProgress(
+                                filePct.coerceIn(0, 99),
+                                "Hashing ${index + 1} of ${files.size}: ${entry.name}"
+                            )
                         }
                         md.digest().joinToString("") { b -> "%02x".format(b) }
                     }
                     Hardening.wipeFile(dest)
                     lines.add("${entry.name}: $hex")
+                    NativeBridge.setProgress(
+                        ((index + 1) * 100) / files.size,
+                        "Hashed ${entry.name}"
+                    )
                 }
                 runOnUiThread {
+                    val summary = "SHA-256 in volume (temp wiped): " + lines.joinToString(" · ")
+                    hashResultState.value = summary
                     endWork()
-                    onStatus("SHA-256 in volume (temp wiped): " + lines.joinToString(" · "))
+                    onStatus(summary)
                 }
             } catch (_: Exception) {
                 runOnUiThread {
@@ -4595,6 +4480,9 @@ private fun VaultPane(
     onSelectMount: (Int) -> Unit,
     onDismountMount: (Int) -> Unit,
     onOpenAnother: () -> Unit,
+    openingAnother: Boolean = false,
+    openForm: @Composable () -> Unit = {},
+    hashResult: String = "",
     canTransfer: Boolean,
     onCopyToVolume: () -> Unit,
     onMoveToVolume: () -> Unit,
@@ -4799,7 +4687,28 @@ private fun VaultPane(
                     .fillMaxHeight()
                     .background(colors.outline.copy(alpha = 0.4f))
             )
+            if (openingAnother) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(8.dp)
+                ) {
+                    openForm()
+                }
+            } else {
             Column(Modifier.weight(1f).fillMaxHeight()) {
+        if (hashResult.isNotEmpty()) {
+            Text(
+                hashResult,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .testTag("hash_result")
+            )
+        }
         Row(
             Modifier
                 .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -4926,6 +4835,7 @@ private fun VaultPane(
                 }
             }
         }
+            }
             }
         }
     }

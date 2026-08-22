@@ -46,6 +46,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+      - name: Fetch tags for version check
+        run: git fetch --tags --force origin
       - name: Python host contracts (no wrap, no emulator)
         run: |
           cd ports/tests
@@ -56,6 +60,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -82,6 +88,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
       - name: Install XcodeGen and CMake
         run: brew install xcodegen cmake
       - name: Host contracts on the iOS runner

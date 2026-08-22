@@ -4,20 +4,23 @@
 # and no-whole-disk + View in app (iOS). Does not tap Panic wipe or
 # Check for updates. Does not run on GitHub Actions (no emulator there).
 # SLOW=1 also runs Android SlowHumanSessionTest (entropy scribble on screen).
+# Android: boots AVD vcport-api35 headless if adb is empty. Needs Java 17
+# (JAVA_HOME, java_home, or Homebrew openjdk@17).
 set -eu
 PORTS="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PORTS/scripts/android-dev.sh"
 LOG="${TMPDIR:-/tmp}/vcport-ui-walk"
 mkdir -p "$LOG"
 
-if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/libexec/java_home ]; then
-	_jh="$(/usr/libexec/java_home -v 17 2>/dev/null || true)"
-	if [ -n "$_jh" ]; then
-		export JAVA_HOME="$_jh"
-	fi
-fi
-export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
-export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+vcport_resolve_java || exit 1
+vcport_android_sdk
 export PATH="${JAVA_HOME:+$JAVA_HOME/bin:}${ANDROID_HOME:+$ANDROID_HOME/platform-tools:}$PATH"
+
+if ! vcport_ensure_emulator; then
+	echo "FAIL  android emulator did not start (see ${TMPDIR:-/tmp}/vcport-emu.log)"
+	exit 1
+fi
 
 android_classes="dev.shivampingale.vcport.UiWalkSuite"
 if [ "${SLOW:-0}" = "1" ]; then

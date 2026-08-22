@@ -221,6 +221,9 @@ class Phase5IosTests(unittest.TestCase):
         self.assertIn("Not enough memory to open the volume.", view)
         self.assertIn("Missing path or password argument.", view)
         self.assertIn("does not install itself", view)
+        self.assertIn("private var sessionRoot:", view)
+        self.assertIn("private var sessionPickers:", view)
+        self.assertIn("private var sessionDialogs:", view)
         self.assertIn("sync-upstream.sh", read("ports/UPSTREAM.md"))
 
     def test_ipad_simulator_and_sideload_sign(self) -> None:
@@ -288,6 +291,8 @@ class Phase8CiTests(unittest.TestCase):
     def test_ci_runs_host_contracts_not_wrap_or_macos(self) -> None:
         wf = read(".github/workflows/vcport.yml")
         self.assertIn("host-contracts:", wf)
+        self.assertIn("fetch-tags: true", wf)
+        self.assertIn("git fetch --tags --force origin", wf)
         self.assertNotIn("wrap-test:", wf)
         self.assertNotIn("host-macos:", wf)
         self.assertIn("python3 -m unittest", wf)
@@ -483,6 +488,14 @@ class Phase10RelaunchTests(unittest.TestCase):
             cwd=ROOT,
             text=True,
         ).strip()
+        if not tags:
+            all_tags = subprocess.check_output(
+                ["git", "tag", "-l"],
+                cwd=ROOT,
+                text=True,
+            ).strip()
+            if not all_tags:
+                self.skipTest("no git tags in this clone (fetch-tags: true on CI)")
         self.assertEqual(tags, tag)
 
 
