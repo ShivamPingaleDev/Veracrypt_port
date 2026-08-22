@@ -20,6 +20,7 @@ Commit list from Veracrypt_port: [HISTORY.md](HISTORY.md).
 
 VC Port is **100% free**. Same features for everyone. Support helps the author; it does **not** unlock features or stronger encryption. Links are on GitHub only — not inside the app.
 
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ShivamPingaleDev)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/shivampingaledev)
 [![Donate on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ShivamPingaleDev/donate)
@@ -86,21 +87,6 @@ Apple will not let us send you a finished app. You put it on the iPhone with **y
 A free Apple ID lasts **7 days**. Open AltStore or SideStore again before that so the app stays installed. A copy you sign will not work on someone else’s iPhone.
 
 If you have a Mac and Xcode: open the project, pick your name as Team, plug in the iPhone, press Run. More detail: [ios/README.md](ios/README.md).
-
-## Support (optional)
-
-VC Port is **free**. Support helps the author; it does **not** unlock features or stronger encryption. Links are on GitHub only — not inside the app.
-
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/shivampingaledev)
-[![Donate on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ShivamPingaleDev/donate)
-
-[![Liberapay receives](https://img.shields.io/liberapay/receives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
-[![Liberapay gives](https://img.shields.io/liberapay/gives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
-[![Liberapay patrons](https://img.shields.io/liberapay/patrons/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
-[![Liberapay goal](https://img.shields.io/liberapay/goal/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
-
-More: [SUPPORT.md](../SUPPORT.md)
 
 **Volume** — pick a locked file and type the password.
 

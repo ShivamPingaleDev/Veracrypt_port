@@ -6,6 +6,7 @@ VC Port is **100% free**. Same features for everyone. Support helps the author k
 
 | Platform | URL |
 | --- | --- |
+| GitHub Sponsors | https://github.com/sponsors/ShivamPingaleDev |
 | Buy Me a Coffee | https://buymeacoffee.com/shivampingaledev |
 | Ko-fi | https://ko-fi.com/shivampingaledev |
 | Liberapay | https://liberapay.com/ShivamPingaleDev/donate |
@@ -15,6 +16,7 @@ VC Port is **100% free**. Same features for everyone. Support helps the author k
 GitHub README does not run `<script>` tags. Use badges and links:
 
 ```markdown
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ShivamPingaleDev)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/shivampingaledev)
 [![Donate on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ShivamPingaleDev/donate)

@@ -817,6 +817,11 @@ class PimAndSessionContractTests(unittest.TestCase):
         self.assertIn("100% free", read("SUPPORT.md"))
         self.assertIn("actions/workflows/vcport.yml/badge.svg", read("README.md"))
         self.assertIn("100% free", read("README.md"))
+        self.assertIn("github: ShivamPingaleDev", read(".github/FUNDING.yml"))
+        self.assertIn("github.com/sponsors/ShivamPingaleDev", read("README.md"))
+        self.assertIn("github.com/sponsors/ShivamPingaleDev", read("SUPPORT.md"))
+        self.assertNotIn("github.com/sponsors", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
+        self.assertNotIn("github.com/sponsors", read("ports/ios/VCPort/ContentView.swift"))
 
     def test_session_walk_covers_new_tools(self) -> None:
         android = read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/AppInterfaceSessionTest.kt")

@@ -1,4 +1,6 @@
 # Optional support for VC Port. Also: VeraCrypt upstream donations.
+# github: turns on the Sponsor button on the repo (GitHub Sponsors).
+github: ShivamPingaleDev
 ko_fi: shivampingaledev
 liberapay: ShivamPingaleDev
 custom:
