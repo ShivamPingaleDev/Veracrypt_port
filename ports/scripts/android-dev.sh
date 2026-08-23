@@ -152,19 +152,22 @@ vcport_ensure_emulator() {
 	_gpu="swiftshader_indirect"
 	_win="-no-window"
 	if [ "${VC_PORT_EMU_WINDOW:-0}" = "1" ]; then
-		_gpu="host"
+		# host GPU can crash on some Macs; angle_indirect keeps the window stable.
+		_gpu="${VC_PORT_EMU_GPU:-angle_indirect}"
 		_win=""
 	fi
 	: >"${TMPDIR:-/tmp}/vcport-emu.log"
 	echo "Starting AVD $_avd (gpu=$_gpu ${_win:-windowed})..."
+	echo "Log: ${TMPDIR:-/tmp}/vcport-emu.log"
 	# shellcheck disable=SC2086
-	# nohup so a Cursor/agent shell exit does not SIGHUP qemu.
+	# nohup + disown so Cursor/agent shell exit does not SIGHUP qemu.
 	nohup "$_emu" -avd "$_avd" \
 		-no-snapshot-load -no-snapshot-save -no-boot-anim -no-audio \
 		-gpu "$_gpu" $_win \
 		-netdelay none -netspeed full \
 		</dev/null >>"${TMPDIR:-/tmp}/vcport-emu.log" 2>&1 &
 	VCPORT_EMU_PID=$!
+	disown "$VCPORT_EMU_PID" 2>/dev/null || true
 	if vcport_wait_boot "$_boot_tries"; then
 		echo "Android emulator ready"
 		return 0

@@ -6,6 +6,20 @@ This app is **not** called VeraCrypt. It is **not unbreakable**. It is **100% fr
 
 [![VC Port](https://github.com/ShivamPingaleDev/Veracrypt_port/actions/workflows/vcport.yml/badge.svg?branch=master)](https://github.com/ShivamPingaleDev/Veracrypt_port/actions/workflows/vcport.yml)
 
+**Support (optional)** — same features for everyone; support does not unlock extras or stronger encryption. Links are on GitHub only, not inside the app.
+
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ShivamPingaleDev)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/shivampingaledev)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/shivampingaledev)
+[![Donate on Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/ShivamPingaleDev/donate)
+
+[![Liberapay receives](https://img.shields.io/liberapay/receives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay gives](https://img.shields.io/liberapay/gives/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay patrons](https://img.shields.io/liberapay/patrons/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+[![Liberapay goal](https://img.shields.io/liberapay/goal/ShivamPingaleDev.svg?logo=liberapay)](https://liberapay.com/ShivamPingaleDev)
+
+More: [SUPPORT.md](SUPPORT.md)
+
 ## Download
 
 **0.3.12** — stable alpha (still testing, not a store app).
@@ -33,22 +47,39 @@ You can also **Create** a new locked file. Use the **same password** on a comput
 - Android can scan a **USB disk** (experimental).
 - A forced password still opens the volume — use a long password and keep keyfiles off the phone.
 
-## Screenshots
+## Screenshots (0.3.12)
 
-<details>
-<summary><strong>App UI</strong> (tap to expand — emulator shots, empty tabs)</summary>
+Emulator UI, empty tabs. Click a picture for full size. [How we capture these](ports/docs/screenshots/README.md).
 
-Click a picture for full size. [All shots + how we capture them](ports/docs/screenshots/README.md).
+### Volume
 
-| Tab | Android | iPhone |
-| --- | --- | --- |
-| **Volume** | [<img src="ports/docs/screenshots/thumbs/01-volume.png" alt="Android Volume" width="200">](ports/docs/screenshots/01-volume.png) | [<img src="ports/docs/screenshots/thumbs/ios-01-volume.png" alt="iPhone Volume" width="200">](ports/docs/screenshots/ios-01-volume.png) |
-| **Create** | [<img src="ports/docs/screenshots/thumbs/03-create.png" alt="Android Create" width="200">](ports/docs/screenshots/03-create.png) | [<img src="ports/docs/screenshots/thumbs/ios-03-create.png" alt="iPhone Create" width="200">](ports/docs/screenshots/ios-03-create.png) |
-| **Mounted** | [<img src="ports/docs/screenshots/thumbs/05-mounted.png" alt="Android Mounted" width="200">](ports/docs/screenshots/05-mounted.png) | [<img src="ports/docs/screenshots/thumbs/ios-05-mounted.png" alt="iPhone Mounted" width="200">](ports/docs/screenshots/ios-05-mounted.png) |
-| **Tools** | [<img src="ports/docs/screenshots/thumbs/04-tools.png" alt="Android Tools" width="200">](ports/docs/screenshots/04-tools.png) | [<img src="ports/docs/screenshots/thumbs/ios-04-tools.png" alt="iPhone Tools" width="200">](ports/docs/screenshots/ios-04-tools.png) |
-| **Dark mode** | [<img src="ports/docs/screenshots/thumbs/08-skin-signal.png" alt="Android dark mode" width="200">](ports/docs/screenshots/08-skin-signal.png) | — |
+| Android | iPhone |
+| --- | --- |
+| [<img src="ports/docs/screenshots/thumbs/01-volume.png" alt="Android Volume 0.3.12" width="240">](ports/docs/screenshots/01-volume.png) | [<img src="ports/docs/screenshots/thumbs/ios-01-volume.png" alt="iPhone Volume 0.3.12" width="240">](ports/docs/screenshots/ios-01-volume.png) |
 
-</details>
+### Create
+
+| Android | iPhone |
+| --- | --- |
+| [<img src="ports/docs/screenshots/thumbs/03-create.png" alt="Android Create 0.3.12" width="240">](ports/docs/screenshots/03-create.png) | [<img src="ports/docs/screenshots/thumbs/ios-03-create.png" alt="iPhone Create 0.3.12" width="240">](ports/docs/screenshots/ios-03-create.png) |
+
+### Mounted
+
+| Android | iPhone |
+| --- | --- |
+| [<img src="ports/docs/screenshots/thumbs/05-mounted.png" alt="Android Mounted 0.3.12" width="240">](ports/docs/screenshots/05-mounted.png) | [<img src="ports/docs/screenshots/thumbs/ios-05-mounted.png" alt="iPhone Mounted 0.3.12" width="240">](ports/docs/screenshots/ios-05-mounted.png) |
+
+### Tools
+
+| Android | iPhone |
+| --- | --- |
+| [<img src="ports/docs/screenshots/thumbs/04-tools.png" alt="Android Tools 0.3.12" width="240">](ports/docs/screenshots/04-tools.png) | [<img src="ports/docs/screenshots/thumbs/ios-04-tools.png" alt="iPhone Tools 0.3.12" width="240">](ports/docs/screenshots/ios-04-tools.png) |
+
+### Dark mode (Android)
+
+| Android |
+| --- |
+| [<img src="ports/docs/screenshots/thumbs/08-skin-signal.png" alt="Android dark mode 0.3.12" width="240">](ports/docs/screenshots/08-skin-signal.png) |
 
 ## License (short)
 
@@ -62,7 +93,6 @@ Details: [License.txt](License.txt), [ports/FOSS.md](ports/FOSS.md)
 | --- | --- |
 | Build from source | [PORTING.md](PORTING.md) |
 | Security issues | [SECURITY.md](SECURITY.md) |
-| Optional support | [SUPPORT.md](SUPPORT.md) · [GitHub Sponsors](https://github.com/sponsors/ShivamPingaleDev) |
 | Public talking points | [ports/PUBLIC.md](ports/PUBLIC.md) |
 
 **Contact:** [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me)

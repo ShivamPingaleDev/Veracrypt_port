@@ -46,7 +46,8 @@ class MainActivityUiTest {
             flags and WindowManager.LayoutParams.FLAG_SECURE != 0
         )
 
-        rule.onNodeWithText("VC Port").assertIsDisplayed()
+        rule.onNodeWithText("VC Port", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("0.3.12", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Stay offline. This build has no network.").assertIsDisplayed()
         rule.onNodeWithTag("panic_wipe").assertIsDisplayed()
         rule.onNodeWithText("Share encrypted").assertIsDisplayed()
@@ -67,7 +68,7 @@ class MainActivityUiTest {
         captureShot("05-mounted.png")
 
         rule.onNodeWithTag("tab_tools").performClick()
-        rule.onNodeWithText("Change volume password").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("This build is VC Port", substring = true).performScrollTo()
         captureShot("04-tools.png")
 
         rule.onNodeWithTag("tab_volume").performClick()

@@ -4,8 +4,8 @@ Real emulator UI — **no passwords, no opened folders, no fake store mockups**.
 
 | Platform | How captured |
 | --- | --- |
-| **Android** | Compose `captureToImage` on AVD `vcport-api35`. `FLAG_SECURE` stays on (`adb screencap` is black on purpose). |
-| **iPhone** | `testPublishTabScreenshots` on iPhone Simulator — window draw, empty tabs only. |
+| **Android** | Emulator window captures (`vcport-api35`). `FLAG_SECURE` stays on (`adb screencap` is black on purpose). |
+| **iPhone** | iPhone Simulator window captures (0.3.12 in the title bar). Empty tabs only. |
 
 **Refresh everything:**
 

@@ -159,7 +159,7 @@ struct ContentView: View {
     var sessionChrome: some View {
         sessionTabs
             .disabled(busy)
-            .navigationTitle("VC Port")
+            .navigationTitle("VC Port \(SourcePin.localVersion)")
             .tint(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255))
             .toolbarBackground(Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)

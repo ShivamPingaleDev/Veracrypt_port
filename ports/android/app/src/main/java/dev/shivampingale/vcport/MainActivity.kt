@@ -948,7 +948,7 @@ class MainActivity : AppCompatActivity() {
                                     Spacer(Modifier.padding(6.dp))
                                     Column {
                                         Text(
-                                            "VC Port",
+                                            "VC Port ${BuildConfig.PORT_VERSION}",
                                             style = MaterialTheme.typography.titleLarge
                                         )
                                         Text(
