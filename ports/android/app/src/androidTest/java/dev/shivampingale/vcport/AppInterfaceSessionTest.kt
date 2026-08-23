@@ -112,7 +112,7 @@ class AppInterfaceSessionTest {
         assertTrue(rule.activity.testingFinishCreateSave(basketDest))
         rule.waitForIdle()
 
-        rule.onNodeWithText("Create secrets were wiped", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Session cleared", substring = true).assertIsDisplayed()
         rule.onNodeWithTag("volume_password").assert(hasText(""))
         rule.onNodeWithTag("volume_pim").assert(hasText("0"))
         rule.onNodeWithTag("tab_create").performClick()
@@ -162,7 +162,7 @@ class AppInterfaceSessionTest {
         val nestedDest = File(work, "photos.jpg")
         assertTrue(rule.activity.testingFinishCreateSave(nestedDest))
         rule.waitForIdle()
-        rule.onNodeWithText("Create secrets were wiped", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("Session cleared", substring = true).assertIsDisplayed()
         rule.onNodeWithTag("volume_password").assert(hasText(""))
         rule.onNodeWithTag("tab_create").performClick()
         rule.waitForIdle()

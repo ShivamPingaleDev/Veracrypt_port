@@ -20,6 +20,7 @@ object NativeBridge {
         hiddenPim: Int = 0
     ): Long
     external fun closeVolume(handle: Long)
+    external fun flushVolume(handle: Long)
     external fun volumeSize(handle: Long): Long
     external fun listRoot(handle: Long): Array<String>
     external fun listDir(handle: Long, path: String, offset: Int): Array<String>
@@ -47,7 +48,8 @@ object NativeBridge {
         hiddenPim: Int,
         hiddenSizeBytes: Long,
         hiddenKeyfiles: Array<String>,
-        filesystem: String
+        filesystem: String,
+        fullFormat: Boolean = false
     ): Int
     external fun addEntropy(samples: ByteArray)
     external fun entropyPercent(): Int

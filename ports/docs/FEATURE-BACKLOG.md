@@ -2,6 +2,8 @@
 
 VC Port stays **100% free**. Optional support is GitHub-only (README / SUPPORT.md). No paid unlocks. No stronger crypto for donors. **No browser links inside the app.**
 
+**Inspiration from other apps** (Arcanum, Disk Decipher — scoped to our VeraCrypt phone use case): [INSPIRATION.md](INSPIRATION.md).
+
 ## Feature freeze (still alpha)
 
 Started after **0.3.10**; freeze maintenance shipped in **0.3.11**. Session keyfile and Create-save wipe shipped in **0.3.12**. Still **stable alpha**, not 1.0, not a store build.
@@ -19,7 +21,8 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 ## Architecture (lock in)
 
 - **One Open suite.** Volume tab and Mounted Empty popup both call `openVolumeWithFactors` / `openVolume()` through `OpenVolumeForm` / `openVolumeForm`. New mount options go in that one form.
-- **One session closer.** Idle, screen-lock, panic, and Tools Wipe cached passwords call `closeOpenVolumes`. Home / Recents uses `dismountOnLeave` so Create can continue. Do not grow a fifth path.
+- **One session closer.** Idle, screen-lock, panic, and Tools Wipe cached passwords call `closeOpenVolumes`. Home / Recents uses `dismountOnLeave` (saves mounted containers, then clears). Panic skips write-back. Do not grow a fifth path.
+- **Mount save-back.** Open copies container to cache; mutations auto-flush and write-back to the picked URI; × / Dismount save then close. See `.cursor/rules/mount-container-save.mdc`.
 - **Native work stays off the UI thread; WorkOverlay is the only progress UI.** No silent background jobs.
 - **Host contracts stay grep + lifecycle.** They catch tab order and `/proc/self/fd`. They do not replace the emulator walk.
 
@@ -50,7 +53,7 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 | Mega-screen split | **Built** — Open / Mounted / Create / Tools are their own files |
 | `verify-build.sh` | **Built** — reviewer rebuilds FOSS and compares SHA-256 |
 | Metadata scrub on export | **Later** — optional EXIF/timestamp; easy to get wrong |
-| Batch queue + ETA | **Later** — reuse progress hooks |
+| Batch queue + ETA | **Later** — reuse progress hooks; see [INSPIRATION.md](INSPIRATION.md) §1 |
 
 ## Priority
 

@@ -62,6 +62,10 @@ enum VcMobileBridge {
         vc_close(handle)
     }
 
+    static func flush(_ handle: OpaquePointer) {
+        vc_flush_volume(handle)
+    }
+
     static func size(_ handle: OpaquePointer) -> UInt64 {
         vc_size(handle)
     }
@@ -245,7 +249,8 @@ enum VcMobileBridge {
         hiddenPim: Int32 = 0,
         hiddenSizeBytes: UInt64 = 0,
         hiddenKeyfiles: [String] = [],
-        filesystem: String = "FAT"
+        filesystem: String = "FAT",
+        fullFormat: Bool = false
     ) -> Int32 {
         startCpu()
         return path.withCString { cPath in
@@ -273,6 +278,7 @@ enum VcMobileBridge {
                                     options.hidden_keyfiles = hiddenPointer
                                     options.hidden_keyfile_count = hiddenCount
                                     options.filesystem = cFs
+                                    options.full_format = fullFormat ? 1 : 0
                                     return vc_create_volume(&options)
                                 }
                             }

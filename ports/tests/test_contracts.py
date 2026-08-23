@@ -479,11 +479,11 @@ class AndroidHighThreatTests(unittest.TestCase):
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         self.assertNotIn("newPim = pim", main)
-        create_wipe = main.split("private fun wipeCreateSecrets()")[1].split("private fun wipeRamSecrets()")[0]
-        self.assertIn('newPimState.value = "0"', create_wipe)
-        leave = main.split("private fun dismountOnLeave()")[1].split("private fun wipeCreateSecrets()")[0]
+        create_wipe = main.split("private fun completeSessionReset")[1].split("private fun wipeRamSecrets()")[0]
+        self.assertIn('tabState.intValue = 0', create_wipe)
+        leave = main.split("private fun dismountOnLeave()")[1].split("private fun wipeCreateSecrets(")[0]
         self.assertIn('newPimState.value = "0"', leave)
-        ios_wipe = view.split("func wipeCreateSecrets()")[1].split("func clearMountOptions()")[0]
+        ios_wipe = view.split("func completeSessionReset")[1].split("func clearMountOptions()")[0]
         self.assertIn('newPim = "0"', ios_wipe)
         ios_leave = view.split("func dismountOnLeave()")[1].split("func isTemporaryContainer")[0]
         self.assertIn('newPim = "0"', ios_leave)
@@ -505,14 +505,16 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("wipeUnlockForm()", ios_open)
         self.assertIn("unlockPassword(password, useTextPassword)", main)
         self.assertIn("unlock.pim", view)
-        leave = main.split("private fun dismountOnLeave()")[1].split("private fun wipeCreateSecrets()")[0]
+        leave = main.split("private fun dismountOnLeave()")[1].split("private fun wipeCreateSecrets(")[0]
         self.assertIn("forgetUnlock()", leave)
         ram = main.split("private fun wipeRamSecrets()")[1].split("private fun resetCreateWizard()")[0]
         self.assertIn("forgetUnlock()", ram)
         ios_leave = view.split("func dismountOnLeave()")[1].split("func isTemporaryContainer")[0]
         self.assertIn("forgetUnlock()", ios_leave)
-        ios_lock = view.split("func lockSession()")[1].split("func panicWipe()")[0]
-        self.assertIn("forgetUnlock()", ios_lock)
+        ios_lock = view.split("func lockSession")[1].split("func panicWipe")[0]
+        self.assertIn("completeSessionReset(finishStatus)", ios_lock)
+        ios_complete = view.split("func completeSessionReset")[1].split("func clearMountOptions()")[0]
+        self.assertIn("forgetUnlock()", ios_complete)
         form = main.split("private fun wipeUnlockForm()")[1].split("/**")[0]
         self.assertNotIn("keyfileUrisState", form)
         ios_form = view.split("func wipeUnlockForm()")[1].split("func currentUnlockPaths()")[0]
@@ -537,32 +539,77 @@ class AndroidHighThreatTests(unittest.TestCase):
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         saver = main.split("val createSaver")[1].split("val toolSaver")[0]
-        self.assertIn("wipeCreateSecrets()", saver)
+        self.assertIn("wipeCreateSecrets(", saver)
         self.assertIn("copyFileToUri", saver)
         self.assertNotIn("copyContainerAsync", saver)
-        self.assertIn("Create secrets were wiped", saver)
-        self.assertIn("Choose the volume you want", saver)
+        self.assertIn("Session cleared", saver)
+        self.assertIn("Choose a volume", saver)
         self.assertIn("savedName", saver)
         self.assertNotIn("Type the volume password and Open volume", saver)
-        wipe = main.split("private fun wipeCreateSecrets()")[1].split("private fun wipeRamSecrets()")[0]
-        self.assertIn("pathState.value = \"\"", wipe)
-        self.assertIn("containerUriState.value = null", wipe)
-        self.assertIn("resetCreateWizard()", wipe)
+        wipe = main.split("private fun wipeCreateSecrets(")[1].split("private fun completeSessionReset")[0]
+        self.assertIn("completeSessionReset(statusMessage)", wipe)
+        complete = main.split("private fun completeSessionReset")[1].split("private fun wipeRamSecrets()")[0]
+        self.assertIn("pathState.value = \"\"", complete)
+        self.assertIn("containerUriState.value = null", complete)
+        self.assertIn("basketUrisState.value = emptyList()", main.split("private fun wipeRamSecrets()")[1].split("private fun resetCreateWizard()")[0])
+        self.assertIn('createPasswordState.value = ""', main.split("private fun wipeRamSecrets()")[1].split("private fun resetCreateWizard()")[0])
+        self.assertIn("sessionResetPulseState.intValue++", complete)
         self.assertIn('File(cacheDir, "containers")', main)
         self.assertIn("KeyfileIo.uniqueNamed", main)
         copy = main.split("private fun copyToCache")[1].split("\n}")[0]
         self.assertIn("uniqueNamed", copy)
         self.assertNotIn("File(cacheDir, name)", copy)
         ios_save = view.split("SystemFiles.exportCopy(url: dest)")[1].split("func openVolume()")[0]
-        self.assertIn("wipeCreateSecrets()", ios_save)
+        self.assertIn("wipeCreateSecrets(", ios_save)
         self.assertNotIn("containerURL = dest", ios_save)
         self.assertNotIn("containerURL = saved", ios_save)
-        self.assertIn("Create secrets were wiped", ios_save)
-        self.assertIn("Choose the volume you want", ios_save)
-        ios_wipe = view.split("func wipeCreateSecrets()")[1].split("func clearMountOptions()")[0]
-        self.assertIn("containerURL = nil", ios_wipe)
+        self.assertIn("Session cleared", ios_save)
+        self.assertIn("Choose a volume", ios_save)
+        ios_wipe = view.split("func wipeCreateSecrets(")[1].split("func completeSessionReset")[0]
+        self.assertIn("completeSessionReset(statusMessage)", ios_wipe)
+        ios_complete = view.split("func completeSessionReset")[1].split("func clearMountOptions()")[0]
+        self.assertIn("containerURL = nil", ios_complete)
+        self.assertIn("basketURLs = []", ios_complete)
+        self.assertIn("selectedTab = 0", ios_complete)
+        self.assertIn("sessionResetPulse += 1", ios_complete)
+        theme = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
+        self.assertIn('testTag("session_reset_banner")', theme)
+        self.assertIn("resetPulse", theme)
         self.assertIn("Create form kept", main)
         self.assertIn("Create form kept", view)
+
+    def test_session_reset_after_dismount(self) -> None:
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        lock = main.split("private fun lockSession")[1].split("private fun panicWipe")[0]
+        self.assertIn("completeSessionReset(finishStatus)", lock)
+        self.assertIn("Session cleared", lock)
+        ios_lock = view.split("func lockSession")[1].split("func panicWipe")[0]
+        self.assertIn("completeSessionReset(finishStatus)", ios_lock)
+        self.assertIn("selectedTab = 0", view.split("func completeSessionReset")[1].split("func clearMountOptions()")[0])
+        finish = main.split("private fun finishDismountAt")[1].split("private fun dismountMountedAt")[0]
+        self.assertIn("completeSessionReset(", finish)
+        ios_finish = view.split("private func finishDismountAt")[1].split("func persistActiveMount")[0]
+        self.assertIn("completeSessionReset(", ios_finish)
+
+    def test_create_quick_and_full_format_choice(self) -> None:
+        header = read("ports/shared/vc_mobile.h")
+        mobile = read("ports/shared/vc_mobile.cpp")
+        self.assertIn("full_format", header)
+        self.assertIn("format_fill_data_area", mobile)
+        self.assertIn("Full format", mobile)
+        create = mobile.split("int vc_create_volume")[1].split("catch (PasswordException")[0]
+        self.assertIn("volSkipStart", create)
+        main = read_android_ui()
+        view = read_ios_ui()
+        self.assertIn('testTag("create_full_format")', main)
+        self.assertIn("create_full_format", view)
+        self.assertIn("Quick format is default", main)
+        self.assertIn("Quick format is default", view)
+        self.assertIn("createFullFormatState", main)
+        self.assertIn("createFullFormatState.value = false", main)
+        self.assertIn("fullFormat", read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt"))
+        self.assertIn("full_format", read("ports/shared/android_jni.cpp"))
 
     def test_mounted_tab_slot_column_on_android_and_ios(self) -> None:
         main = read_android_ui()
@@ -602,15 +649,75 @@ class AndroidHighThreatTests(unittest.TestCase):
         android_hash = main.split("private fun hashVaultFiles")[1].split("private fun mkdirInVolume")[0]
         self.assertIn("NativeBridge.setProgress", android_hash)
         self.assertIn("hashResultState", android_hash)
+        self.assertIn("hashResultState.value = \"\"", android_hash)
         ios_hash = view.split("func hashSelectedInVolume()")[1].split("func wipeFreeSpace()")[0]
         self.assertIn("setProgress", ios_hash)
         self.assertIn("hashResult", ios_hash)
+        self.assertIn("hashResult = \"\"", ios_hash)
+        self.assertIn("hashResult = \"\"", view.split("func reloadDir")[1].split("func joinDir")[0])
+        self.assertIn("hashResult = \"\"", view.split("func selectMount")[1].split("func dismountMountedAt")[0])
         self.assertIn("pim_estimate_result", main)
         self.assertIn("pim_estimate_result", view)
         self.assertIn("closeOpenVolumes", main)
         self.assertIn("closeOpenVolumes", view)
         self.assertIn("Estimating header iterations", main)
         self.assertIn("Estimating header iterations", view)
+
+    def test_dismount_slot_saves_container_before_close(self) -> None:
+        main = read_android_ui()
+        view = read_ios_ui()
+        android_save = main.split("private fun saveMountedContainer")[1].split("private fun saveAllMountedSync")[0]
+        self.assertIn("copyFileToUri", android_save)
+        android = main.split("private fun dismountMountedAt")[1].split("private fun closeMountedVolume")[0]
+        self.assertIn("Saving and dismounting", android)
+        self.assertIn("saveMountedContainer", android)
+        ios = view.split("func dismountMountedAt")[1].split("func transferBetweenVolumes")[0]
+        self.assertIn("Saving and dismounting", ios)
+        self.assertIn("saveAndCloseMounted", ios)
+        self.assertIn("writeBackMountedCache", view)
+        self.assertIn("sourceURL", view.split("struct MountedVolume")[1].split("struct ContentView")[0])
+
+    def test_auto_save_after_volume_import(self) -> None:
+        main = read_android_ui()
+        view = read_ios_ui()
+        android_import = main.split("private fun importFromDevice")[1].split("private fun exportToDevice")[0]
+        self.assertIn("autoSaveSaveWarning", android_import)
+        ios_import = view.split("func importFromDevice")[1].split("func copySelectedToDevice")[0]
+        self.assertIn("autoSaveSaveWarning", ios_import)
+        self.assertIn("KeyfileIo.wipe", android_import)
+        self.assertIn("wipeFile(temp)", ios_import)
+        self.assertIn("volumeBytesForBasket(asked", main.split("LaunchedEffect(basketUris")[1].split("var entropyPercent")[0])
+        self.assertIn("volumeBytesForBasket(asked:", view.split("func syncCreateSizeFromBasket")[1].split("func volumeBytesForBasket")[0])
+        self.assertIn("flushVolume", read("ports/android/app/src/main/java/dev/shivampingale/vcport/NativeBridge.kt"))
+        self.assertIn("vc_flush_volume", read("ports/shared/vc_mobile.h"))
+        self.assertIn("flush(", read("ports/ios/VCPort/VcMobileBridge.swift"))
+
+    def test_mount_container_persistence_regressions(self) -> None:
+        main = read_android_ui()
+        view = read_ios_ui()
+        leave = main.split("private fun dismountOnLeave()")[1].split("private fun wipeCreateSecrets(")[0]
+        self.assertIn("saveAllMountedSync", leave)
+        self.assertNotIn("closeMountedVolume()", leave)
+        panic = main.split("private fun panicWipe()")[1].split("internal fun beginWork")[0]
+        self.assertIn("closeMountedVolume()", panic)
+        self.assertNotIn("saveAllMountedSync", panic)
+        self.assertNotIn("autoSaveSaveWarning", panic)
+        ios_leave = view.split("func dismountOnLeave()")[1].split("func isTemporaryContainer")[0]
+        self.assertIn("saveAndCloseMounted", ios_leave)
+        ios_panic = view.split("func panicWipe()")[1].split("func startInAppPreview")[0]
+        self.assertIn("closeVolume()", ios_panic)
+        self.assertNotIn("autoSaveSaveWarning", ios_panic)
+        xfer = main.split("private fun transferBetweenVolumes")[1].split("private fun refreshMountedListing")[0]
+        self.assertIn("autoSaveSaveWarning", xfer)
+        ios_xfer = view.split("func transferBetweenVolumes")[1].split("func refreshMountedListing")[0]
+        self.assertIn("autoSaveSaveWarning", ios_xfer)
+        mkdir_android = main.split("private fun mkdirInVolume")[1].split("private fun renameVaultEntry")[0]
+        self.assertIn("autoSaveSaveWarning", mkdir_android)
+        mkdir_ios = view.split("func mkdirInVolume")[1].split("func renameSelected")[0]
+        self.assertIn("autoSaveSaveWarning", mkdir_ios)
+        self.assertIn("hashResult = \"\"", main.split("LaunchedEffect(dirPath, handle, activeMountIndex)")[1].split("if (tab == 2)")[0])
+        lock = main.split("private fun lockSession")[1].split("private fun panicWipe")[0]
+        self.assertIn("saveMountedContainer", lock)
 
     def test_experimental_otg_flavors_no_bio(self) -> None:
         foss = read("ports/android/app/src/foss/AndroidManifest.xml")
@@ -863,7 +970,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("Copy once", main)
         self.assertIn("generatePassword(64)", main)
         self.assertIn("64-character password", main)
-        lock = main.split("private fun lockSession()")[1].split("private fun panicWipe()")[0]
+        lock = main.split("private fun lockSession")[1].split("private fun panicWipe")[0]
         self.assertNotIn("SensitiveClipboard.forget", lock)
         onstop = main.split("override fun onStop()")[1].split("private fun closeMountedVolume()")[0]
         self.assertIn("dismountOnLeave()", onstop)
@@ -882,7 +989,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("compelled", view.lower())
         self.assertIn("Copy once", view)
         self.assertIn("64-character password", view)
-        lock = view.split("func lockSession()")[1].split("func panicWipe()")[0]
+        lock = view.split("func lockSession")[1].split("func panicWipe")[0]
         self.assertNotIn("SensitivePaste.forget()", lock)
         self.assertIn("dismountOnLeave()", view)
         self.assertIn("Create form kept", view)
@@ -940,6 +1047,8 @@ class CrossPortGuiParityTests(unittest.TestCase):
         basket = main.split("private fun importUriIntoVolume")[1].split("private fun copyStreamProgress")[0]
         self.assertNotIn("/proc/self/fd", imp)
         self.assertNotIn("/proc/self/fd", basket)
+        self.assertIn("KeyfileIo.wipe", imp)
+        self.assertIn("KeyfileIo.wipe", basket)
         self.assertIn("importFile", native)
         self.assertIn("deleteFile", native)
         self.assertIn("vc_import_file", header)
@@ -1209,6 +1318,8 @@ class FreezeArchitectureTests(unittest.TestCase):
 
     def test_master_is_the_freeze_tree(self) -> None:
         backlog = read("ports/docs/FEATURE-BACKLOG.md")
+        self.assertIn("INSPIRATION.md", backlog)
+        self.assertTrue((ROOT / "ports/docs/INSPIRATION.md").is_file())
         upstream = read("ports/UPSTREAM.md")
         self.assertIn("one shipping branch", backlog.lower())
         self.assertIn("experimental-otg-master", backlog.lower())
@@ -1223,9 +1334,12 @@ class FreezeArchitectureTests(unittest.TestCase):
             self.assertIn("same file twice is a different mix", blob)
         keys = read("ports/android/app/src/main/java/dev/shivampingale/vcport/UnlockFactors.kt")
         self.assertIn("fun existingCopy", keys)
+        self.assertIn("fun readFileBytes", keys)
         gen = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         gen = gen.split("internal fun generateSessionKeyfiles")[1].split("internal fun offerGenerated")[0]
         self.assertNotIn("uniqueNamed", gen)
+        self.assertIn("readFileBytes", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
+        self.assertIn("pendingCreatedPathState", read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt"))
         self.assertIn("alreadyHasKeyfile", ios)
 
 

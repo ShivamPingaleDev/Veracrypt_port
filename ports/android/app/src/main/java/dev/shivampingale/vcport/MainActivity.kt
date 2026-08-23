@@ -159,14 +159,17 @@ class MainActivity : AppCompatActivity() {
     internal val trueCryptModeState = mutableStateOf(false)
     internal val protectHiddenState = mutableStateOf(false)
     internal val tabState = mutableIntStateOf(0)
+    internal val sessionResetPulseState = mutableIntStateOf(0)
     internal val lastPlainFilesState = mutableStateOf(listOf<File>())
     internal val previewFileState = mutableStateOf<File?>(null)
     internal val previewNameState = mutableStateOf("")
+    internal val pendingCreatedPathState = mutableStateOf("")
     internal val createPasswordState = mutableStateOf("")
     internal val createHiddenPasswordState = mutableStateOf("")
     internal val createCipherState = mutableStateOf(NativeBridge.DEFAULT_CIPHER)
     internal val createKdfState = mutableStateOf(NativeBridge.DEFAULT_KDF)
     internal val createFilesystemState = mutableStateOf("FAT")
+    internal val createFullFormatState = mutableStateOf(false)
     internal val createFileNameState = mutableStateOf("volume.hc")
     internal val createSizeAmountState = mutableStateOf("16")
     internal val createSizeUnitState = mutableStateOf(SizeUnit.MiB)
@@ -256,7 +259,8 @@ class MainActivity : AppCompatActivity() {
 
     @androidx.annotation.VisibleForTesting
     fun testingFinishCreateSave(dest: File): Boolean {
-        val src = File(pathState.value)
+        val srcPath = pendingCreatedPathState.value.ifEmpty { pathState.value }
+        val src = File(srcPath)
         if (!src.isFile) return false
         dest.parentFile?.mkdirs()
         src.inputStream().use { input ->
@@ -269,10 +273,9 @@ class MainActivity : AppCompatActivity() {
         if (!dest.isFile || dest.length() != src.length()) return false
         runOnUiThread {
             incomingState.value = null
-            wipeCreateSecrets()
-            statusState.value =
-                "Saved ${dest.name}. Choose the volume you want, then Open. Create secrets were wiped."
-            tabState.intValue = 0
+            wipeCreateSecrets(
+                "Saved ${dest.name}. Session cleared. Choose a volume, then Open."
+            )
         }
         return true
     }
@@ -645,6 +648,7 @@ class MainActivity : AppCompatActivity() {
                 var hashResult by hashResultState
                 var pimEstimateResult by pimEstimateResultState
                 var tab by tabState
+                var sessionResetPulse by sessionResetPulseState
                 var previewFile by previewFileState
                 var previewName by previewNameState
                 val tabScroll = rememberScrollState()
@@ -669,8 +673,12 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         0L
                     }
-                    val need = volumeBytesForBasket(SizeUnits.MIN_VOLUME, basketUris, hidden)
-                    val (n, unit) = SizeUnits.fit(need)
+                    val asked = SizeUnits.toBytes(
+                        createSizeAmount.toLongOrNull() ?: 0L,
+                        createSizeUnit
+                    ).coerceAtLeast(SizeUnits.MIN_VOLUME)
+                    val bytes = volumeBytesForBasket(asked, basketUris, hidden)
+                    val (n, unit) = SizeUnits.fit(bytes)
                     createSizeAmount = n.toString()
                     createSizeUnit = unit
                 }
@@ -700,8 +708,9 @@ class MainActivity : AppCompatActivity() {
                 var lastPlainFiles by lastPlainFilesState
                 var incoming by incomingState
                 val colors = MaterialTheme.colorScheme
-                LaunchedEffect(dirPath, handle) {
+                LaunchedEffect(dirPath, handle, activeMountIndex) {
                     selectedNames = emptySet()
+                    hashResult = ""
                 }
                 var overlayTitle by remember { mutableStateOf("") }
                 var overlayPercent by remember { mutableIntStateOf(-1) }
@@ -824,17 +833,21 @@ class MainActivity : AppCompatActivity() {
                 val createSaver = rememberLauncherForActivityResult(
                     ActivityResultContracts.CreateDocument("application/octet-stream")
                 ) { uri: Uri? ->
-                    if (uri != null && path.isNotEmpty() && File(path).exists()) {
+                    val srcPath = pendingCreatedPathState.value
+                    if (uri != null && srcPath.isNotEmpty() && File(srcPath).exists()) {
                         val savedName = ShareHelper.displayName(this@MainActivity, uri)
-                            ?: File(path).name
+                            ?: File(srcPath).name
                         ShareHelper.persistRead(this@MainActivity, uri)
-                        if (copyFileToUri(File(path), uri)) {
+                        if (copyFileToUri(File(srcPath), uri)) {
                             incoming = null
-                            wipeCreateSecrets()
-                            status = "Saved $savedName. Choose the volume you want, then Open. Create secrets were wiped."
+                            wipeCreateSecrets(
+                                "Saved $savedName. Session cleared. Choose a volume, then Open."
+                            )
                         } else {
                             status = "Created in app cache, but could not save a copy."
                         }
+                    } else if (srcPath.isNotEmpty()) {
+                        discardPendingCreate()
                     }
                 }
                 val toolSaver = rememberLauncherForActivityResult(
@@ -1051,6 +1064,7 @@ class MainActivity : AppCompatActivity() {
                     ) {
                         StatusBanner(
                             status = status,
+                            resetPulse = sessionResetPulse,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                         )
                         incoming?.let { file ->
@@ -1324,6 +1338,7 @@ class MainActivity : AppCompatActivity() {
                                         dirPath = joinDir(dirPath, entry.name)
                                         loadDir(handle, dirPath, { entries = it }, { status = it })
                                     } else {
+                                        hashResult = ""
                                         selectedNames = if (entry.name in selectedNames) {
                                             selectedNames - entry.name
                                         } else {
@@ -1428,6 +1443,7 @@ class MainActivity : AppCompatActivity() {
                                     wipeFreeSpace(handle, dirPath, { entries = it }, { status = it })
                                 },
                                 onSelectAll = {
+                                    hashResult = ""
                                     val files = entries.filter { !it.isDir }.map { it.name }.toSet()
                                     selectedNames = if (files.isNotEmpty() && selectedNames.containsAll(files)) {
                                         emptySet()
@@ -1707,34 +1723,138 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun dismountMountedAt(index: Int) {
-        persistActiveMount(dirPathState.value, entriesState.value, listTruncatedState.value)
-        val list = mountedVolumesState.value.toMutableList()
-        if (index !in list.indices) return
-        val victim = list.removeAt(index)
-        if (NativeBridge.isOpen(victim.handle)) NativeBridge.closeVolume(victim.handle)
-        if (OtgBlockStore.isPath(victim.path)) OtgBlockStore.release(victim.path)
-        liveContainerPfds.remove(victim.handle)?.let {
+    private data class MountSaveOutcome(val saved: Boolean, val hadSource: Boolean)
+
+    private fun mountSourceUri(vol: MountedVolume): Uri? {
+        val key = vol.uriKey
+        return when {
+            key.startsWith("content:") || key.startsWith("file:") -> Uri.parse(key)
+            else -> null
+        }
+    }
+
+    private fun shouldWriteBack(vol: MountedVolume): Boolean {
+        if (vol.readOnly || OtgBlockStore.isPath(vol.path)) return false
+        if (!nativePathIsInternal(vol.path)) return false
+        val uri = mountSourceUri(vol) ?: return false
+        if (uri.scheme == "file") {
+            val p = uri.path ?: return false
+            return File(p).absolutePath != File(vol.path).absolutePath
+        }
+        return uri.scheme == "content"
+    }
+
+    private fun releaseMountedResources(vol: MountedVolume) {
+        if (OtgBlockStore.isPath(vol.path)) OtgBlockStore.release(vol.path)
+        liveContainerPfds.remove(vol.handle)?.let {
             try {
                 it.close()
             } catch (_: Exception) {
             }
         }
+    }
+
+    private fun saveMountedContainer(vol: MountedVolume): MountSaveOutcome {
+        if (NativeBridge.isOpen(vol.handle)) NativeBridge.closeVolume(vol.handle)
+        if (!shouldWriteBack(vol)) {
+            releaseMountedResources(vol)
+            return MountSaveOutcome(saved = true, hadSource = false)
+        }
+        val ok = writeBackMountedCache(vol, flush = false)
+        if (ok && nativePathIsInternal(vol.path)) {
+            Hardening.wipeFile(File(vol.path))
+        }
+        releaseMountedResources(vol)
+        return MountSaveOutcome(saved = ok, hadSource = true)
+    }
+
+    private fun writeBackMountedCache(vol: MountedVolume, flush: Boolean): Boolean {
+        if (!shouldWriteBack(vol)) return true
+        if (flush && NativeBridge.isOpen(vol.handle)) NativeBridge.flushVolume(vol.handle)
+        val file = File(vol.path)
+        val uri = mountSourceUri(vol)
+        if (!file.isFile || uri == null) return false
+        return copyFileToUri(file, uri)
+    }
+
+    private fun autoSaveSaveWarning(handles: Set<Long>): String? {
+        val failedLabels = handles.mapNotNull { handle ->
+            val vol = mountedVolumesState.value.firstOrNull { it.handle == handle } ?: return@mapNotNull null
+            if (!shouldWriteBack(vol)) return@mapNotNull null
+            if (writeBackMountedCache(vol, flush = true)) return@mapNotNull null
+            vol.label
+        }
+        if (failedLabels.isEmpty()) return null
+        return if (failedLabels.size == 1) {
+            "Could not save ${failedLabels[0]} back to the original file."
+        } else {
+            "Could not save ${failedLabels.size} volume(s) back to the original file."
+        }
+    }
+
+    private fun saveAllMountedSync(): List<MountSaveOutcome> {
+        return mountedVolumesState.value.map { saveMountedContainer(it) }
+    }
+
+    private fun dismountStatusMessage(label: String, remaining: Int, outcome: MountSaveOutcome?): String {
+        if (outcome != null && outcome.hadSource && !outcome.saved) {
+            return "Dismounted $label. Could not save changes back to the original file."
+        }
+        if (outcome != null && outcome.hadSource && outcome.saved) {
+            return if (remaining == 0) {
+                "Saved and dismounted $label."
+            } else {
+                "Saved and dismounted $label. $remaining still mounted."
+            }
+        }
+        return if (remaining == 0) {
+            "Dismounted $label."
+        } else {
+            "Dismounted $label. $remaining still mounted."
+        }
+    }
+
+    private fun clearMountedVolumeState() {
+        mountedVolumesState.value = emptyList()
+        activeMountIndexState.intValue = 0
+        handleState.value = 0L
+        entriesState.value = emptyList()
+        dirPathState.value = ""
+        listTruncatedState.value = false
+        previewFileState.value = null
+        previewNameState.value = ""
+        liveContainerPfds.clear()
+        pendingOtgScsi?.close()
+        pendingOtgScsi = null
+        pendingOtgFile = null
+        InAppPreview.wipe(this)
+        refreshDocumentRoots()
+    }
+
+    private fun finishDismountAt(index: Int, victim: MountedVolume, outcome: MountSaveOutcome) {
+        val list = mountedVolumesState.value.toMutableList()
+        val idx = list.indexOfFirst { it.handle == victim.handle }
+        if (idx < 0) return
+        list.removeAt(idx)
         mountedVolumesState.value = list
+        hashResultState.value = ""
         if (list.isEmpty()) {
             activeMountIndexState.intValue = 0
             handleState.value = 0L
             entriesState.value = emptyList()
             dirPathState.value = ""
             listTruncatedState.value = false
-            statusState.value = "Dismounted ${victim.label}."
+            completeSessionReset(
+                dismountStatusMessage(victim.label, 0, outcome) +
+                    " Session cleared — passwords and basket wiped."
+            )
             refreshDocumentRoots()
             return
         }
         val active = activeMountIndexState.intValue
         val next = when {
-            index < active -> (active - 1).coerceIn(0, list.lastIndex)
-            index == active -> active.coerceIn(0, list.lastIndex)
+            idx < active -> (active - 1).coerceIn(0, list.lastIndex)
+            idx == active -> active.coerceIn(0, list.lastIndex)
             else -> active
         }
         activeMountIndexState.intValue = next
@@ -1743,8 +1863,28 @@ class MainActivity : AppCompatActivity() {
         dirPathState.value = v.dirPath
         entriesState.value = v.entries
         listTruncatedState.value = v.truncated
-        statusState.value = "Dismounted ${victim.label}. ${list.size} still mounted."
+        statusState.value = dismountStatusMessage(victim.label, list.size, outcome)
         refreshDocumentRoots()
+    }
+
+    private fun dismountMountedAt(index: Int) {
+        persistActiveMount(dirPathState.value, entriesState.value, listTruncatedState.value)
+        val snapshot = mountedVolumesState.value
+        if (index !in snapshot.indices) return
+        val victim = snapshot[index]
+        if (shouldWriteBack(victim)) {
+            beginWork("Saving and dismounting ${victim.label}…")
+            Thread {
+                val outcome = saveMountedContainer(victim)
+                runOnUiThread {
+                    endWork()
+                    finishDismountAt(index, victim, outcome)
+                }
+            }.start()
+        } else {
+            val outcome = saveMountedContainer(victim)
+            finishDismountAt(index, victim, outcome)
+        }
     }
 
     private fun closeMountedVolume() {
@@ -1761,19 +1901,7 @@ class MainActivity : AppCompatActivity() {
         mountedVolumesState.value.forEach { vol ->
             if (OtgBlockStore.isPath(vol.path)) OtgBlockStore.release(vol.path)
         }
-        pendingOtgScsi?.close()
-        pendingOtgScsi = null
-        pendingOtgFile = null
-        mountedVolumesState.value = emptyList()
-        activeMountIndexState.intValue = 0
-        handleState.value = 0L
-        entriesState.value = emptyList()
-        dirPathState.value = ""
-        listTruncatedState.value = false
-        previewFileState.value = null
-        previewNameState.value = ""
-        InAppPreview.wipe(this)
-        refreshDocumentRoots()
+        clearMountedVolumeState()
     }
 
     /**
@@ -1783,8 +1911,11 @@ class MainActivity : AppCompatActivity() {
      * and creation can continue. Dismount and Panic wipe still call [lockSession].
      */
     private fun dismountOnLeave() {
-        val wasOpen = NativeBridge.isOpen(handleState.value)
-        closeMountedVolume()
+        val wasOpen = NativeBridge.isOpen(handleState.value) || mountedVolumesState.value.isNotEmpty()
+        if (wasOpen) {
+            saveAllMountedSync()
+        }
+        clearMountedVolumeState()
         lastPlainFilesState.value.forEach { Hardening.wipeFile(it) }
         lastPlainFilesState.value = emptyList()
         passwordState.value = ""
@@ -1806,38 +1937,47 @@ class MainActivity : AppCompatActivity() {
      * saved file with Choose container. Cancelling the save picker must not
      * call this.
      */
-    private fun wipeCreateSecrets() {
-        createPasswordState.value = ""
-        createHiddenPasswordState.value = ""
-        hiddenProtectPasswordState.value = ""
-        passwordState.value = ""
-        createPimState.value = "0"
-        createHiddenPimState.value = "0"
-        hiddenProtectPimState.value = "0"
-        pimState.value = "0"
-        newPimState.value = "0"
-        newPasswordState.value = ""
+    private fun discardPendingCreate() {
+        val pending = pendingCreatedPathState.value
+        if (pending.isNotEmpty() && nativePathIsInternal(pending)) {
+            Hardening.wipeFile(File(pending))
+        }
+        pendingCreatedPathState.value = ""
+        statusState.value =
+            "Save cancelled. The unsaved volume was removed from app cache. Nothing is selected — choose a container or create again."
+    }
+
+    private fun wipeCreateSecrets(statusMessage: String = "") {
         val keys = keyfileUrisState.value + hiddenKeyfileUrisState.value
-        keyfileUrisState.value = emptyList()
-        headerKeyfileUrisState.value = emptyList()
-        hiddenKeyfileUrisState.value = emptyList()
         keys.forEach { uri ->
             if (uri.scheme == "file") {
                 uri.path?.let { Hardening.wipeFile(File(it)) }
             }
         }
         Hardening.wipeDir(File(cacheDir, "keyfiles"))
-        val cachePath = pathState.value
+        val cachePath = pendingCreatedPathState.value.ifEmpty { pathState.value }
         if (cachePath.isNotEmpty() && nativePathIsInternal(cachePath)) {
             Hardening.wipeFile(File(cachePath))
         }
+        completeSessionReset(statusMessage)
+    }
+
+    /** Full UI + RAM reset after create save or when every mount slot is empty. */
+    private fun completeSessionReset(statusMessage: String) {
+        wipeRamSecrets()
         pathState.value = ""
         containerUriState.value = null
         containerLabelState.value = ""
         incomingState.value = null
-        resetCreateWizard()
+        pendingCreatedPathState.value = ""
+        selectedNamesState.value = emptySet()
+        hashResultState.value = ""
+        pimEstimateResultState.value = ""
         tabState.intValue = 0
-        forgetUnlock()
+        sessionResetPulseState.intValue++
+        if (statusMessage.isNotEmpty() && !statusState.value.startsWith("Panic")) {
+            statusState.value = statusMessage
+        }
     }
 
     private fun wipeRamSecrets() {
@@ -1870,6 +2010,7 @@ class MainActivity : AppCompatActivity() {
         createCipherState.value = NativeBridge.DEFAULT_CIPHER
         createKdfState.value = NativeBridge.DEFAULT_KDF
         createFilesystemState.value = "FAT"
+        createFullFormatState.value = false
         createFileNameState.value = "volume.hc"
         createSizeAmountState.value = "16"
         createSizeUnitState.value = SizeUnit.MiB
@@ -1890,23 +2031,26 @@ class MainActivity : AppCompatActivity() {
             beginWork(reason)
             NativeBridge.setProgress(100, reason)
         }
-        lockSession()
-        if (!statusState.value.startsWith("Panic")) {
-            statusState.value = reason
-        }
+        lockSession(finishStatus = reason)
     }
 
-    private fun lockSession() {
-        closeMountedVolume()
-        releasePendingPfd()
-        wipeRamSecrets()
-        hashResultState.value = ""
-        endWork()
-        Hardening.wipeSessionFiles(this)
-        if (!statusState.value.startsWith("Panic")) {
-            statusState.value =
-                "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays."
-        }
+    private fun lockSession(
+        finishStatus: String =
+            "Dismounted. Session cleared — passwords, basket, and container selection wiped. Ciphertext on disk is unchanged."
+    ) {
+        val volumes = mountedVolumesState.value
+        val saving = volumes.isNotEmpty()
+        if (saving && !busyState.value) beginWork("Saving and dismounting…")
+        Thread {
+            volumes.forEach { saveMountedContainer(it) }
+            runOnUiThread {
+                clearMountedVolumeState()
+                releasePendingPfd()
+                if (saving) endWork()
+                Hardening.wipeSessionFiles(this)
+                completeSessionReset(finishStatus)
+            }
+        }.start()
     }
 
     private fun panicWipe() {
@@ -2075,9 +2219,9 @@ class MainActivity : AppCompatActivity() {
         hiddenKeyfileUris: List<Uri> = emptyList(),
         fileName: String,
         filesystem: String = "FAT",
+        fullFormat: Boolean = false,
         entropyPercent: Int,
         basketUris: List<Uri> = emptyList(),
-        onPath: (String) -> Unit,
         onStatus: (String) -> Unit,
         onSaved: () -> Unit
     ) {
@@ -2182,7 +2326,8 @@ class MainActivity : AppCompatActivity() {
                     hiddenPimText.toIntOrNull() ?: 0,
                     if (hidden) nestedBytes else 0L,
                     hiddenTemps.map { it.absolutePath }.toTypedArray(),
-                    fs
+                    fs,
+                    fullFormat
                 )
                 var packed = 0
                 var packFail: String? = null
@@ -2234,7 +2379,7 @@ class MainActivity : AppCompatActivity() {
                     if (rc != 0) {
                         onStatus(createErrorMessage(rc))
                     } else {
-                        onPath(dest.absolutePath)
+                        pendingCreatedPathState.value = dest.absolutePath
                         var msg = "Created ${SizeUnits.formatBytes(bytes)} $cipher / $kdf $fs volume as ${dest.name} (standard VeraCrypt file; the name is only a disguise). Save a copy, then Open volume or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
                         if (packed > 0) {
                             msg += " Copied $packed file(s) from the basket into the volume. SHA-256 proof is BASKET.sha256 inside the volume."
@@ -2290,7 +2435,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun sessionHasKeyfile(uris: List<Uri>, file: File): Boolean {
         val path = file.absolutePath
-        return uris.any { it.scheme == "file" && it.path == path }
+        if (uris.any { it.scheme == "file" && it.path == path }) return true
+        val bytes = KeyfileIo.readFileBytes(file) ?: return false
+        for (uri in uris) {
+            val other = when (uri.scheme) {
+                "file" -> uri.path?.let { KeyfileIo.readFileBytes(File(it)) }
+                else -> KeyfileIo.readLimited(this, uri)
+            }
+            if (other != null && KeyfileIo.sameKeyfileBytes(bytes, other)) return true
+        }
+        return false
     }
 
     private fun keyfileAddStatus(failed: String?, skipped: List<String>, nested: Boolean): String {
@@ -3201,13 +3355,13 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) {
                     lastError = "Could not copy that file into the volume."
                 } finally {
-                    cache?.delete()
+                    cache?.let { KeyfileIo.wipe(it) }
                 }
             }
+            val saveWarning = if (copied > 0) autoSaveSaveWarning(setOf(handle)) else null
             runOnUiThread {
                 endWork()
-                onStatus(
-                    when {
+                val base = when {
                         lastError != null && copied == 0 -> lastError
                         move && moved < copied ->
                             "Copied $copied file(s) into the volume. Could not delete the original; remove them in Files if you meant a move."
@@ -3218,6 +3372,9 @@ class MainActivity : AppCompatActivity() {
                         else ->
                             "Copied $copied of ${uris.size} file(s) into the volume. $lastError"
                     }
+                onStatus(
+                    if (saveWarning != null) "$base $saveWarning"
+                    else base
                 )
                 if (copied > 0) loadDir(handle, dirPath, onEntries, onStatus, quiet = true)
             }
@@ -3409,6 +3566,7 @@ class MainActivity : AppCompatActivity() {
             onStatus("Tap a file, then SHA-256 in volume.")
             return
         }
+        hashResultState.value = ""
         beginWork("Hashing ${files.size} file(s) inside the volume…")
         Thread {
             val lines = mutableListOf<String>()
@@ -3481,11 +3639,13 @@ class MainActivity : AppCompatActivity() {
         beginWork("Creating folder $name…")
         Thread {
             val rc = NativeBridge.mkdir(handle, if (dirPath.isEmpty()) "/" else dirPath, name)
+            val saveWarning = if (rc == 0) autoSaveSaveWarning(setOf(handle)) else null
             runOnUiThread {
                 endWork()
                 if (rc != 0) onStatus(importErrorMessage(name, rc, handle))
                 else {
-                    onStatus("Created folder $name.")
+                    val base = "Created folder $name."
+                    onStatus(if (saveWarning != null) "$base $saveWarning" else base)
                     loadDir(handle, dirPath, onEntries, onStatus, quiet = true)
                 }
             }
@@ -3725,10 +3885,13 @@ class MainActivity : AppCompatActivity() {
                     Hardening.wipeFile(temp)
                 }
             }
+            val saveHandles = mutableSetOf<Long>()
+            if (copied > 0) saveHandles.add(dest.handle)
+            if (move && moved > 0) saveHandles.add(srcHandle)
+            val saveWarning = if (saveHandles.isNotEmpty()) autoSaveSaveWarning(saveHandles) else null
             runOnUiThread {
                 endWork()
-                onStatus(
-                    when {
+                val base = when {
                         lastError != null && copied == 0 -> lastError
                         move && moved < copied ->
                             "Copied $copied file(s) into $label. Could not delete ${copied - moved} from the source volume."
@@ -3739,6 +3902,9 @@ class MainActivity : AppCompatActivity() {
                         else ->
                             "Copied $copied of ${toCopy.size} file(s) into $label. $lastError"
                     }
+                onStatus(
+                    if (saveWarning != null) "$base $saveWarning"
+                    else base
                 )
                 loadDir(srcHandle, srcDir, { listed ->
                     onSrcEntries(listed)

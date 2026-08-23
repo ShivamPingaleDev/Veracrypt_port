@@ -91,7 +91,7 @@ class SlowHumanSessionTest {
         rule.waitForIdle()
         slow()
         rule.onNodeWithText(
-            "Dismounted. Passwords, keyfiles in memory",
+            "Dismounted. Session cleared",
             substring = true
         ).assertDoesNotExist()
         rule.onNodeWithText("Generate strong password").performScrollTo().assertIsDisplayed()
@@ -250,7 +250,7 @@ class SlowHumanSessionTest {
         rule.waitForIdle()
         slow()
         rule.onNodeWithText(
-            "Dismounted. Passwords, keyfiles in memory",
+            "Dismounted. Session cleared",
             substring = true
         ).assertDoesNotExist()
         rule.onNodeWithText("Nested volume (VeraCrypt hidden volume)").performScrollTo().assertIsDisplayed()

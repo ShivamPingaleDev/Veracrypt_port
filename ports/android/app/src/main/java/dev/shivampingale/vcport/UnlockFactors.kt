@@ -213,4 +213,36 @@ object KeyfileIo {
             return out.toByteArray()
         }
     }
+
+    /** First 1 MiB of a cache keyfile path (same cap as VeraCrypt keyfile mixing). */
+    fun readFileBytes(file: File): ByteArray? {
+        if (!file.isFile) return null
+        return readLimitedFromStream(file.inputStream())
+    }
+
+    fun sameKeyfileBytes(a: ByteArray, b: ByteArray): Boolean = a.contentEquals(b)
+
+    private fun readLimitedFromStream(stream: InputStream): ByteArray? {
+        return try {
+            stream.use { input ->
+                val out = java.io.ByteArrayOutputStream()
+                val buf = ByteArray(8192)
+                var total = 0
+                while (true) {
+                    val n = input.read(buf)
+                    if (n <= 0) break
+                    val room = MAX_KEYFILE - total
+                    if (n > room) {
+                        if (room > 0) out.write(buf, 0, room)
+                        break
+                    }
+                    out.write(buf, 0, n)
+                    total += n
+                }
+                out.toByteArray()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 }

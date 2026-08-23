@@ -65,7 +65,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         waitStatus("from the basket into the volume", 180)
         let basketDest = work.appendingPathComponent("basket.jpg")
         XCTAssertTrue(onMainValue { t.finishCreateSave(basketDest) })
-        waitStatus("Create secrets were wiped", 15)
+        waitStatus("Session cleared", 15)
         XCTAssertEqual(onMainValue { t.volumePassword() }, "")
         XCTAssertEqual(onMainValue { t.volumePim() }, "0")
         onMain { t.selectTab(1) }
@@ -104,7 +104,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         waitStatus("Nested volume is inside", 240)
         let nestedDest = work.appendingPathComponent("photos.jpg")
         XCTAssertTrue(onMainValue { t.finishCreateSave(nestedDest) })
-        waitStatus("Create secrets were wiped", 15)
+        waitStatus("Session cleared", 15)
         XCTAssertEqual(onMainValue { t.volumePassword() }, "")
         onMain { t.selectTab(1) }
         pump(0.3)

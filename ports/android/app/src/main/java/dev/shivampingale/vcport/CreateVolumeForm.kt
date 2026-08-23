@@ -36,8 +36,6 @@ internal fun MainActivity.CreateVolumePane(
     onSaveGeneratedKeyfile: (File, String) -> Unit,
     onSaveCreatedVolume: (String) -> Unit,
 ) {
-    var path by pathState
-    var containerLabel by containerLabelState
     var status by statusState
     var basketUris by basketUrisState
     var basketHashes by basketHashesState
@@ -50,6 +48,7 @@ internal fun MainActivity.CreateVolumePane(
     var createSizeAmount by createSizeAmountState
     var createSizeUnit by createSizeUnitState
     var createFilesystem by createFilesystemState
+    var createFullFormat by createFullFormatState
     var createHiddenSizeAmount by createHiddenSizeAmountState
     var createHiddenSizeUnit by createHiddenSizeUnitState
     var createPassword by createPasswordState
@@ -172,6 +171,24 @@ internal fun MainActivity.CreateVolumePane(
             modifier = Modifier.fillMaxWidth().testTag("create_filesystem")
         )
         VcHint("exFAT if a file is over 4 GiB.")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("create_full_format")
+                .toggleable(
+                    value = createFullFormat,
+                    enabled = !busy,
+                    role = Role.Checkbox,
+                    onValueChange = { createFullFormat = it }
+                )
+        ) {
+            Checkbox(createFullFormat, onCheckedChange = null, enabled = !busy)
+            Text("Full format (slow)")
+        }
+        VcHint(
+            "Quick format is default. Full format fills the volume with random encrypted data before the filesystem — better plausible deniability (especially with a nested volume), but much slower on large sizes."
+        )
         OutlinedTextField(
             createFileName,
             { createFileName = it.filterNot { ch -> ch == '/' || ch == '\\' }.take(120) },
@@ -541,13 +558,9 @@ internal fun MainActivity.CreateVolumePane(
                     hiddenKeyfileUris = hiddenKeyfileUris,
                     fileName = createFileName,
                     filesystem = createFilesystem,
+                    fullFormat = createFullFormat,
                     entropyPercent = entropyPercent,
                     basketUris = basketUris,
-                    onPath = {
-
-                        path = it
-                        containerLabel = File(it).name
-                    },
                     onStatus = { status = it },
                     onSaved = {
 

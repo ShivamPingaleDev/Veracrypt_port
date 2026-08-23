@@ -27,6 +27,7 @@
 #include "Crypto/cpu.h"
 #include "Common/Volumes.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -186,7 +187,16 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 
 void vc_close (VcVolume *volume)
 {
+	if (volume)
+		fat_flush (volume);
 	delete volume;
+}
+
+int vc_flush_volume (VcVolume *volume)
+{
+	if (!volume)
+		return VC_ERR_ARGUMENT;
+	return fat_flush (volume);
 }
 
 uint64_t vc_size (VcVolume *volume)
@@ -2017,8 +2027,45 @@ static int BuildHeader (
 	return VC_OK;
 }
 
+static int format_fill_data_area (VcVolume *volume, uint64_t dataBytes, uint64_t skipStart, uint64_t skipEnd)
+{
+	if (!volume || !volume->volume || dataBytes == 0)
+		return VC_ERR_ARGUMENT;
+	const size_t chunk = 1024u * 1024u;
+	std::vector<uint8_t> buf (chunk);
+	uint64_t pos = 0;
+	while (pos < dataBytes)
+	{
+		uint64_t end = pos + std::min<uint64_t> (chunk, dataBytes - pos);
+		if (skipEnd > skipStart && pos >= skipStart && end <= skipEnd)
+		{
+			pos = end;
+			continue;
+		}
+		if (skipEnd > skipStart && pos < skipEnd && end > skipStart)
+		{
+			if (pos < skipStart)
+				end = skipStart;
+			else
+			{
+				pos = skipEnd;
+				continue;
+			}
+		}
+		size_t len = (size_t) (end - pos);
+		if (fill_rand (buf.data (), len) != 0)
+			return VC_ERR_IO;
+		if (vc_write (volume, pos, buf.data (), len) != VC_OK)
+			return VC_ERR_IO;
+		pos = end;
+		vc_progress_tick ((int) ((pos * 100ull) / dataBytes), "Full format");
+	}
+	return VC_OK;
+}
+
 static int FormatOpened (const char *path, const char *password, size_t passwordLen, int pim,
-	const char *const *keyfiles, size_t keyfileCount, uint64 dataBytes, int exfat)
+	const char *const *keyfiles, size_t keyfileCount, uint64 dataBytes, int exfat,
+	int fullFormat, uint64_t skipVolStart, uint64_t skipVolEnd)
 {
 	VcOpenOptions openOpt = {};
 	openOpt.path = path;
@@ -2031,6 +2078,16 @@ static int FormatOpened (const char *path, const char *password, size_t password
 	VcVolume *vol = vc_open (&openOpt, &err);
 	if (!vol)
 		return err != 0 ? err : VC_ERR_FORMAT;
+	if (fullFormat)
+	{
+		vc_progress_set (0, "Full format");
+		int fillRc = format_fill_data_area (vol, dataBytes, skipVolStart, skipVolEnd);
+		if (fillRc != VC_OK)
+		{
+			vc_close (vol);
+			return fillRc;
+		}
+	}
 	int fatRc = exfat ? vc_exfat_format (vol, dataBytes) : format_empty_fat16 (vol, dataBytes);
 	vc_close (vol);
 	return fatRc;
@@ -2136,15 +2193,28 @@ int vc_create_volume (const VcCreateOptions *options)
 			useExfat = options->size_bytes >= 4ull * 1024ull * 1024ull * 1024ull;
 		if (options->size_bytes >= 4ull * 1024ull * 1024ull * 1024ull)
 			useExfat = 1;
+		uint64_t volSkipStart = 0;
+		uint64_t volSkipEnd = 0;
+		if (hiddenSize > 0)
+		{
+			VolumeLayoutV2Hidden hiddenLayout;
+			uint64_t hiddenDataStart = options->size_bytes
+				- (uint64_t) hiddenLayout.GetHeaderSize () * 2 - hiddenSize;
+			volSkipStart = hiddenDataStart - outerDataStart;
+			volSkipEnd = outerDataSize;
+		}
+		const int outerFull = options->full_format != 0 ? 1 : 0;
 		rc = FormatOpened (options->path, pw, pwLen, options->pim,
-			options->keyfiles, options->keyfile_count, outerDataSize, useExfat);
+			options->keyfiles, options->keyfile_count, outerDataSize, useExfat,
+			outerFull, volSkipStart, volSkipEnd);
 		if (rc != VC_OK)
 			return rc;
 		if (hiddenSize > 0)
 		{
 			vc_progress_set (85, "Formatting nested volume");
 			rc = FormatOpened (options->path, hiddenPw, hiddenPwLen, options->hidden_pim,
-				options->hidden_keyfiles, options->hidden_keyfile_count, hiddenDataSize, useExfat);
+				options->hidden_keyfiles, options->hidden_keyfile_count, hiddenDataSize, useExfat,
+				0, 0, 0);
 		}
 		if (rc == VC_OK)
 			vc_progress_set (100, "Done");

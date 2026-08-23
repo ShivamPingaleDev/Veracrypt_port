@@ -72,6 +72,8 @@ typedef struct VcCreateOptions
 	size_t hidden_keyfile_count;
 	/* "FAT", "exFAT", or empty: FAT below 4 GiB, exFAT at 4 GiB and above. */
 	const char *filesystem;
+	/* 0 = quick format (default). 1 = fill data area before FAT (slow; plausible deniability). */
+	int full_format;
 } VcCreateOptions;
 
 /* Start VeraCrypt EncryptionThreadPool (XTS + auto-detect KDF). Safe to call
@@ -84,6 +86,7 @@ void vc_entropy_reset (void);
 void vc_entropy_add (const void *data, size_t size);
 int vc_entropy_percent (void);
 void vc_close (VcVolume *volume);
+int vc_flush_volume (VcVolume *volume);
 uint64_t vc_size (VcVolume *volume);
 uint32_t vc_sector_size (VcVolume *volume);
 int vc_read (VcVolume *volume, uint64_t offset, void *buffer, size_t size);

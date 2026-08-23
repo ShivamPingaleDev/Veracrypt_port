@@ -162,7 +162,7 @@ class MainActivityUiTest {
         rule.onNodeWithTag("tab_create").performClick()
         rule.waitForIdle()
         rule.onNodeWithText(
-            "Dismounted. Passwords, keyfiles in memory",
+            "Dismounted. Session cleared",
             substring = true
         ).assertDoesNotExist()
         rule.onNodeWithTag("copy_once").performScrollTo().performClick()

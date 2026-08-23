@@ -1,0 +1,26 @@
+---
+description: Mounted volume save-back, hash banner, and import temp hygiene
+globs: ports/android/**/*.kt,ports/ios/VCPort/**/*.swift,ports/shared/**/*.{cpp,h},ports/tests/test_contracts.py
+alwaysApply: true
+---
+
+# Mount container save-back
+
+Opened containers are copied to app cache (`ensureContainerPath` / `copyScopedFile`). Writes stay in cache until flushed back to the user's picked `content://` or `file://` URI.
+
+## Required
+
+- **Flush before write-back:** call `vc_flush_volume` / `NativeBridge.flushVolume` / `VcMobileBridge.flush` while the volume is still open, then `copyFileToUri` / security-scoped copy. Do not wipe the cache copy while mounted.
+- **Auto-save after volume mutations:** any path that changes FAT contents (`importFromDevice`, `transferBetweenVolumes`, `mkdirInVolume`, etc.) must call `autoSaveSaveWarning` for affected mount handles. Warn on failure only; do not block the import.
+- **Dismount × / Dismount / idle / screen-lock:** `saveMountedContainer` or `saveAllMountedSync` before clearing session. `dismountOnLeave` (Home) saves too.
+- **Panic:** `panicWipe` uses `closeVolume` / `closeMountedVolume` only — **no** write-back to the original file.
+- **hashResult / hashResultState:** clear when changing folder, mount slot, selection, or starting a new hash — not only on full dismount.
+
+## Import plaintext temps (same as basket)
+
+- Copy SAF payload to a real cache path (`copyUriForNativeImport` / `copyScopedFile`). Never pass `/proc/self/fd` to native import.
+- After `importFile`, wipe temps with `KeyfileIo.wipe` (Android) or `wipeFile` (iOS), not plain `delete()` / `removeItem`.
+
+## Host regressions
+
+`ports/tests/test_contracts.py`: `test_mount_container_persistence`, `test_auto_save_after_volume_import`, `test_hash_and_pim_show_progress_not_background`, `test_copy_move_device_files_on_android_and_ios`.

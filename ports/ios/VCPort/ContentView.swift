@@ -8,6 +8,7 @@ let mountSlots = 8
 struct MountedVolume: Identifiable {
     let id = UUID()
     let handle: OpaquePointer
+    let sourceURL: URL
     let url: URL
     let label: String
     var dirPath: String
@@ -20,6 +21,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State var containerURL: URL?
+    @State var pendingCreateURL: URL?
     @State var password = ""
     @State var lastUnlockPassword = ""
     @State var lastUnlockPim = "0"
@@ -60,6 +62,7 @@ struct ContentView: View {
     @State var createHiddenPassword = ""
     @State var createHiddenPim = "0"
     @State var createFileName = "volume.hc"
+    @State var createFullFormat = false
     @State var entropyPercent = 0
     @State var newPassword = ""
     @State var newPim = "0"
@@ -88,6 +91,8 @@ struct ContentView: View {
     @State var hiddenKeyfileImporterPresented = false
 
     @State var selectedTab = 0
+    @State var sessionResetPulse = 0
+    @State var sessionResetFlash = false
     @AppStorage("vc_port_idle_minutes") var idleMinutes = 0
     @State var idleAmountText = "0"
     @State var idleUnit = IdleUnit.minutes
@@ -389,6 +394,14 @@ struct ContentView: View {
                     .portTag("status")
                     .accessibilityValue(status)
             }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(sessionResetFlash ? Color(red: 0.15, green: 0.48, blue: 0.25).opacity(0.18) : Color.clear)
+            )
+            .portTag("session_reset_banner")
+            .animation(.easeInOut(duration: 0.35), value: sessionResetFlash)
         }
     }
 
@@ -475,7 +488,7 @@ struct ContentView: View {
         if ["fail", "could not", "wrong", "empty"].contains(where: { lower.contains($0) }) {
             return .red
         }
-        if ["opened", "copied", "created", "moved", "wiped", "complete", "saved", "renamed", "deleted"].contains(where: { lower.contains($0) }) {
+        if ["opened", "copied", "created", "moved", "wiped", "complete", "saved", "renamed", "deleted", "session cleared", "dismounted"].contains(where: { lower.contains($0) }) {
             return Color(red: 0.15, green: 0.48, blue: 0.25)
         }
         return Color(red: 10 / 255, green: 108 / 255, blue: 206 / 255)
@@ -624,6 +637,7 @@ struct ContentView: View {
         let hiddenKeys = hiddenKeyfileURLs.map(\.path)
         var filesystem = createFilesystem
         if sizeBytes >= 4 * 1024 * 1024 * 1024 { filesystem = "exFAT" }
+        let fullFormat = createFullFormat
         DispatchQueue.global(qos: .userInitiated).async {
             let rc = VcMobileBridge.createVolume(
                 path: dest.path,
@@ -637,7 +651,8 @@ struct ContentView: View {
                 hiddenPim: hiddenPimVal,
                 hiddenSizeBytes: hiddenBytes,
                 hiddenKeyfiles: hiddenKeys,
-                filesystem: filesystem
+                filesystem: filesystem,
+                fullFormat: fullFormat
             )
             var packed = 0
             var packFail: String?
@@ -670,7 +685,7 @@ struct ContentView: View {
                     status = "Create failed (code \(rc))."
                     return
                 }
-                containerURL = dest
+                pendingCreateURL = dest
                 var msg = "Created \(SizeUnit.formatBytes(sizeBytes)) \(cipher) / \(kdf) \(filesystem) volume as \(dest.lastPathComponent) (standard VeraCrypt file; the name is only a disguise). Open volume, or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
                 if packed > 0 {
                     msg += " Copied \(packed) file(s) from the basket into the volume. SHA-256 proof is BASKET.sha256 inside the volume."
@@ -691,8 +706,11 @@ struct ContentView: View {
                     holdLock = false
                     incomingFile = nil
                     if let saved {
-                        wipeCreateSecrets()
-                        status = "Saved \(saved.lastPathComponent). Choose the volume you want, then Open. Create secrets were wiped."
+                        wipeCreateSecrets(
+                            "Saved \(saved.lastPathComponent). Session cleared. Choose a volume, then Open."
+                        )
+                    } else {
+                        discardPendingCreate()
                     }
                 }
             }
@@ -743,6 +761,12 @@ struct ContentView: View {
     }
 
     func startOpenVolume() {
+        guard let sourceURL = containerURL else {
+            status = AppStorageSpace.lastError.isEmpty
+                ? "Could not read the container file. Pick it again from Files."
+                : AppStorageSpace.lastError
+            return
+        }
         guard let url = ensureContainerURL() else {
             status = AppStorageSpace.lastError.isEmpty
                 ? "Could not read the container file. Pick it again from Files."
@@ -806,6 +830,7 @@ struct ContentView: View {
                     mountedVolumes.append(
                         MountedVolume(
                             handle: handle,
+                            sourceURL: sourceURL,
                             url: url,
                             label: url.lastPathComponent,
                             dirPath: "",
@@ -885,6 +910,10 @@ struct ContentView: View {
         for vol in mountedVolumes {
             VcMobileBridge.close(vol.handle)
         }
+        clearMountedVolumeState()
+    }
+
+    private func clearMountedVolumeState() {
         mountedVolumes = []
         activeMountIndex = 0
         volumeHandle = nil
@@ -894,6 +923,112 @@ struct ContentView: View {
         selectedNames = []
         previewItem = nil
         InAppPreview.wipe()
+    }
+
+    private func mountedCachePath(_ path: String) -> Bool {
+        path.hasPrefix(FileManager.default.temporaryDirectory.path)
+    }
+
+    private func shouldWriteBackMounted(_ vol: MountedVolume) -> Bool {
+        if vol.readOnly { return false }
+        guard mountedCachePath(vol.url.path) else { return false }
+        return vol.sourceURL != vol.url
+    }
+
+    private func writeBackMountedCache(_ vol: MountedVolume, flush: Bool, wipeCache: Bool) -> Bool {
+        if !shouldWriteBackMounted(vol) { return true }
+        if flush {
+            VcMobileBridge.flush(vol.handle)
+        }
+        let source = vol.sourceURL
+        let cache = vol.url
+        let accessed = source.startAccessingSecurityScopedResource()
+        defer {
+            if accessed { source.stopAccessingSecurityScopedResource() }
+        }
+        do {
+            if FileManager.default.fileExists(atPath: source.path) {
+                try FileManager.default.removeItem(at: source)
+            }
+            try FileManager.default.copyItem(at: cache, to: source)
+            if wipeCache { wipeFile(cache) }
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func autoSaveSaveWarning(handles: Set<OpaquePointer>) -> String? {
+        let failedLabels = handles.compactMap { handle -> String? in
+            guard let vol = mountedVolumes.first(where: { $0.handle == handle }) else { return nil }
+            if !shouldWriteBackMounted(vol) { return nil }
+            if writeBackMountedCache(vol, flush: true, wipeCache: false) { return nil }
+            return vol.label
+        }
+        if failedLabels.isEmpty { return nil }
+        if failedLabels.count == 1 {
+            return "Could not save \(failedLabels[0]) back to the original file."
+        }
+        return "Could not save \(failedLabels.count) volume(s) back to the original file."
+    }
+
+    private func saveAndCloseMounted(_ vol: MountedVolume) -> (saved: Bool, hadSource: Bool) {
+        VcMobileBridge.close(vol.handle)
+        if !shouldWriteBackMounted(vol) {
+            return (true, false)
+        }
+        return (writeBackMountedCache(vol, flush: false, wipeCache: true), true)
+    }
+
+    private func dismountStatusMessage(_ label: String, remaining: Int, outcome: (saved: Bool, hadSource: Bool)) -> String {
+        if outcome.hadSource && !outcome.saved {
+            return "Dismounted \(label). Could not save changes back to the original file."
+        }
+        if outcome.hadSource && outcome.saved {
+            if remaining == 0 {
+                return "Saved and dismounted \(label)."
+            }
+            return "Saved and dismounted \(label). \(remaining) still mounted."
+        }
+        if remaining == 0 {
+            return "Dismounted \(label)."
+        }
+        return "Dismounted \(label). \(remaining) still mounted."
+    }
+
+    private func finishDismountAt(_ index: Int, victim: MountedVolume, outcome: (saved: Bool, hadSource: Bool)) {
+        guard let idx = mountedVolumes.firstIndex(where: { $0.id == victim.id }) else { return }
+        mountedVolumes.remove(at: idx)
+        hashResult = ""
+        if mountedVolumes.isEmpty {
+            activeMountIndex = 0
+            volumeHandle = nil
+            entries = []
+            dirPath = ""
+            listTruncated = false
+            selectedNames = []
+            completeSessionReset(
+                dismountStatusMessage(victim.label, 0, outcome) +
+                    " Session cleared — passwords and basket wiped."
+            )
+            return
+        }
+        let next: Int
+        if idx < activeMountIndex {
+            next = max(0, activeMountIndex - 1)
+        } else if idx == activeMountIndex {
+            next = min(activeMountIndex, mountedVolumes.count - 1)
+        } else {
+            next = activeMountIndex
+        }
+        activeMountIndex = next
+        let v = mountedVolumes[next]
+        volumeHandle = v.handle
+        dirPath = v.dirPath
+        entries = v.entries
+        listTruncated = v.truncated
+        selectedNames = []
+        status = dismountStatusMessage(victim.label, mountedVolumes.count, outcome)
     }
 
     func persistActiveMount() {
@@ -914,39 +1049,26 @@ struct ContentView: View {
         entries = v.entries
         listTruncated = v.truncated
         selectedNames = []
+        hashResult = ""
     }
 
     func dismountMountedAt(_ index: Int) {
         persistActiveMount()
         guard index < mountedVolumes.count else { return }
-        let victim = mountedVolumes.remove(at: index)
-        VcMobileBridge.close(victim.handle)
-        if mountedVolumes.isEmpty {
-            activeMountIndex = 0
-            volumeHandle = nil
-            entries = []
-            dirPath = ""
-            listTruncated = false
-            selectedNames = []
-            status = "Dismounted \(victim.label)."
-            return
-        }
-        let next: Int
-        if index < activeMountIndex {
-            next = max(0, activeMountIndex - 1)
-        } else if index == activeMountIndex {
-            next = min(activeMountIndex, mountedVolumes.count - 1)
+        let victim = mountedVolumes[index]
+        if shouldWriteBackMounted(victim) {
+            beginWork("Saving and dismounting \(victim.label)…")
+            DispatchQueue.global(qos: .userInitiated).async {
+                let outcome = saveAndCloseMounted(victim)
+                DispatchQueue.main.async {
+                    endWork()
+                    finishDismountAt(index, victim, outcome)
+                }
+            }
         } else {
-            next = activeMountIndex
+            let outcome = saveAndCloseMounted(victim)
+            finishDismountAt(index, victim, outcome)
         }
-        activeMountIndex = next
-        let v = mountedVolumes[next]
-        volumeHandle = v.handle
-        dirPath = v.dirPath
-        entries = v.entries
-        listTruncated = v.truncated
-        selectedNames = []
-        status = "Dismounted \(victim.label). \(mountedVolumes.count) still mounted."
     }
 
     func transferBetweenVolumes(entries files: [VaultEntry], dest: MountedVolume, move: Bool) {
@@ -996,20 +1118,26 @@ struct ContentView: View {
                     }
                 }
             }
+            var saveHandles: Set<OpaquePointer> = []
+            if copied > 0 { saveHandles.insert(dest.handle) }
+            if move && moved > 0 { saveHandles.insert(src) }
+            let saveWarning = saveHandles.isEmpty ? nil : autoSaveSaveWarning(saveHandles)
             DispatchQueue.main.async {
                 endWork()
+                let base: String
                 if let lastError, copied == 0 {
-                    status = lastError
+                    base = lastError
                 } else if move && moved < copied {
-                    status = "Copied \(copied) file(s) into \(label). Could not delete \(copied - moved) from the source volume."
+                    base = "Copied \(copied) file(s) into \(label). Could not delete \(copied - moved) from the source volume."
                 } else if move && copied == toCopy.count {
-                    status = "Moved \(copied) file(s) into \(label)."
+                    base = "Moved \(copied) file(s) into \(label)."
                     selectedNames.subtract(toCopy.map(\.name))
                 } else if copied == toCopy.count {
-                    status = "Copied \(copied) file(s) into \(label)."
+                    base = "Copied \(copied) file(s) into \(label)."
                 } else {
-                    status = "Copied \(copied) of \(toCopy.count) file(s) into \(label). \(lastError ?? "")"
+                    base = "Copied \(copied) of \(toCopy.count) file(s) into \(label). \(lastError ?? "")"
                 }
+                status = saveWarning.map { "\(base) \($0)" } ?? base
                 reloadDir(quiet: true)
                 persistActiveMount()
                 refreshMountedListing(dest)
@@ -1037,8 +1165,11 @@ struct ContentView: View {
     /// keyfile) so Copy once can be pasted into Notes and creation can
     /// continue. Dismount / Panic still call lockSession().
     func dismountOnLeave() {
-        let wasOpen = volumeHandle != nil
-        closeVolume()
+        let wasOpen = volumeHandle != nil || !mountedVolumes.isEmpty
+        if wasOpen {
+            mountedVolumes.forEach { saveAndCloseMounted($0) }
+        }
+        clearMountedVolumeState()
         password = ""
         hiddenProtectPassword = ""
         newPassword = ""
@@ -1078,8 +1209,9 @@ struct ContentView: View {
         } else {
             hidden = 0
         }
-        let need = volumeBytesForBasket(asked: SizeUnit.minVolume, urls: basketURLs, hiddenBytes: hidden)
-        let (n, unit) = SizeUnit.fit(need)
+        let asked = parseSizeBytes(amount: createSizeAmount, unit: createSizeUnit) ?? SizeUnit.minVolume
+        let bytes = volumeBytesForBasket(asked: max(asked, SizeUnit.minVolume), urls: basketURLs, hiddenBytes: hidden)
+        let (n, unit) = SizeUnit.fit(bytes)
         createSizeAmount = String(n)
         createSizeUnit = unit
     }
@@ -1216,29 +1348,25 @@ struct ContentView: View {
             return "Could not read \(url.lastPathComponent). Pick it again from Files."
         }
         let rc = VcMobileBridge.importFile(handle, destDir: "/", src: srcPath, destName: name)
-        if let temp { try? FileManager.default.removeItem(at: temp) }
+        if let temp { wipeFile(temp) }
         if rc == 0 { return nil }
         return importErrorMessage(name, rc, handle: handle)
+    }
+
+    func discardPendingCreate() {
+        if let url = pendingCreateURL, isTemporaryContainer(url) {
+            wipeFile(url)
+        }
+        pendingCreateURL = nil
+        status =
+            "Save cancelled. The unsaved volume was removed from app cache. Nothing is selected — choose a container or create again."
     }
 
     /// After a successful Files save: forget create/open secrets, drop the
     /// selected container, and wipe the temporary create copy. The user picks
     /// the saved file with Choose container.
-    func wipeCreateSecrets() {
-        createPassword = ""
-        createHiddenPassword = ""
-        hiddenProtectPassword = ""
-        password = ""
-        createPim = "0"
-        createHiddenPim = "0"
-        hiddenProtectPim = "0"
-        pim = "0"
-        newPim = "0"
-        newPassword = ""
+    func wipeCreateSecrets(statusMessage: String = "") {
         let keys = keyfileURLs + hiddenKeyfileURLs + headerKeyfileURLs
-        keyfileURLs = []
-        headerKeyfileURLs = []
-        hiddenKeyfileURLs = []
         let tmp = FileManager.default.temporaryDirectory.path
         for url in keys where url.path.hasPrefix(tmp) {
             wipeFile(url)
@@ -1246,34 +1374,13 @@ struct ContentView: View {
         if let url = containerURL, isTemporaryContainer(url) {
             wipeFile(url)
         }
-        containerURL = nil
-        incomingFile = nil
-        createHidden = false
-        createCipher = VcMobileBridge.defaultCipher
-        createKdf = VcMobileBridge.defaultKdf
-        createFilesystem = "FAT"
-        createFileName = "volume.hc"
-        createSizeAmount = "16"
-        createSizeUnit = .mib
-        createHiddenSizeAmount = "4"
-        createHiddenSizeUnit = .mib
-        entropyPercent = 0
-        entropyMarks = []
-        VcMobileBridge.resetEntropy()
-        selectedTab = 0
-        forgetUnlock()
+        if let url = pendingCreateURL, isTemporaryContainer(url) {
+            wipeFile(url)
+        }
+        completeSessionReset(statusMessage)
     }
 
-    func clearMountOptions() {
-        useBackupHeader = false
-        readOnlyOpen = false
-        trueCryptMode = false
-        protectHidden = false
-        headerKeyfileURLs = []
-    }
-
-    func lockSession() {
-        closeVolume()
+    func completeSessionReset(_ statusMessage: String) {
         password = ""
         holdLock = false
         createPassword = ""
@@ -1295,6 +1402,7 @@ struct ContentView: View {
         createKdf = VcMobileBridge.defaultKdf
         createFilesystem = "FAT"
         createFileName = "volume.hc"
+        createFullFormat = false
         createSizeAmount = "16"
         createSizeUnit = .mib
         createHiddenSizeAmount = "4"
@@ -1302,18 +1410,52 @@ struct ContentView: View {
         entropyPercent = 0
         entropyMarks = []
         VcMobileBridge.resetEntropy()
+        containerURL = nil
+        pendingCreateURL = nil
+        incomingFile = nil
         entries = []
         dirPath = ""
         listTruncated = false
         lastPlain = []
         selectedNames = []
         clearMountOptions()
-        wipeSessionFiles()
-        forgetUnlock()
         hashResult = ""
-        endWork()
-        if !status.hasPrefix("Panic") {
-            status = "Dismounted. Passwords, keyfiles in memory, and decrypted copies wiped. Ciphertext stays."
+        pimEstimateResult = ""
+        forgetUnlock()
+        selectedTab = 0
+        sessionResetPulse += 1
+        sessionResetFlash = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+            sessionResetFlash = false
+        }
+        if !status.hasPrefix("Panic") && !statusMessage.isEmpty {
+            status = statusMessage
+        }
+    }
+
+    func clearMountOptions() {
+        useBackupHeader = false
+        readOnlyOpen = false
+        trueCryptMode = false
+        protectHidden = false
+        headerKeyfileURLs = []
+    }
+
+    func lockSession(
+        finishStatus: String =
+            "Dismounted. Session cleared — passwords, basket, and container selection wiped. Ciphertext on disk is unchanged."
+    ) {
+        let volumes = mountedVolumes
+        let saving = !volumes.isEmpty
+        if saving { beginWork("Saving and dismounting…") }
+        DispatchQueue.global(qos: .userInitiated).async {
+            volumes.forEach { saveAndCloseMounted($0) }
+            DispatchQueue.main.async {
+                clearMountedVolumeState()
+                if saving { endWork() }
+                wipeSessionFiles()
+                completeSessionReset(finishStatus)
+            }
         }
     }
 
@@ -1321,14 +1463,11 @@ struct ContentView: View {
     /// Home / Recents uses dismountOnLeave so Create can continue. Panic adds
     /// Hardening.panic after lock. Do not grow a fifth path.
     func closeOpenVolumes(_ reason: String) {
-        if volumeHandle != nil {
+        if volumeHandle != nil || !mountedVolumes.isEmpty {
             beginWork(reason)
             VcMobileBridge.setProgress(100, phase: reason)
         }
-        lockSession()
-        if !status.hasPrefix("Panic") {
-            status = reason
-        }
+        lockSession(finishStatus: reason)
     }
 
     func panicWipe() {
@@ -1460,7 +1599,7 @@ struct ContentView: View {
                 }
                 let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
                 if let temp {
-                    try? FileManager.default.removeItem(at: temp)
+                    wipeFile(temp)
                 }
                 if rc != 0 {
                     lastError = importErrorMessage(name, rc, handle: handle)
@@ -1475,19 +1614,22 @@ struct ContentView: View {
                     }
                 }
             }
+            let saveWarning = copied > 0 ? autoSaveSaveWarning([handle]) : nil
             DispatchQueue.main.async {
                 endWork()
+                let base: String
                 if lastError != nil && copied == 0 {
-                    status = lastError ?? "Could not copy that file into the volume."
+                    base = lastError ?? "Could not copy that file into the volume."
                 } else if move && moved < copied {
-                    status = "Copied \(copied) file(s) into the volume. Could not delete the original; remove it in Files if you meant a move."
+                    base = "Copied \(copied) file(s) into the volume. Could not delete the original; remove it in Files if you meant a move."
                 } else if move && copied == urls.count {
-                    status = "Moved \(copied) file(s) into the volume."
+                    base = "Moved \(copied) file(s) into the volume."
                 } else if copied == urls.count {
-                    status = "Copied \(copied) file(s) from the device into this folder."
+                    base = "Copied \(copied) file(s) from the device into this folder."
                 } else {
-                    status = "Copied \(copied) of \(urls.count) file(s) into the volume. \(lastError ?? "")"
+                    base = "Copied \(copied) of \(urls.count) file(s) into the volume. \(lastError ?? "")"
                 }
+                status = saveWarning.map { "\(base) \($0)" } ?? base
                 if copied > 0 { reloadDir() }
             }
         }
@@ -1567,6 +1709,9 @@ struct ContentView: View {
 
     func reloadDir(append: Bool = false, quiet: Bool = false) {
         guard let handle = volumeHandle else { return }
+        if !append {
+            hashResult = ""
+        }
         let path = dirPath.isEmpty ? "/" : dirPath
         let offset = append ? Int32(entries.count) : 0
         switch VcMobileBridge.listDir(handle, path: path, offset: offset) {
@@ -1867,13 +2012,21 @@ struct ContentView: View {
             return
         }
         let destDir = dirPath.isEmpty ? "/" : dirPath
-        let rc = VcMobileBridge.mkdir(handle, parent: destDir, name: trimmed)
-        if rc != 0 {
-            status = importErrorMessage(trimmed, rc, handle: handle)
-            return
+        beginWork("Creating folder \(trimmed)…")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let rc = VcMobileBridge.mkdir(handle, parent: destDir, name: trimmed)
+            let saveWarning = rc == 0 ? autoSaveSaveWarning(handles: [handle]) : nil
+            DispatchQueue.main.async {
+                endWork()
+                if rc != 0 {
+                    status = importErrorMessage(trimmed, rc, handle: handle)
+                    return
+                }
+                let base = "Created folder \(trimmed)."
+                status = saveWarning.map { "\(base) \($0)" } ?? base
+                reloadDir()
+            }
         }
-        status = "Created folder \(trimmed)."
-        reloadDir()
     }
 
     func renameSelected(_ newName: String) {
@@ -1951,6 +2104,7 @@ struct ContentView: View {
             status = "Tap a file, then SHA-256 in volume."
             return
         }
+        hashResult = ""
         beginWork("Hashing \(files.count) file(s) inside the volume…")
         DispatchQueue.global(qos: .userInitiated).async {
             var lines: [String] = []
@@ -2046,6 +2200,7 @@ struct ContentView: View {
         let base = keyfileGenName.trimmingCharacters(in: .whitespacesAndNewlines)
         let pattern = base.isEmpty ? "keyfile.bin" : base
         var urls: [URL] = []
+        var skipped: [String] = []
         var current = nested ? hiddenKeyfileURLs : keyfileURLs
         for i in 1...n {
             let name: String
@@ -2059,8 +2214,8 @@ struct ContentView: View {
             }
             let dest = FileManager.default.temporaryDirectory.appendingPathComponent(name)
             if alreadyHasKeyfile(dest, in: current) {
-                status = "Already in this session: \(name). Remove it first, or change the name to generate another. VeraCrypt mixes every listed keyfile — the same file twice is a different mix."
-                return
+                skipped.append(name)
+                continue
             }
             let rc = VcMobileBridge.generateKeyfile(path: dest.path)
             guard rc == 0 else {
@@ -2070,15 +2225,28 @@ struct ContentView: View {
             urls.append(dest)
             current.append(dest)
         }
+        if urls.isEmpty && !skipped.isEmpty {
+            status =
+                "Already in this session: \(skipped.joined(separator: ", ")). Remove it first, or change the name to generate another. VeraCrypt mixes every listed keyfile — the same file twice is a different mix."
+            return
+        }
         if nested {
             hiddenKeyfileURLs.append(contentsOf: urls)
         } else {
             keyfileURLs.append(contentsOf: urls)
         }
-        status = n == 1
-            ? "Generated and added \(urls[0].lastPathComponent). Save a copy. Any extension is fine."
-            : "Generated \(n) keyfiles and added them. Save copies. Any extension is fine."
-        SystemShare.present(items: urls)
+        status = if urls.count == 1 {
+            "Generated and added \(urls[0].lastPathComponent). Save a copy. Any extension is fine."
+        } else if urls.isEmpty {
+            "Keyfile generator failed."
+        } else {
+            "Generated \(urls.count) keyfiles and added them. Save copies. Any extension is fine."
+        }
+        if urls.count == 1 {
+            SystemShare.present(items: urls)
+        } else if urls.count > 1 {
+            SystemShare.present(items: urls)
+        }
     }
 
     func runBenchmark() {
@@ -2206,6 +2374,7 @@ struct ContentView: View {
         createHiddenPassword = ""
         createHiddenPim = "0"
         createFileName = "volume.hc"
+        createFullFormat = false
         entropyPercent = 0
         entropyMarks = []
         VcMobileBridge.resetEntropy()
@@ -2340,9 +2509,9 @@ struct ContentView: View {
                 return false
             }
             incomingFile = nil
-            wipeCreateSecrets()
-            status = "Saved \(dest.lastPathComponent). Choose the volume you want, then Open. Create secrets were wiped."
-            selectedTab = 0
+            wipeCreateSecrets(
+                "Saved \(dest.lastPathComponent). Session cleared. Choose a volume, then Open."
+            )
             return fm.fileExists(atPath: dest.path)
         }
         testing.selectContainer = { url in

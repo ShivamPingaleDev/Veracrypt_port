@@ -54,6 +54,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -86,6 +87,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -611,7 +613,8 @@ private fun MeterRow(on: (Int) -> Boolean, color: Color) {
 @Composable
 fun StatusBanner(
     status: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    resetPulse: Int = 0
 ) {
     val colors = MaterialTheme.colorScheme
     val skin = LocalVcSkin.current
@@ -619,16 +622,37 @@ fun StatusBanner(
     val tone = when {
         listOf("fail", "could not", "wrong password", "name is empty", "must be", "choose at least", "enter the wrap", "select a container", "tap a file", "open a volume first").any { it in lower } ->
             colors.error
-        listOf("opened", "copied", "created", "moved", "wiped", "complete", "saved", "unwrapped", "wrapped", "renamed", "deleted").any { it in lower } ->
+        listOf("opened", "copied", "created", "moved", "wiped", "complete", "saved", "unwrapped", "wrapped", "renamed", "deleted", "session cleared", "dismounted").any { it in lower } ->
             Color(0xFF1B7A3A)
         else ->
             colors.primary
     }
+    var flash by remember { mutableStateOf(false) }
+    LaunchedEffect(resetPulse) {
+        if (resetPulse > 0) {
+            flash = true
+            delay(650)
+            flash = false
+        }
+    }
+    val flashAlpha by animateFloatAsState(
+        targetValue = if (flash) 1f else 0f,
+        animationSpec = tween(320),
+        label = "sessionResetFlash"
+    )
+    val bgColor = androidx.compose.ui.graphics.lerp(
+        colors.surface,
+        colors.primaryContainer,
+        flashAlpha * 0.88f
+    )
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("status_banner")
+            .testTag("session_reset_banner"),
         shape = MaterialTheme.shapes.medium,
-        color = colors.surface,
-        shadowElevation = 1.dp,
+        color = bgColor,
+        shadowElevation = if (flash) 4.dp else 1.dp,
         border = if (skin == VcSkin.Signal) {
             BorderStroke(0.dp, Color.Transparent)
         } else {

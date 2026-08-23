@@ -120,8 +120,10 @@ extension ContentView {
                             selectedNames = []
                             reloadDir()
                         } else if selectedNames.contains(entry.name) {
+                            hashResult = ""
                             selectedNames.remove(entry.name)
                         } else {
+                            hashResult = ""
                             selectedNames.insert(entry.name)
                         }
                     } label: {
@@ -153,6 +155,7 @@ extension ContentView {
                     }
                 }
                 Button(selectableFileNames.isSubset(of: selectedNames) && !selectableFileNames.isEmpty ? "Clear selection" : "Select files") {
+                    hashResult = ""
                     if selectableFileNames.isSubset(of: selectedNames) && !selectableFileNames.isEmpty {
                         selectedNames = []
                     } else {

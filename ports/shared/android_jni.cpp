@@ -227,6 +227,13 @@ Java_dev_shivampingale_vcport_NativeBridge_closeVolume(JNIEnv *, jobject, jlong 
 		vc_close(reinterpret_cast<VcVolume *>(handle));
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_flushVolume(JNIEnv *, jobject, jlong handle)
+{
+	if (jni_live_handle(handle))
+		vc_flush_volume(reinterpret_cast<VcVolume *>(handle));
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_volumeSize(JNIEnv *, jobject, jlong handle)
 {
@@ -450,7 +457,7 @@ Java_dev_shivampingale_vcport_NativeBridge_createVolume(
 	JNIEnv *env, jobject, jstring path, jstring password, jint pim, jlong sizeBytes,
 	jstring cipher, jstring kdf, jobjectArray keyfiles,
 	jstring hiddenPassword, jint hiddenPim, jlong hiddenSizeBytes, jobjectArray hiddenKeyfiles,
-	jstring filesystem)
+	jstring filesystem, jboolean fullFormat)
 {
 	if (!path || sizeBytes <= 0)
 		return VC_ERR_ARGUMENT;
@@ -471,6 +478,7 @@ Java_dev_shivampingale_vcport_NativeBridge_createVolume(
 	options.cipher = cCipher.c_str();
 	options.kdf = cKdf.c_str();
 	options.filesystem = cFs.c_str();
+	options.full_format = fullFormat ? 1 : 0;
 
 	std::vector<std::string> owned;
 	std::vector<const char *> ptrs;
