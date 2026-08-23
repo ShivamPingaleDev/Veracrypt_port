@@ -707,7 +707,7 @@ struct ContentView: View {
                     incomingFile = nil
                     if let saved {
                         wipeCreateSecrets(
-                            "Saved \(saved.lastPathComponent). Session cleared. Choose a volume, then Open."
+                            statusMessage: "Saved \(saved.lastPathComponent). Session cleared. Choose a volume, then Open."
                         )
                     } else {
                         discardPendingCreate()
@@ -1008,7 +1008,7 @@ struct ContentView: View {
             listTruncated = false
             selectedNames = []
             completeSessionReset(
-                dismountStatusMessage(victim.label, 0, outcome) +
+                dismountStatusMessage(victim.label, remaining: 0, outcome: outcome) +
                     " Session cleared — passwords and basket wiped."
             )
             return
@@ -1028,7 +1028,7 @@ struct ContentView: View {
         entries = v.entries
         listTruncated = v.truncated
         selectedNames = []
-        status = dismountStatusMessage(victim.label, mountedVolumes.count, outcome)
+        status = dismountStatusMessage(victim.label, remaining: mountedVolumes.count, outcome: outcome)
     }
 
     func persistActiveMount() {
@@ -1062,12 +1062,12 @@ struct ContentView: View {
                 let outcome = saveAndCloseMounted(victim)
                 DispatchQueue.main.async {
                     endWork()
-                    finishDismountAt(index, victim, outcome)
+                    finishDismountAt(index, victim: victim, outcome: outcome)
                 }
             }
         } else {
             let outcome = saveAndCloseMounted(victim)
-            finishDismountAt(index, victim, outcome)
+            finishDismountAt(index, victim: victim, outcome: outcome)
         }
     }
 
@@ -1121,7 +1121,7 @@ struct ContentView: View {
             var saveHandles: Set<OpaquePointer> = []
             if copied > 0 { saveHandles.insert(dest.handle) }
             if move && moved > 0 { saveHandles.insert(src) }
-            let saveWarning = saveHandles.isEmpty ? nil : autoSaveSaveWarning(saveHandles)
+            let saveWarning = saveHandles.isEmpty ? nil : autoSaveSaveWarning(handles: saveHandles)
             DispatchQueue.main.async {
                 endWork()
                 let base: String
@@ -1614,7 +1614,7 @@ struct ContentView: View {
                     }
                 }
             }
-            let saveWarning = copied > 0 ? autoSaveSaveWarning([handle]) : nil
+            let saveWarning = copied > 0 ? autoSaveSaveWarning(handles: [handle]) : nil
             DispatchQueue.main.async {
                 endWork()
                 let base: String
@@ -2510,7 +2510,7 @@ struct ContentView: View {
             }
             incomingFile = nil
             wipeCreateSecrets(
-                "Saved \(dest.lastPathComponent). Session cleared. Choose a volume, then Open."
+                statusMessage: "Saved \(dest.lastPathComponent). Session cleared. Choose a volume, then Open."
             )
             return fm.fileExists(atPath: dest.path)
         }

@@ -185,6 +185,8 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 	return nullptr;
 }
 
+static int fat_flush (VcVolume *volume);
+
 void vc_close (VcVolume *volume)
 {
 	if (volume)
