@@ -11,7 +11,14 @@ VC Port is **100% free**. Same features for everyone. Support helps the author k
 | Ko-fi | https://ko-fi.com/shivampingaledev |
 | Liberapay | https://liberapay.com/ShivamPingaleDev/donate |
 
-## GitHub README (this repo)
+## Sponsor button (repo header)
+
+GitHub shows a **♥ Sponsor** control next to **Watch** / **Fork** when `.github/FUNDING.yml` is on the default branch (`master`). This repo already has that file.
+
+- **Edit links:** repo **Settings** → **General** → **Features** → **Sponsorships** → **Override funding links**, or commit changes to [.github/FUNDING.yml](.github/FUNDING.yml).
+- **GitHub docs:** [Displaying a sponsor button in your repository](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository)
+- **VeraCrypt upstream** (separate from VC Port): https://veracrypt.jp/en/Donation.html is the only `custom` link in `FUNDING.yml`.
+
 
 GitHub README does not run `<script>` tags. Use badges and links:
 

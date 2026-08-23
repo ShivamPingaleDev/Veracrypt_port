@@ -818,6 +818,7 @@ class PimAndSessionContractTests(unittest.TestCase):
         self.assertIn("actions/workflows/vcport.yml/badge.svg", read("README.md"))
         self.assertIn("100% free", read("README.md"))
         self.assertIn("github: ShivamPingaleDev", read(".github/FUNDING.yml"))
+        self.assertIn("buy_me_a_coffee: shivampingaledev", read(".github/FUNDING.yml"))
         self.assertIn("github.com/sponsors/ShivamPingaleDev", read("README.md"))
         self.assertIn("github.com/sponsors/ShivamPingaleDev", read("SUPPORT.md"))
         self.assertNotIn("github.com/sponsors", read_android_ui())

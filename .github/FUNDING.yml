@@ -1,8 +1,9 @@
-# Optional support for VC Port. Also: VeraCrypt upstream donations.
-# github: turns on the Sponsor button on the repo (GitHub Sponsors).
+# Optional support for VC Port. Same features for everyone; links are GitHub-only (not in the app).
+# Shows the ♥ Sponsor button on the repo header. Docs:
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
 github: ShivamPingaleDev
+buy_me_a_coffee: shivampingaledev
 ko_fi: shivampingaledev
 liberapay: ShivamPingaleDev
 custom:
-  - https://buymeacoffee.com/shivampingaledev
   - https://veracrypt.jp/en/Donation.html
