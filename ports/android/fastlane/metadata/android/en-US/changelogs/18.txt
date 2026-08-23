@@ -1,0 +1,1 @@
+VC Port 0.3.12 rebuild: mount save-back, session reset after save/dismount, optional full format on create, auto-save after volume writes. Same keyfile is not added twice in a session. GitHub APKs stay debug-signed previews. Not unbreakable.

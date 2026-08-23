@@ -10,10 +10,12 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 ## 0.3.12
 
-Stable alpha: session keyfile mix stays one copy; Create save wipes and does not leave the new file selected.
+Stable alpha: session keyfile mix stays one copy; Create save wipes and does not leave the new file selected; mount save-back and session reset ship in the 0.3.12 rebuild.
 
 - Same keyfile picked or generated twice in one session stays one mix member (no `keyfile-2.key`). VeraCrypt would otherwise treat the extra copy as a different mix.
-- After Create save, secrets and the cache copy are wiped; the new file is not left selected. Choose container for the volume you want.
+- After Create save or full dismount, secrets, basket, and container selection are wiped with a visible session-reset banner; tab returns to Volume.
+- Mounted volumes save back to the picked URI on dismount, ×, idle, and screen-lock; auto-save after import, mkdir, and transfer (warn only on failure).
+- Create offers **Quick format** (default) or optional **Full format (slow)** for plausible deniability; nested hidden volume stays quick-only.
 - GitHub Actions tag builds no longer fail checkout (`fetch-tags` + tag push).
 - GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.12.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.12-unsigned-preview.ipa`). Same `applicationId` as 0.3.11; it replaces the old install. Still alpha (not 1.0, not a store build).
 
