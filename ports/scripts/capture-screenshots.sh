@@ -101,7 +101,8 @@ make_thumbs() {
 		[ -f "$f" ] || continue
 		case "$f" in */thumbs/*) continue ;; esac
 		base="$(basename "$f")"
-		sips -Z 420 "$f" --out "$SHOTS/thumbs/$base" >/dev/null 2>&1 || true
+		# 480px wide = 2× the README display width (240) for sharp previews on HiDPI screens.
+		sips --resampleWidth 480 "$f" --out "$SHOTS/thumbs/$base" >/dev/null 2>&1 || true
 	done
 	echo "thumbs in $SHOTS/thumbs"
 }

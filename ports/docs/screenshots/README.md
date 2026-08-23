@@ -13,7 +13,7 @@ Real emulator UI — **no passwords, no opened folders, no fake store mockups**.
 ports/scripts/capture-screenshots.sh
 ```
 
-Writes full PNGs here and smaller previews in `thumbs/` (for the GitHub README).
+Writes full PNGs here and **480px-wide** previews in `thumbs/` (shown at 240px in the GitHub README for retina sharpness).
 
 ## Files
 
