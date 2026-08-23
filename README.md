@@ -55,31 +55,31 @@ Emulator UI, empty tabs. Click a picture for full size. [How we capture these](p
 
 | Android | iPhone |
 | --- | --- |
-| [<img src="ports/docs/screenshots/thumbs/01-volume.png" alt="Android Volume 0.3.12" width="240">](ports/docs/screenshots/01-volume.png) | [<img src="ports/docs/screenshots/thumbs/ios-01-volume.png" alt="iPhone Volume 0.3.12" width="240">](ports/docs/screenshots/ios-01-volume.png) |
+| [<img src="ports/docs/screenshots/thumbs/01-volume.png" alt="Android Volume 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/01-volume.png) | [<img src="ports/docs/screenshots/thumbs/ios-01-volume.png" alt="iPhone Volume 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/ios-01-volume.png) |
 
 ### Create
 
 | Android | iPhone |
 | --- | --- |
-| [<img src="ports/docs/screenshots/thumbs/03-create.png" alt="Android Create 0.3.12" width="240">](ports/docs/screenshots/03-create.png) | [<img src="ports/docs/screenshots/thumbs/ios-03-create.png" alt="iPhone Create 0.3.12" width="240">](ports/docs/screenshots/ios-03-create.png) |
+| [<img src="ports/docs/screenshots/thumbs/03-create.png" alt="Android Create 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/03-create.png) | [<img src="ports/docs/screenshots/thumbs/ios-03-create.png" alt="iPhone Create 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/ios-03-create.png) |
 
 ### Mounted
 
 | Android | iPhone |
 | --- | --- |
-| [<img src="ports/docs/screenshots/thumbs/05-mounted.png" alt="Android Mounted 0.3.12" width="240">](ports/docs/screenshots/05-mounted.png) | [<img src="ports/docs/screenshots/thumbs/ios-05-mounted.png" alt="iPhone Mounted 0.3.12" width="240">](ports/docs/screenshots/ios-05-mounted.png) |
+| [<img src="ports/docs/screenshots/thumbs/05-mounted.png" alt="Android Mounted 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/05-mounted.png) | [<img src="ports/docs/screenshots/thumbs/ios-05-mounted.png" alt="iPhone Mounted 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/ios-05-mounted.png) |
 
 ### Tools
 
 | Android | iPhone |
 | --- | --- |
-| [<img src="ports/docs/screenshots/thumbs/04-tools.png" alt="Android Tools 0.3.12" width="240">](ports/docs/screenshots/04-tools.png) | [<img src="ports/docs/screenshots/thumbs/ios-04-tools.png" alt="iPhone Tools 0.3.12" width="240">](ports/docs/screenshots/ios-04-tools.png) |
+| [<img src="ports/docs/screenshots/thumbs/04-tools.png" alt="Android Tools 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/04-tools.png) | [<img src="ports/docs/screenshots/thumbs/ios-04-tools.png" alt="iPhone Tools 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/ios-04-tools.png) |
 
 ### Dark mode (Android)
 
 | Android |
 | --- |
-| [<img src="ports/docs/screenshots/thumbs/08-skin-signal.png" alt="Android dark mode 0.3.12" width="240">](ports/docs/screenshots/08-skin-signal.png) |
+| [<img src="ports/docs/screenshots/thumbs/08-skin-signal.png" alt="Android dark mode 0.3.12" width="240" style="border-radius:10px;border:1px solid #3d444d">](ports/docs/screenshots/08-skin-signal.png) |
 
 ## License (short)
 

@@ -1,5 +1,6 @@
 package dev.shivampingale.vcport
 
+import android.app.Activity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -53,6 +54,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -67,6 +69,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
@@ -74,7 +77,9 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -144,7 +149,7 @@ private val SignalScheme = darkColorScheme(
     surface = Color(0xE61B1D24),
     onSurface = Color(0xFFE8EAED),
     surfaceVariant = Color(0xFF252830),
-    onSurfaceVariant = Color(0xFF9AA0A6),
+    onSurfaceVariant = Color(0xFFB8BEC6),
     outline = SigBlue,
     error = Color(0xFFD04A3C),
     onError = Color.White
@@ -208,6 +213,22 @@ private fun typeFor(skin: VcSkin): Typography {
 @Composable
 fun VcPortTheme(skin: VcSkin = VcSkin.Desktop, content: @Composable () -> Unit) {
     val scheme = schemeFor(skin)
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            val statusBar = when (skin) {
+                VcSkin.Desktop -> android.graphics.Color.parseColor("#0A6CCE")
+                VcSkin.Signal -> android.graphics.Color.parseColor("#2E62D8")
+            }
+            window.statusBarColor = statusBar
+            window.navigationBarColor = scheme.background.toArgb()
+            val bars = WindowCompat.getInsetsController(window, view)
+            val lightBars = skin == VcSkin.Desktop
+            bars.isAppearanceLightStatusBars = lightBars
+            bars.isAppearanceLightNavigationBars = lightBars
+        }
+    }
     val round = if (skin == VcSkin.Signal) 16.dp else 4.dp
     CompositionLocalProvider(LocalVcSkin provides skin) {
         MaterialTheme(

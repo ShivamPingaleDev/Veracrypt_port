@@ -107,9 +107,16 @@ make_thumbs() {
 	echo "thumbs in $SHOTS/thumbs"
 }
 
+polish_shots() {
+	if command -v python3 >/dev/null 2>&1; then
+		python3 "$PORTS/scripts/polish-screenshots.py" || true
+	fi
+}
+
 echo "== Android screenshots =="
 android_shots || true
 echo "== iOS screenshots =="
 ios_shots || true
+polish_shots
 make_thumbs
 echo "Done → $SHOTS"

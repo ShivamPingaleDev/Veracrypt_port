@@ -13,7 +13,7 @@ Real emulator UI — **no passwords, no opened folders, no fake store mockups**.
 ports/scripts/capture-screenshots.sh
 ```
 
-Writes full PNGs here and **480px-wide** previews in `thumbs/` (shown at 240px in the GitHub README for retina sharpness).
+Writes full PNGs here and **480px-wide** previews in `thumbs/` (shown at 240px in the GitHub README for retina sharpness). `polish-screenshots.py` crops FLAG_SECURE black letterbox bands and adds a light matte so shots look clean on GitHub dark mode.
 
 ## Files
 
