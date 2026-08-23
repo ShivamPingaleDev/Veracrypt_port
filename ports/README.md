@@ -88,31 +88,22 @@ A free Apple ID lasts **7 days**. Open AltStore or SideStore again before that s
 
 If you have a Mac and Xcode: open the project, pick your name as Team, plug in the iPhone, press Run. More detail: [ios/README.md](ios/README.md).
 
-**Volume** — pick a locked file and type the password.
+## Screenshots
 
-Android: ![Volume](docs/screenshots/01-volume.png)
-iPhone: ![Volume iPhone](docs/screenshots/ios-01-volume.png)
+<details>
+<summary><strong>App UI</strong> (tap to expand)</summary>
 
-**Create** — make a new locked file.
+Click for full size. Capture: `ports/scripts/capture-screenshots.sh`
 
-Android: ![Create](docs/screenshots/03-create.png)
-iPhone: ![Create iPhone](docs/screenshots/ios-03-create.png)
+| Tab | Android | iPhone |
+| --- | --- | --- |
+| **Volume** | [<img src="docs/screenshots/thumbs/01-volume.png" width="200" alt="Volume">](docs/screenshots/01-volume.png) | [<img src="docs/screenshots/thumbs/ios-01-volume.png" width="200" alt="Volume">](docs/screenshots/ios-01-volume.png) |
+| **Create** | [<img src="docs/screenshots/thumbs/03-create.png" width="200" alt="Create">](docs/screenshots/03-create.png) | [<img src="docs/screenshots/thumbs/ios-03-create.png" width="200" alt="Create">](docs/screenshots/ios-03-create.png) |
+| **Mounted** | [<img src="docs/screenshots/thumbs/05-mounted.png" width="200" alt="Mounted">](docs/screenshots/05-mounted.png) | [<img src="docs/screenshots/thumbs/ios-05-mounted.png" width="200" alt="Mounted">](docs/screenshots/ios-05-mounted.png) |
+| **Tools** | [<img src="docs/screenshots/thumbs/04-tools.png" width="200" alt="Tools">](docs/screenshots/04-tools.png) | [<img src="docs/screenshots/thumbs/ios-04-tools.png" width="200" alt="Tools">](docs/screenshots/ios-04-tools.png) |
+| **Dark** | [<img src="docs/screenshots/thumbs/08-skin-signal.png" width="200" alt="Dark">](docs/screenshots/08-skin-signal.png) | — |
 
-**Mounted** — folders inside. Slots are this session only. Not a system drive.
-
-Android: ![Mounted](docs/screenshots/05-mounted.png)
-iPhone: ![Mounted iPhone](docs/screenshots/ios-05-mounted.png)
-
-**Tools** — change the volume password, headers, appearance. No wrap UI on the phones.
-
-Android: ![Tools](docs/screenshots/04-tools.png)
-iPhone: ![Tools iPhone](docs/screenshots/ios-04-tools.png)
-
-## Appearance (least important)
-
-Original is the VeraCrypt-like look. Dark mode is a dark theme. Not required. Not the point of the app.
-
-![Dark mode](docs/screenshots/08-skin-signal.png)
+</details>
 
 **Contact:** Shivam Mangesh Pingale — [shivampingaledev@proton.me](mailto:shivampingaledev@proton.me) · [shivampingaledev@gmail.com](mailto:shivampingaledev@gmail.com)
 

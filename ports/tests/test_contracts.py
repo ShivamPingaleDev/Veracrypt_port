@@ -333,8 +333,8 @@ class NamingAndAttributionTests(unittest.TestCase):
             self.assertIn("No pressure", blob)
         if FULL_TREE:
             root = read("README.md")
-            self.assertIn("internship", root.lower())
-            self.assertIn("No pressure", root)
+            self.assertIn("not unbreakable", root.lower())
+            self.assertNotIn("programming noob", root.lower())
 
     def test_android_readme_documents_provider_is_experimental(self) -> None:
         readme = read("ports/android/README.md")

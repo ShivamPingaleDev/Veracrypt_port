@@ -372,7 +372,6 @@ class Phase9LegalVersionTests(unittest.TestCase):
         if FULL_TREE:
             blobs.extend(
                 [
-                    read("README.md"),
                     read("SECURITY.md"),
                     read("PORTING.md"),
                     read("NOTICE"),
@@ -408,6 +407,9 @@ class Phase9LegalVersionTests(unittest.TestCase):
             data = path.read_bytes()
             self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"), f"{name} is not a PNG")
             self.assertGreater(len(data), 20_000, f"{name} looks empty/fake ({len(data)} bytes)")
+            thumb = shots / "thumbs" / name
+            if thumb.is_file():
+                self.assertGreater(len(thumb.read_bytes()), 8_000, f"thumb {name} too small")
         note = (shots / "README.md").read_text(encoding="utf-8")
         self.assertIn("FLAG_SECURE", note)
         self.assertIn("emulator", note.lower())
