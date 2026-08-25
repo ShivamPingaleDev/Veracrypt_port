@@ -70,7 +70,7 @@ See [FOSS.md](FOSS.md).
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-**0.3.12 is a stable alpha**, not 1.0, not a store build. Copies: [GitHub Release v0.3.12](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.12). The APK there is a **debug-signed preview**. The IPA is **unsigned**. Production is a FOSS APK you build and sign with your own keystore, plus an IPA you sign with your Team ID. Installing one Android copy replaces the others.
+**0.3.12 is a proof of concept** (stable alpha): not 1.0, not a store build, not production-ready. Copies: [GitHub Release v0.3.12](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.12). The APK there is a **debug-signed preview**. The IPA is **unsigned**. Production is a FOSS APK you build and sign with your own keystore, plus an IPA you sign with your Team ID. Installing one Android copy replaces the others.
 
 Install and current source are on [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is only the phone folders.
 

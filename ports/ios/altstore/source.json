@@ -22,9 +22,9 @@
       "versions": [
         {
           "version": "0.3.12",
-          "buildVersion": "17",
+          "buildVersion": "18",
           "date": "2026-08-23T00:00:00-00:00",
-          "localizedDescription": "Stable alpha. Same keyfile is not added twice in a session. After Create save, choose the volume yourself. Unsigned IPA on the GitHub tag; sign it yourself. Android is a single FOSS APK.",
+          "localizedDescription": "Proof of concept (stable alpha). Mount save-back, session reset, optional full format. Demo/debug-signed APK on GitHub; unsigned IPA — sign it yourself.",
           "downloadURL": "",
           "size": 0,
           "minOSVersion": "16.0"

@@ -9,7 +9,7 @@
   "upstream_commit": "b48e31f5b47da7d41025e3f0e02751675e15005a",
   "source_repo": "https://github.com/ShivamPingaleDev/Veracrypt_port",
   "update_manifest": "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json",
-  "notes": "VC Port 0.3.12 stable alpha rebuild: mount save-back, session reset after save/dismount, optional full format on create, auto-save after volume writes. GitHub APKs remain debug-signed previews. Not unbreakable.",
+  "notes": "VC Port 0.3.12 proof of concept (stable alpha): mount save-back, session reset, optional full format, auto-save after volume writes. GitHub APKs are debug-signed previews for demo/testing — not production. Not unbreakable.",
   "download_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
   "macos_url": "",
   "android_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",

@@ -10,7 +10,7 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 ## 0.3.12
 
-Stable alpha: session keyfile mix stays one copy; Create save wipes and does not leave the new file selected; mount save-back and session reset ship in the 0.3.12 rebuild.
+Stable alpha: session keyfile mix stays one copy; Create save wipes and does not leave the new file selected; mount save-back and session reset ship in the 0.3.12 rebuild. GitHub release is positioned as **proof of concept** (demo builds, not production).
 
 - Same keyfile picked or generated twice in one session stays one mix member (no `keyfile-2.key`). VeraCrypt would otherwise treat the extra copy as a different mix.
 - After Create save or full dismount, secrets, basket, and container selection are wiped with a visible session-reset banner; tab returns to Volume.

@@ -4,9 +4,9 @@ VC Port stays **100% free**. Optional support is GitHub-only (README / SUPPORT.m
 
 **Inspiration from other apps** (Arcanum, Disk Decipher — scoped to our VeraCrypt phone use case): [INSPIRATION.md](INSPIRATION.md).
 
-## Feature freeze (still alpha)
+## Feature freeze (proof of concept, still alpha)
 
-Started after **0.3.10**; freeze maintenance shipped in **0.3.11**. Session keyfile and Create-save wipe shipped in **0.3.12**. Still **stable alpha**, not 1.0, not a store build.
+Started after **0.3.10**; freeze maintenance shipped in **0.3.11**. Session keyfile and Create-save wipe shipped in **0.3.12**. GitHub releases are **proof of concept** demos — still **stable alpha**, not 1.0, not a store build, not production-ready.
 
 **One shipping branch:** freeze is **`master` only**. Ignore `experimental-otg-master` (OTG is already on master). Do not add commits to stale `experimental-biometrics` or `vcport-github`.
 

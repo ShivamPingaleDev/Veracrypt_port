@@ -22,7 +22,7 @@ More: [SUPPORT.md](SUPPORT.md)
 
 ## Download
 
-**0.3.12** — stable alpha (still testing, not a store app).
+**0.3.12** — **proof of concept** (stable alpha: still testing, not a store app, not production-ready).
 
 | Phone | What to get |
 | --- | --- |
@@ -31,6 +31,16 @@ More: [SUPPORT.md](SUPPORT.md)
 
 On iPhone: download IPA → open in AltStore/SideStore → sign in with your Apple ID → Trust in Settings → open VC Port.  
 More steps: [ports/ios/README.md](ports/ios/README.md)
+
+### Proof of concept (what that means here)
+
+GitHub releases are **demos** that show VeraCrypt-compatible volumes can be opened, edited, and saved back on a phone. They are useful for feedback and cross-device tests, but:
+
+- APKs are **debug-signed previews**; IPAs are **unsigned**
+- Container save-back, SAF/Files URIs, OTG, and multi-mount are still being hardened
+- Host Python tests and emulator walks do not replace testing on your own phone and desktop VeraCrypt
+
+Do not treat a GitHub download as a finished security product. Sign your own production build when you trust the tree.
 
 ## What it does
 
