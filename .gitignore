@@ -1,6 +1,11 @@
 # Local C lab — not part of VC Port / VeraCrypt
 experimental/
 
+# Educational scratch labs
+ports/pure-c/scratch/build/
+ports/pure-c/vcport-lab/build/
+ports/pure-rust/target/
+
 # For those using Visual Studio Code for development
 .vscode/
 

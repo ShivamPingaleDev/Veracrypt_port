@@ -35,7 +35,17 @@ Store metadata: `ports/android/fastlane/`. Inclusion notes: [ports/FOSS.md](port
 
 `ports/ios/build-native.sh` builds `libvc_mobile` for the current SDK: device `arm64`, simulator `arm64` (Apple silicon) or `x86_64` (Intel Mac). Each Apple user **signs their own** IPA with their Apple ID (AltStore / SideStore or Xcode Team). The GitHub IPA is unsigned on purpose. iPad Simulator: `ports/ios/run_ipad_sim.sh`. Device sideload under your name: Xcode Team, or `VC_PORT_IOS_TEAM=YOUR10CHARID ports/ios/sideload-sign.sh`. Parallel Android + iOS: `ports/scripts/build-phones.sh`. See [ports/FOSS.md](ports/FOSS.md), [ports/PUBLIC.md](ports/PUBLIC.md), and `ports/ios/README.md`.
 
-The SwiftUI app uses the same `vc_mobile` C API. Fingerprint / Face ID unlock is off (`VCPortEnableBiometrics` false). `experimental-biometrics` is **stale**. A personal C CLI that links the same `libvc_mobile` is `experimental-pure-c` (`ports/pure-c/`).
+The SwiftUI app uses the same `vc_mobile` C API. Fingerprint / Face ID unlock is off (`VCPortEnableBiometrics` false). `experimental-biometrics` is **stale**.
+
+**Educational branches (not products):**
+
+| Branch | Folder | Purpose |
+| --- | --- | --- |
+| `experimental-pure-c` | [ports/pure-c/scratch/](ports/pure-c/scratch/) | Hand-written C from scratch |
+| `experimental-pure-c` | [ports/pure-c/vcport-lab/](ports/pure-c/vcport-lab/) | C CLI linking `libvc_mobile` |
+| `experimental-pure-rust` | [ports/pure-rust/](ports/pure-rust/) | Hand-written Rust + [DEPENDENCIES.md](ports/pure-rust/DEPENDENCIES.md) |
+
+Index: [ports/edu/README.md](ports/edu/README.md)
 
 ## Offline-first
 
