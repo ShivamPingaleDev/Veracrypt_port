@@ -22,7 +22,7 @@ More: [SUPPORT.md](SUPPORT.md)
 
 ## Download
 
-**0.3.12** — **proof of concept** (stable alpha: still testing, not a store app, not production-ready).
+**0.3.12** — **proof of concept** (stable alpha: still testing, not a store app, not production-ready) (On Feature Freez).
 
 | Phone | What to get |
 | --- | --- |
@@ -41,6 +41,10 @@ GitHub releases are **demos** that show VeraCrypt-compatible volumes can be open
 - Host Python tests and emulator walks do not replace testing on your own phone and desktop VeraCrypt
 
 Do not treat a GitHub download as a finished security product. Sign your own production build when you trust the tree.
+
+#### Feature Freez.
+
+Currently Focusing on my academics so I am not going to add new features, Please improve upon this and please suggest new one for next iteration of app.
 
 ## What it does
 
