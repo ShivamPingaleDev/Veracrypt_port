@@ -24,6 +24,20 @@ object OtgUsb {
         return manager(context).deviceList.values.filter { OtgScsiDevice.isMassStorage(it) }
     }
 
+    fun sameDevice(a: UsbDevice, b: UsbDevice): Boolean = a.deviceName == b.deviceName
+
+    /** Name the system already published. Null until USB permission on some API levels. */
+    fun label(device: UsbDevice): String {
+        val product = runCatching { device.productName }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+        val maker = runCatching { device.manufacturerName }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+        return when {
+            product != null && maker != null && !product.startsWith(maker) -> "$maker $product"
+            product != null -> product
+            maker != null -> maker
+            else -> "USB ${device.deviceId}"
+        }
+    }
+
     fun requestPermission(context: Context, device: UsbDevice) {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or
             if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
@@ -35,7 +49,10 @@ object OtgUsb {
     fun hasPermission(context: Context, device: UsbDevice): Boolean =
         manager(context).hasPermission(device)
 
-    fun registerPermissionReceiver(context: Context, onGranted: (UsbDevice) -> Unit): BroadcastReceiver {
+    fun registerPermissionReceiver(
+        context: Context,
+        onResult: (UsbDevice, Boolean) -> Unit
+    ): BroadcastReceiver {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 if (intent.action != ACTION_PERMISSION) return
@@ -45,9 +62,8 @@ object OtgUsb {
                     @Suppress("DEPRECATION")
                     intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
                 } ?: return
-                if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                    onGranted(device)
-                }
+                val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                onResult(device, granted)
             }
         }
         val filter = IntentFilter(ACTION_PERMISSION)

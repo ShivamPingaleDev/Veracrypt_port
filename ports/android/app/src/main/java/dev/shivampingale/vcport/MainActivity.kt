@@ -124,6 +124,8 @@ class MainActivity : AppCompatActivity() {
     internal val containerUriState = mutableStateOf<Uri?>(null)
     internal val statusState = mutableStateOf("Stay offline. Select a VeraCrypt container, or share an encrypted file as-is.")
     internal val otgDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
+    internal val usbPromptOpenState = mutableStateOf(false)
+    internal val usbPromptDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
     internal val otgCandidatesState = mutableStateOf<List<OtgCandidate>>(emptyList())
     private var pendingOtgScsi: OtgScsiDevice? = null
     private var pendingOtgFile: File? = null
@@ -615,8 +617,16 @@ class MainActivity : AppCompatActivity() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
         }
-        usbPermissionReceiver = OtgUsb.registerPermissionReceiver(this) { device ->
-            openUsbMassStorage(device)
+        usbPermissionReceiver = OtgUsb.registerPermissionReceiver(this) { device, granted ->
+            usbPromptOpenState.value = false
+            if (!granted) {
+                otgDevicesState.value = otgDevicesState.value.filter { !OtgUsb.sameDevice(it, device) }
+                statusState.value = "USB permission denied. That disk is not listed under USB devices."
+                return@registerPermissionReceiver
+            }
+            val live = OtgUsb.massStorageDevices(this).firstOrNull { OtgUsb.sameDevice(it, device) } ?: device
+            addPermittedUsbDevice(live)
+            openUsbMassStorage(live)
         }
         setContent {
             var skin by remember { mutableStateOf(loadSkin()) }
@@ -636,6 +646,8 @@ class MainActivity : AppCompatActivity() {
                 var useBiometric by remember { mutableStateOf(false) }
                 var shareWithFiles by remember { mutableStateOf(OtgMountShare.shareWithFiles) }
                 var otgDevices by otgDevicesState
+                var usbPromptOpen by usbPromptOpenState
+                var usbPromptDevices by usbPromptDevicesState
                 var otgCandidates by otgCandidatesState
                 var status by statusState
                 var entries by entriesState
@@ -1141,6 +1153,9 @@ class MainActivity : AppCompatActivity() {
                                             OtgVolumePanel(
                                                 busy = busy,
                                                 devices = otgDevices,
+                                                promptOpen = usbPromptOpen,
+                                                promptDevices = usbPromptDevices,
+                                                deviceHasPermission = { OtgUsb.hasPermission(this@MainActivity, it) },
                                                 candidates = otgCandidates,
                                                 shareWithFiles = shareWithFiles,
                                                 onShareWithFiles = {
@@ -1150,20 +1165,41 @@ class MainActivity : AppCompatActivity() {
                                                 },
                                                 onScan = {
                                                     pendingOtgFile = null
-                                                    otgDevices = OtgUsb.massStorageDevices(this@MainActivity)
+                                                    val found = OtgUsb.massStorageDevices(this@MainActivity)
+                                                    usbPromptDevices = found
                                                     otgCandidates = emptyList()
-                                                    status = if (otgDevices.isEmpty()) {
-                                                        "No USB mass-storage device. Plug a stick, then Scan USB disks. This never auto-mounts."
+                                                    otgDevices = otgDevices.mapNotNull { selected ->
+                                                        found.firstOrNull {
+                                                            OtgUsb.sameDevice(it, selected) &&
+                                                                OtgUsb.hasPermission(this@MainActivity, it)
+                                                        }
+                                                    }
+                                                    if (found.isEmpty()) {
+                                                        usbPromptOpen = false
+                                                        status = "No USB mass-storage device. Plug a stick, then Scan USB disks. This never auto-mounts."
                                                     } else {
-                                                        "Found ${otgDevices.size} USB disk(s). Tap one. Grant permission. Then pick a partition and Open volume."
+                                                        usbPromptOpen = true
+                                                        status = "Select a USB device. Grant permission and it shows up under USB devices. Nothing auto-mounts."
+                                                    }
+                                                },
+                                                onDismissPrompt = { usbPromptOpen = false },
+                                                onChoosePromptDevice = { device ->
+                                                    usbPromptOpen = false
+                                                    if (OtgUsb.hasPermission(this@MainActivity, device)) {
+                                                        addPermittedUsbDevice(device)
+                                                        openUsbMassStorage(device)
+                                                    } else {
+                                                        OtgUsb.requestPermission(this@MainActivity, device)
+                                                        status = "Grant USB permission. The disk shows up under USB devices after you allow it. Still no auto-mount."
                                                     }
                                                 },
                                                 onPickDevice = { device ->
                                                     if (OtgUsb.hasPermission(this@MainActivity, device)) {
                                                         openUsbMassStorage(device)
                                                     } else {
+                                                        otgDevices = otgDevices.filter { !OtgUsb.sameDevice(it, device) }
                                                         OtgUsb.requestPermission(this@MainActivity, device)
-                                                        status = "Grant USB permission, then the partition list appears. Still no auto-mount."
+                                                        status = "Grant USB permission. The disk shows up under USB devices after you allow it. Still no auto-mount."
                                                     }
                                                 },
                                                 onPickPartition = { cand ->
@@ -2854,6 +2890,11 @@ class MainActivity : AppCompatActivity() {
             if (containerPathUsable(bound)) return bound
         }
         return ""
+    }
+
+    private fun addPermittedUsbDevice(device: UsbDevice) {
+        val current = otgDevicesState.value
+        otgDevicesState.value = current.filter { !OtgUsb.sameDevice(it, device) } + device
     }
 
     private fun openUsbMassStorage(device: UsbDevice) {
