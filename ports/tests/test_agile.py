@@ -151,6 +151,20 @@ class ProgressiveWalkTests(unittest.TestCase):
         self.assertIn("transferQueue.begin", view.split("func transferBetweenVolumes")[1].split("func refreshMountedListing")[0])
         self.assertNotIn("WorkManager", main)
         self.assertNotIn("BGTaskScheduler", view)
+        session_android = read(
+            "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/AppInterfaceSessionTest.kt"
+        )
+        session_ios = read("ports/ios/VCPortTests/AppInterfaceSessionTests.swift")
+        walk = read("ports/scripts/run-ui-walk.sh")
+        doc = read("ports/tests/UI-WALK.md")
+        for src in (session_android, session_ios, doc):
+            self.assertIn("Transfer queue finished the copy", src)
+        self.assertIn("testingLastTransferReport", session_android)
+        self.assertIn("lastTransferReport", session_ios)
+        self.assertIn("transfer queue", walk)
+        self.assertIn("AppInterfaceSessionTest::class", read(
+            "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/UiWalkSuite.kt"
+        ))
 
     def test_ui_walk_stays_local(self) -> None:
         wf = read(".github/workflows/vcport.yml")

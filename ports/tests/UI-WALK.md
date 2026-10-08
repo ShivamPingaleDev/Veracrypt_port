@@ -20,7 +20,7 @@ These status strings are the old walk. Both phone session tests wait for them. A
 
 ## Progressive cases (added on top)
 
-USB select, then permission, then the disk under USB devices (`FakeUsbUiTest`). Create resets the scribble pad before the file is saved. Password, PIM, and keyfile rows are shared widgets with the same tags. A skipped Files sheet does not delete the new volume. iOS has no whole-disk USB. In-app preview stays inside the app.
+USB select, then permission, then the disk under USB devices (`FakeUsbUiTest`). Create resets the scribble pad before the file is saved. Password, PIM, and keyfile rows are shared widgets with the same tags. A skipped Files sheet does not delete the new volume. The session copy records a transfer queue row. Transfer queue finished the copy when that row is Done. iOS has no whole-disk USB. In-app preview stays inside the app.
 
 ## 10 phases (session test)
 

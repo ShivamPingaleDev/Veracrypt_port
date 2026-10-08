@@ -158,6 +158,7 @@ class MainActivity : AppCompatActivity() {
     private val transferQueue = TransferQueue()
     internal val transferJobsState = mutableStateOf<List<TransferJob>>(emptyList())
     internal val transferEtaState = mutableStateOf("")
+    internal val lastTransferReportState = mutableStateOf("")
     internal val hashResultState = mutableStateOf("")
     internal val pimEstimateResultState = mutableStateOf("")
     internal val useBackupHeaderState = mutableStateOf(false)
@@ -487,6 +488,9 @@ class MainActivity : AppCompatActivity() {
         done.await(5, TimeUnit.SECONDS)
         return started[0]
     }
+
+    @androidx.annotation.VisibleForTesting
+    fun testingLastTransferReport(): String = lastTransferReportState.value
 
     @androidx.annotation.VisibleForTesting
     fun testingExportNamed(name: String, dest: File): Boolean {
@@ -2179,6 +2183,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun clearTransferQueue() {
+        val jobs = transferQueue.snapshot()
+        if (jobs.isNotEmpty()) {
+            lastTransferReportState.value = jobs.joinToString("\n") { "${it.name}=${it.state.label}" }
+        }
         transferQueue.reset()
         transferJobsState.value = emptyList()
         transferEtaState.value = ""

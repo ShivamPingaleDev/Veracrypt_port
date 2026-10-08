@@ -85,6 +85,7 @@ struct ContentView: View {
     @State var transferQueue = TransferQueue()
     @State var transferJobs: [TransferJob] = []
     @State var transferEta = ""
+    @State var lastTransferReport = ""
     @State var entropyMarks: [CGPoint] = []
     @State var holdLock = false
     @State var basketURLs: [URL] = []
@@ -543,6 +544,10 @@ struct ContentView: View {
     }
 
     func clearTransferQueue() {
+        let jobs = transferQueue.snapshot()
+        if !jobs.isEmpty {
+            lastTransferReport = jobs.map { "\($0.name)=\($0.state.label)" }.joined(separator: "\n")
+        }
         transferQueue.reset()
         transferJobs = []
         transferEta = ""
@@ -2682,6 +2687,7 @@ struct ContentView: View {
             transferBetweenVolumes(entries: files, dest: dest, move: move)
             return true
         }
+        testing.lastTransferReport = { lastTransferReport }
         testing.restoreHeader = { bak in
             restoreVolumeHeader(bak)
         }

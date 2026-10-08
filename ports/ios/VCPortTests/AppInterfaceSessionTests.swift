@@ -213,6 +213,11 @@ final class AppInterfaceSessionTests: XCTestCase {
             "copy FILL into photos.jpg: \(onMainValue { t.status() })"
         )
         waitStatus("Copied 1 file(s) into", 60)
+        let queueReport = onMainValue { t.lastTransferReport() }
+        XCTAssertTrue(
+            queueReport.contains("\(fillName!)=Done"),
+            "Transfer queue finished the copy: \(queueReport)"
+        )
 
         let moreName = onMainValue { t.entryNames() }.first { $0.localizedCaseInsensitiveContains("MORE") }!
         XCTAssertTrue(

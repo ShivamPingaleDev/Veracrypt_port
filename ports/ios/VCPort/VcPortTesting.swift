@@ -81,6 +81,7 @@ final class VcPortTesting {
     var openDir: (String) -> Void = { _ in }
     var goParent: () -> Void = {}
     var transferNamed: (Set<String>, String, Bool) -> Bool = { _, _, _ in false }
+    var lastTransferReport: () -> String = { "" }
     var restoreHeader: (URL) -> Void = { _ in }
     var copyHeaderBackup: (URL) -> Bool = { _ in false }
     var homeLeave: () -> Void = {}

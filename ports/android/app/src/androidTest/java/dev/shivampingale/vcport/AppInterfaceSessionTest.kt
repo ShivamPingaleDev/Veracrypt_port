@@ -303,6 +303,11 @@ class AppInterfaceSessionTest {
             rule.activity.testingTransferNamed(setOf(moveName), nestedDest.name, false)
         )
         waitStatus("Copied 1 file(s) into", 60_000)
+        val queueReport = rule.activity.testingLastTransferReport()
+        assertTrue(
+            "Transfer queue finished the copy: $queueReport",
+            queueReport.contains("$moveName=Done")
+        )
 
         val moreName = rule.activity.testingEntryNames().first { it.contains("MORE", ignoreCase = true) }
         assertTrue(

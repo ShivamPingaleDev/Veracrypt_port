@@ -2,8 +2,9 @@
 # One slow UI walk. Default runs Android and iOS together.
 # VC_PORT_WALK=android or VC_PORT_WALK=ios runs one phone (GitHub Actions).
 # VC_PORT_CI=1 fails if the iOS Simulator is missing instead of skipping.
-# 10-phase session on both phones; this branch also runs fake USB (Android)
-# and no-whole-disk + View in app (iOS). Does not tap Panic wipe or
+# 10-phase session on both phones; this branch also runs fake USB (Android),
+# the transfer queue on the session copy, and no-whole-disk + View in app (iOS).
+# Does not tap Panic wipe or
 # Check for updates.
 # SLOW=1 also runs Android SlowHumanSessionTest (entropy scribble on screen).
 # Android: boots AVD vcport-api35 headless if adb is empty. Needs Java 17
