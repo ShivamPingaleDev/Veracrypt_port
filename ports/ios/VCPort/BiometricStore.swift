@@ -56,13 +56,15 @@ enum BiometricStore {
     }
 
     static func load(path: String) -> FactorBundle? {
+        let context = LAContext()
+        context.localizedReason = "Unlock with Face ID, Touch ID, or passcode"
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: path,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseOperationPrompt as String: "Unlock with Face ID, Touch ID, or passcode"
+            kSecUseAuthenticationContext as String: context
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)

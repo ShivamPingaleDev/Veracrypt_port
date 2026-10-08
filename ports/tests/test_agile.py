@@ -129,6 +129,29 @@ class ProgressiveWalkTests(unittest.TestCase):
         self.assertIn('Locale(identifier: "en_US")', pim)
         self.assertIn("500_000", pim)
 
+    def test_transfer_queue_is_one_worker_and_can_cancel(self) -> None:
+        android = read("ports/android/app/src/main/java/dev/shivampingale/vcport/TransferQueue.kt")
+        ios = read("ports/ios/VCPort/TransferQueue.swift")
+        theme = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
+        view = read("ports/ios/VCPort/ContentView.swift")
+        main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        for src in (android, ios):
+            self.assertIn("fun claim" if src is android else "func claim", src)
+            self.assertIn("requestCancel", src)
+            self.assertIn("about ", src)
+            self.assertIn("Queue cancelled", src)
+        self.assertIn("transfer_queue", theme)
+        self.assertIn("transfer_queue_cancel", theme)
+        self.assertIn("Cancel queue", theme)
+        self.assertIn("transfer_queue", view)
+        self.assertIn("Cancel queue", view)
+        self.assertIn("transferQueue.requestCancel()", main)
+        self.assertIn("transferQueue.requestCancel()", view)
+        self.assertIn("transferQueue.begin", main.split("private fun transferBetweenVolumes")[1].split("private fun refreshMountedListing")[0])
+        self.assertIn("transferQueue.begin", view.split("func transferBetweenVolumes")[1].split("func refreshMountedListing")[0])
+        self.assertNotIn("WorkManager", main)
+        self.assertNotIn("BGTaskScheduler", view)
+
     def test_ui_walk_stays_local(self) -> None:
         wf = read(".github/workflows/vcport.yml")
         walk = read("ports/scripts/run-ui-walk.sh")

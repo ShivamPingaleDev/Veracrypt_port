@@ -82,6 +82,9 @@ struct ContentView: View {
     @State var busy = false
     @State var workTitle = ""
     @State var workPercent = -1
+    @State var transferQueue = TransferQueue()
+    @State var transferJobs: [TransferJob] = []
+    @State var transferEta = ""
     @State var entropyMarks: [CGPoint] = []
     @State var holdLock = false
     @State var basketURLs: [URL] = []
@@ -116,7 +119,13 @@ struct ContentView: View {
             }
             .animation(.easeOut(duration: 0.15), value: busy)
             if busy {
-                WorkOverlay(title: workTitle.isEmpty ? status : workTitle, percent: workPercent)
+                WorkOverlay(
+                    title: workTitle.isEmpty ? status : workTitle,
+                    percent: workPercent,
+                    jobs: transferJobs,
+                    eta: transferEta,
+                    onCancel: { transferQueue.requestCancel() }
+                )
                     .transition(.opacity)
             }
         }
@@ -517,6 +526,28 @@ struct ContentView: View {
         entropyPercent = Int(VcMobileBridge.entropyPercent())
     }
 
+    func publishTransferQueue() {
+        let gen = transferQueue.generation
+        let jobs = transferQueue.snapshot()
+        let eta = transferQueue.etaLabel()
+        let apply = {
+            if gen != self.transferQueue.generation { return }
+            self.transferJobs = jobs
+            self.transferEta = eta
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
+    }
+
+    func clearTransferQueue() {
+        transferQueue.reset()
+        transferJobs = []
+        transferEta = ""
+    }
+
     func beginWork(_ title: String, updateStatus: Bool = true) {
         VcMobileBridge.resetProgress()
         workTitle = title
@@ -628,7 +659,7 @@ struct ContentView: View {
         let pim = Int32(createPim) ?? 0
         let cipher = createCipher
         let kdf = createKdf
-        var keys = keyfileURLs.map(\.path)
+        let keys = keyfileURLs.map(\.path)
         let hiddenPw = createHidden ? createHiddenPassword : ""
         let hiddenPimVal = Int32(createHiddenPim) ?? 0
         let nested = createHidden
@@ -751,7 +782,7 @@ struct ContentView: View {
     }
 
     func openVolume() {
-        guard let path = containerURL?.path else {
+        guard containerURL?.path != nil else {
             status = "Select a container first."
             return
         }
@@ -1091,44 +1122,59 @@ struct ContentView: View {
                 ? (move ? "Moving \(toCopy[0].name) to \(label)…" : "Copying \(toCopy[0].name) to \(label)…")
                 : (move ? "Moving \(toCopy.count) files to \(label)…" : "Copying \(toCopy.count) files to \(label)…")
         )
+        transferQueue.begin(toCopy.map { ($0.name, Int64(clamping: $0.size)) })
+        publishTransferQueue()
         let srcDir = dirPath
         DispatchQueue.global(qos: .userInitiated).async {
             var copied = 0
             var moved = 0
             var lastError: String?
-            for entry in toCopy {
+            for (index, entry) in toCopy.enumerated() {
+                if !transferQueue.claim(index) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 let temp = FileManager.default.temporaryDirectory
                     .appendingPathComponent("xfer-\(Int(Date().timeIntervalSince1970 * 1000))-\(entry.name.replacingOccurrences(of: "/", with: "_"))")
                 try? FileManager.default.removeItem(at: temp)
                 let srcPath = joinDir(srcDir, entry.name)
+                var failed: String?
                 let rcExport = VcMobileBridge.exportFile(src, name: srcPath, dest: temp.path)
                 if rcExport != 0 {
-                    lastError = extractErrorMessage(entry.name, rcExport)
-                    wipeFile(temp)
-                    continue
-                }
-                let destDir = dest.dirPath.isEmpty ? "/" : dest.dirPath
-                let rcImport = VcMobileBridge.importFile(dest.handle, destDir: destDir, src: temp.path, destName: entry.name)
-                wipeFile(temp)
-                if rcImport != 0 {
-                    lastError = importErrorMessage(entry.name, rcImport, handle: dest.handle)
-                    continue
-                }
-                copied += 1
-                if move {
-                    if VcMobileBridge.deleteFile(src, path: srcPath) == 0 {
-                        moved += 1
+                    failed = extractErrorMessage(entry.name, rcExport)
+                    lastError = failed
+                } else {
+                    let destDir = dest.dirPath.isEmpty ? "/" : dest.dirPath
+                    let rcImport = VcMobileBridge.importFile(dest.handle, destDir: destDir, src: temp.path, destName: entry.name)
+                    if rcImport != 0 {
+                        failed = importErrorMessage(entry.name, rcImport, handle: dest.handle)
+                        lastError = failed
+                    } else {
+                        copied += 1
+                        if move, VcMobileBridge.deleteFile(src, path: srcPath) == 0 {
+                            moved += 1
+                        }
                     }
                 }
+                wipeFile(temp)
+                transferQueue.finish(index, failed: failed)
+                publishTransferQueue()
             }
             var saveHandles: Set<OpaquePointer> = []
             if copied > 0 { saveHandles.insert(dest.handle) }
             if move && moved > 0 { saveHandles.insert(src) }
             let saveWarning = saveHandles.isEmpty ? nil : autoSaveSaveWarning(handles: saveHandles)
+            let cancelled = transferQueue.cancelRequested && copied < toCopy.count && lastError == nil
             DispatchQueue.main.async {
+                clearTransferQueue()
                 endWork()
                 let base: String
-                if let lastError, copied == 0 {
+                if cancelled && copied == 0 {
+                    base = "Queue cancelled."
+                } else if cancelled {
+                    base = "Copied \(copied) of \(toCopy.count) file(s). Queue cancelled."
+                } else if let lastError, copied == 0 {
                     base = lastError
                 } else if move && moved < copied {
                     base = "Copied \(copied) file(s) into \(label). Could not delete \(copied - moved) from the source volume."
@@ -1168,9 +1214,10 @@ struct ContentView: View {
     /// keyfile) so Copy once can be pasted into Notes and creation can
     /// continue. Dismount / Panic still call lockSession().
     func dismountOnLeave() {
+        transferQueue.requestCancel()
         let wasOpen = volumeHandle != nil || !mountedVolumes.isEmpty
         if wasOpen {
-            mountedVolumes.forEach { saveAndCloseMounted($0) }
+            mountedVolumes.forEach { _ = saveAndCloseMounted($0) }
         }
         clearMountedVolumeState()
         password = ""
@@ -1426,6 +1473,7 @@ struct ContentView: View {
         pimEstimateResult = ""
         forgetUnlock()
         selectedTab = 0
+        clearTransferQueue()
         sessionResetPulse += 1
         sessionResetFlash = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
@@ -1452,7 +1500,7 @@ struct ContentView: View {
         let saving = !volumes.isEmpty
         if saving { beginWork("Saving and dismounting…") }
         DispatchQueue.global(qos: .userInitiated).async {
-            volumes.forEach { saveAndCloseMounted($0) }
+            volumes.forEach { _ = saveAndCloseMounted($0) }
             DispatchQueue.main.async {
                 clearMountedVolumeState()
                 if saving { endWork() }
@@ -1466,6 +1514,7 @@ struct ContentView: View {
     /// Home / Recents uses dismountOnLeave so Create can continue. Panic adds
     /// Hardening.panic after lock. Do not grow a fifth path.
     func closeOpenVolumes(_ reason: String) {
+        transferQueue.requestCancel()
         if volumeHandle != nil || !mountedVolumes.isEmpty {
             beginWork(reason)
             VcMobileBridge.setProgress(100, phase: reason)
@@ -1474,6 +1523,8 @@ struct ContentView: View {
     }
 
     func panicWipe() {
+        transferQueue.requestCancel()
+        clearTransferQueue()
         closeVolume()
         password = ""
         holdLock = false
@@ -1577,19 +1628,30 @@ struct ContentView: View {
         if urls.isEmpty { return }
         let verb = move ? "Moving" : "Copying"
         beginWork(urls.count == 1 ? "\(verb) from device…" : "\(verb) \(urls.count) files from device…")
+        transferQueue.begin(urls.map { url in
+            let bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+            return (url.lastPathComponent, bytes)
+        })
+        publishTransferQueue()
         let destDir = dirPath.isEmpty ? "/" : dirPath
         var used = Set(entries.filter { !$0.isDir }.map(\.name))
         DispatchQueue.global(qos: .userInitiated).async {
             var copied = 0
             var moved = 0
             var lastError: String?
-            for url in urls {
+            for (index, url) in urls.enumerated() {
+                if !transferQueue.claim(index) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 let accessed = url.startAccessingSecurityScopedResource()
                 defer {
                     if accessed { url.stopAccessingSecurityScopedResource() }
                 }
                 let name = uniqueDestName(url.lastPathComponent, used: &used)
                 var temp: URL?
+                var failed: String?
                 let srcPath: String
                 if url.isFileURL, FileManager.default.isReadableFile(atPath: url.path) {
                     srcPath = url.path
@@ -1597,31 +1659,43 @@ struct ContentView: View {
                     temp = copiedUrl
                     srcPath = copiedUrl.path
                 } else {
-                    lastError = "Could not read \(url.lastPathComponent). Pick it again from Files."
-                    continue
+                    failed = "Could not read \(url.lastPathComponent). Pick it again from Files."
+                    lastError = failed
+                    srcPath = ""
                 }
-                let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
+                if failed == nil {
+                    let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
+                    if rc != 0 {
+                        failed = importErrorMessage(name, rc, handle: handle)
+                        lastError = failed
+                    } else {
+                        copied += 1
+                        if move {
+                            do {
+                                try FileManager.default.removeItem(at: url)
+                                moved += 1
+                            } catch {
+                            }
+                        }
+                    }
+                }
                 if let temp {
                     wipeFile(temp)
                 }
-                if rc != 0 {
-                    lastError = importErrorMessage(name, rc, handle: handle)
-                    continue
-                }
-                copied += 1
-                if move {
-                    do {
-                        try FileManager.default.removeItem(at: url)
-                        moved += 1
-                    } catch {
-                    }
-                }
+                transferQueue.finish(index, failed: failed)
+                publishTransferQueue()
             }
             let saveWarning = copied > 0 ? autoSaveSaveWarning(handles: [handle]) : nil
+            let cancelled = transferQueue.cancelRequested && copied < urls.count && lastError == nil
             DispatchQueue.main.async {
+                clearTransferQueue()
                 endWork()
                 let base: String
-                if lastError != nil && copied == 0 {
+                if cancelled && copied == 0 {
+                    base = "Queue cancelled."
+                } else if cancelled {
+                    base = "Copied \(copied) of \(urls.count) file(s). Queue cancelled."
+                } else if lastError != nil && copied == 0 {
                     base = lastError ?? "Could not copy that file into the volume."
                 } else if move && moved < copied {
                     base = "Copied \(copied) file(s) into the volume. Could not delete the original; remove it in Files if you meant a move."
@@ -1660,24 +1734,39 @@ struct ContentView: View {
         }
         let verb = move ? "Moving" : "Copying"
         beginWork(files.count == 1 ? "\(verb) \(files[0].name) to device…" : "\(verb) \(files.count) files to device…")
+        transferQueue.begin(files.map { ($0.name, Int64(clamping: $0.size)) })
+        publishTransferQueue()
         DispatchQueue.global(qos: .userInitiated).async {
             var dests: [(VaultEntry, URL)] = []
-            for entry in files {
+            var lastError: String?
+            for (index, entry) in files.enumerated() {
+                if !transferQueue.claim(index) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 let dest = FileManager.default.temporaryDirectory
                     .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
                 try? FileManager.default.removeItem(at: dest)
                 let rc = VcMobileBridge.exportFile(handle, name: joinDir(dirPath, entry.name), dest: dest.path)
                 if rc != 0 {
-                    DispatchQueue.main.async {
-                        endWork()
-                        status = extractErrorMessage(entry.name, rc)
-                    }
-                    return
+                    lastError = extractErrorMessage(entry.name, rc)
+                    wipeFile(dest)
+                    transferQueue.finish(index, failed: lastError)
+                    publishTransferQueue()
+                    continue
                 }
                 dests.append((entry, dest))
+                transferQueue.finish(index, failed: nil)
+                publishTransferQueue()
             }
             DispatchQueue.main.async {
+                clearTransferQueue()
                 endWork()
+                if dests.isEmpty {
+                    status = lastError ?? "Queue cancelled."
+                    return
+                }
                 SystemFiles.exportCopy(urls: dests.map(\.1)) { saved in
                     if saved == nil {
                         status = files.count == 1
@@ -1844,8 +1933,8 @@ struct ContentView: View {
             status = "Enter the current password or keyfiles above."
             return nil
         }
-        var temps: [URL] = []
-        var paths = keyfileURLs.map(\.path)
+        let temps: [URL] = []
+        let paths = keyfileURLs.map(\.path)
         return (text, unlockPimText(), paths, temps)
     }
 
@@ -2635,6 +2724,9 @@ struct ContentView: View {
 private struct WorkOverlay: View {
     let title: String
     let percent: Int
+    var jobs: [TransferJob] = []
+    var eta: String = ""
+    var onCancel: () -> Void = {}
 
     var shown: String {
         title.isEmpty ? "On this phone" : title
@@ -2668,6 +2760,26 @@ private struct WorkOverlay: View {
                 Text("Nothing runs out of sight.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if !jobs.isEmpty {
+                    if !eta.isEmpty {
+                        Text(eta)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(jobs) { job in
+                            Text("\(job.name) — \(job.state.label)")
+                                .font(.caption)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .frame(maxHeight: 140)
+                    .portTag("transfer_queue")
+                    if jobs.contains(where: { $0.state == .waiting || $0.state == .running }) {
+                        Button("Cancel queue", action: onCancel)
+                            .portTag("transfer_queue_cancel")
+                    }
+                }
             }
             .padding(28)
             .frame(maxWidth: 340)

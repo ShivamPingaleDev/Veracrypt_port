@@ -12,6 +12,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -25,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -49,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.TabPosition
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -475,7 +479,10 @@ fun SkinProgress(
 fun WorkOverlay(
     visible: Boolean,
     title: String,
-    percent: Int
+    percent: Int,
+    jobs: List<TransferJob> = emptyList(),
+    eta: String = "",
+    onCancelQueue: () -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
     val skin = LocalVcSkin.current
@@ -562,6 +569,37 @@ fun WorkOverlay(
                         color = colors.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
+                    if (jobs.isNotEmpty()) {
+                        if (eta.isNotEmpty()) {
+                            Text(
+                                eta,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colors.onSurfaceVariant
+                            )
+                        }
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 140.dp)
+                                .verticalScroll(rememberScrollState())
+                                .testTag("transfer_queue"),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            jobs.forEach { job ->
+                                Text(
+                                    "${job.name} — ${job.state.label}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colors.onSurface
+                                )
+                            }
+                        }
+                        if (jobs.any { it.state == TransferJobState.Waiting || it.state == TransferJobState.Running }) {
+                            TextButton(
+                                onClick = onCancelQueue,
+                                modifier = Modifier.testTag("transfer_queue_cancel")
+                            ) { Text("Cancel queue") }
+                        }
+                    }
                     }
                 }
             }

@@ -19,6 +19,8 @@ Replacements today:
 
 File keyfiles still use official `src/Volume/Keyfile.cpp`. Phone builds define `TC_PORT_NO_TOKEN`.
 
+Upstream warnings left in `src/` (do not patch them here): `typeid` side effects in `Volume.cpp`, `VolumeHeader.cpp`, and `Pkcs5Kdf.cpp`. Phone Swift warnings in `ContentView.swift` and the deprecated Keychain prompt in `BiometricStore.swift` are fixed in this tree.
+
 When VeraCrypt publishes:
 
 ```bash

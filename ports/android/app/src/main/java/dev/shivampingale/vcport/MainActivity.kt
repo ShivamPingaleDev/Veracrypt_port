@@ -155,6 +155,9 @@ class MainActivity : AppCompatActivity() {
     internal val dirPathState = mutableStateOf("")
     internal val listTruncatedState = mutableStateOf(false)
     internal val busyState = mutableStateOf(false)
+    private val transferQueue = TransferQueue()
+    internal val transferJobsState = mutableStateOf<List<TransferJob>>(emptyList())
+    internal val transferEtaState = mutableStateOf("")
     internal val hashResultState = mutableStateOf("")
     internal val pimEstimateResultState = mutableStateOf("")
     internal val useBackupHeaderState = mutableStateOf(false)
@@ -702,6 +705,8 @@ class MainActivity : AppCompatActivity() {
                 var dirPath by dirPathState
                 var listTruncated by listTruncatedState
                 var busy by busyState
+                var transferJobs by transferJobsState
+                var transferEta by transferEtaState
                 var hashResult by hashResultState
                 var pimEstimateResult by pimEstimateResultState
                 var tab by tabState
@@ -1753,7 +1758,10 @@ class MainActivity : AppCompatActivity() {
                 WorkOverlay(
                     visible = busy,
                     title = overlayTitle.ifEmpty { status },
-                    percent = overlayPercent
+                    percent = overlayPercent,
+                    jobs = transferJobs,
+                    eta = transferEta,
+                    onCancelQueue = { transferQueue.requestCancel() }
                 )
                 }
             }
@@ -2003,6 +2011,7 @@ class MainActivity : AppCompatActivity() {
      * and creation can continue. Dismount and Panic wipe still call [lockSession].
      */
     private fun dismountOnLeave() {
+        transferQueue.requestCancel()
         val wasOpen = NativeBridge.isOpen(handleState.value) || mountedVolumesState.value.isNotEmpty()
         if (wasOpen) {
             saveAllMountedSync()
@@ -2067,6 +2076,7 @@ class MainActivity : AppCompatActivity() {
         pimEstimateResultState.value = ""
         tabState.intValue = 0
         sessionResetPulseState.intValue++
+        clearTransferQueue()
         if (statusMessage.isNotEmpty() && !statusState.value.startsWith("Panic")) {
             statusState.value = statusMessage
         }
@@ -2119,6 +2129,7 @@ class MainActivity : AppCompatActivity() {
      * [Hardening.panic] after lock. Do not grow a fifth path.
      */
     internal fun closeOpenVolumes(reason: String) {
+        transferQueue.requestCancel()
         if (NativeBridge.isOpen(handleState.value) || mountedVolumesState.value.isNotEmpty()) {
             beginWork(reason)
             NativeBridge.setProgress(100, reason)
@@ -2146,12 +2157,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun panicWipe() {
+        transferQueue.requestCancel()
+        clearTransferQueue()
         closeMountedVolume()
         OtgBlockStore.releaseAll()
         releasePendingPfd()
         wipeRamSecrets()
         Hardening.panic(this)
         basketUrisState.value = emptyList()
+    }
+
+    private fun publishTransferQueue() {
+        val gen = transferQueue.generation
+        val jobs = transferQueue.snapshot()
+        val eta = transferQueue.etaLabel()
+        runOnUiThread {
+            if (gen != transferQueue.generation) return@runOnUiThread
+            transferJobsState.value = jobs
+            transferEtaState.value = eta
+        }
+    }
+
+    private fun clearTransferQueue() {
+        transferQueue.reset()
+        transferJobsState.value = emptyList()
+        transferEtaState.value = ""
     }
 
     internal fun beginWork(title: String = "", updateStatus: Boolean = true) {
@@ -3425,40 +3455,61 @@ class MainActivity : AppCompatActivity() {
             if (uris.size == 1) "$verb from device…"
             else "$verb ${uris.size} files from device…"
         )
+        val queued = uris.map { uri ->
+            val display = ShareHelper.displayName(this, uri) ?: "file"
+            display to uriLength(uri).coerceAtLeast(0L)
+        }
+        transferQueue.begin(queued)
+        publishTransferQueue()
         Thread {
             val used = existingNames.toMutableSet()
             var copied = 0
             var moved = 0
             var lastError: String? = null
             val destDir = if (dirPath.isEmpty()) "/" else dirPath
-            for (uri in uris) {
+            for ((index, uri) in uris.withIndex()) {
+                if (!transferQueue.claim(index)) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 var cache: File? = null
+                var failed: String? = null
                 try {
                     val display = ShareHelper.displayName(this, uri) ?: "file"
                     val name = uniqueDestName(display, used)
                     val outFile = copyUriForNativeImport(uri, name, "Reading $name")
                     if (outFile == null) {
-                        lastError = "Could not read $display. Pick it again from Files."
-                        continue
+                        failed = "Could not read $display. Pick it again from Files."
+                        lastError = failed
+                    } else {
+                        cache = outFile
+                        val rc = NativeBridge.importFile(handle, destDir, outFile.absolutePath, name)
+                        if (rc != 0) {
+                            failed = importErrorMessage(name, rc, handle)
+                            lastError = failed
+                        } else {
+                            copied++
+                            if (move && tryDeleteDocument(uri)) moved++
+                        }
                     }
-                    cache = outFile
-                    val rc = NativeBridge.importFile(handle, destDir, outFile.absolutePath, name)
-                    if (rc != 0) {
-                        lastError = importErrorMessage(name, rc, handle)
-                        continue
-                    }
-                    copied++
-                    if (move && tryDeleteDocument(uri)) moved++
                 } catch (_: Exception) {
-                    lastError = "Could not copy that file into the volume."
+                    failed = "Could not copy that file into the volume."
+                    lastError = failed
                 } finally {
                     cache?.let { KeyfileIo.wipe(it) }
+                    transferQueue.finish(index, failed)
+                    publishTransferQueue()
                 }
             }
             val saveWarning = if (copied > 0) autoSaveSaveWarning(setOf(handle)) else null
+            val cancelled = transferQueue.cancelRequested && copied < uris.size && lastError == null
             runOnUiThread {
+                clearTransferQueue()
                 endWork()
                 val base = when {
+                        cancelled && copied == 0 -> "Queue cancelled."
+                        cancelled -> "Copied $copied of ${uris.size} file(s). Queue cancelled."
                         lastError != null && copied == 0 -> lastError
                         move && moved < copied ->
                             "Copied $copied file(s) into the volume. Could not delete the original; remove them in Files if you meant a move."
@@ -3581,46 +3632,64 @@ class MainActivity : AppCompatActivity() {
         }
         val verb = if (move) "Moving" else "Copying"
         beginWork("$verb ${toCopy.size} files to device…")
+        transferQueue.begin(toCopy.map { it.name to it.size })
+        publishTransferQueue()
         Thread {
             var copied = 0
             var moved = 0
             var lastError: String? = null
-            for (entry in toCopy) {
+            for ((index, entry) in toCopy.withIndex()) {
+                if (!transferQueue.claim(index)) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 val dest = File(cacheDir, "to-device-${System.nanoTime()}-${ShareHelper.safeName(entry.name)}")
+                var failed: String? = null
                 try {
                     val volumePath = joinDir(dirPath, entry.name)
                     val rc = NativeBridge.exportFile(handle, volumePath, dest.absolutePath)
                     if (rc != 0 || !dest.exists()) {
-                        lastError = extractErrorMessage(entry.name, rc)
-                        continue
-                    }
-                    val outUri = createDocumentInTree(treeUri, entry.name)
-                    if (outUri == null) {
-                        lastError = "Could not save ${entry.name} in that folder."
-                        continue
-                    }
-                    val wrote = contentResolver.openOutputStream(outUri)?.use { out ->
-                        dest.inputStream().use { input ->
-                            copyStreamProgress(input, out, dest.length(), "Saving ${entry.name}")
+                        failed = extractErrorMessage(entry.name, rc)
+                        lastError = failed
+                    } else {
+                        val outUri = createDocumentInTree(treeUri, entry.name)
+                        if (outUri == null) {
+                            failed = "Could not save ${entry.name} in that folder."
+                            lastError = failed
+                        } else {
+                            val wrote = contentResolver.openOutputStream(outUri)?.use { out ->
+                                dest.inputStream().use { input ->
+                                    copyStreamProgress(input, out, dest.length(), "Saving ${entry.name}")
+                                }
+                                true
+                            } ?: false
+                            if (!wrote) {
+                                failed = "Could not save ${entry.name} on the device."
+                                lastError = failed
+                            } else {
+                                copied++
+                                if (move && NativeBridge.deleteFile(handle, volumePath) == 0) moved++
+                            }
                         }
-                        true
-                    } ?: false
-                    if (!wrote) {
-                        lastError = "Could not save ${entry.name} on the device."
-                        continue
                     }
-                    copied++
-                    if (move && NativeBridge.deleteFile(handle, volumePath) == 0) moved++
                 } catch (_: Exception) {
-                    lastError = "Could not copy ${entry.name} to the device."
+                    failed = "Could not copy ${entry.name} to the device."
+                    lastError = failed
                 } finally {
-                    dest.delete()
+                    Hardening.wipeFile(dest)
+                    transferQueue.finish(index, failed)
+                    publishTransferQueue()
                 }
             }
+            val cancelled = transferQueue.cancelRequested && copied < toCopy.size && lastError == null
             runOnUiThread {
+                clearTransferQueue()
                 endWork()
                 onStatus(
                     when {
+                        cancelled && copied == 0 -> "Queue cancelled."
+                        cancelled -> "Copied $copied of ${toCopy.size} file(s). Queue cancelled."
                         lastError != null && copied == 0 -> lastError
                         move && moved < copied ->
                             "Copied $copied file(s) to the device, but could not remove ${copied - moved} from the volume."
@@ -3953,42 +4022,59 @@ class MainActivity : AppCompatActivity() {
             if (toCopy.size == 1) "$verb ${toCopy[0].name} to $label…"
             else "$verb ${toCopy.size} files to $label…"
         )
+        transferQueue.begin(toCopy.map { it.name to it.size })
+        publishTransferQueue()
         Thread {
             var copied = 0
             var moved = 0
             var lastError: String? = null
-            for (entry in toCopy) {
+            for ((index, entry) in toCopy.withIndex()) {
+                if (!transferQueue.claim(index)) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 val temp = File(cacheDir, "xfer-${System.nanoTime()}-${ShareHelper.safeName(entry.name)}")
+                var failed: String? = null
                 try {
                     val srcPath = joinDir(srcDir, entry.name)
                     val rcExport = NativeBridge.exportFile(srcHandle, srcPath, temp.absolutePath)
                     if (rcExport != 0 || !temp.exists()) {
-                        lastError = extractErrorMessage(entry.name, rcExport)
-                        continue
-                    }
-                    val destDir = dest.dirPath.ifEmpty { "/" }
-                    val rcImport = NativeBridge.importFile(dest.handle, destDir, temp.absolutePath, entry.name)
-                    if (rcImport != 0) {
-                        lastError = importErrorMessage(entry.name, rcImport, dest.handle)
-                        continue
-                    }
-                    copied++
-                    if (move) {
-                        if (NativeBridge.deleteFile(srcHandle, srcPath) == 0) moved++
+                        failed = extractErrorMessage(entry.name, rcExport)
+                        lastError = failed
+                    } else {
+                        val destDir = dest.dirPath.ifEmpty { "/" }
+                        val rcImport = NativeBridge.importFile(dest.handle, destDir, temp.absolutePath, entry.name)
+                        if (rcImport != 0) {
+                            failed = importErrorMessage(entry.name, rcImport, dest.handle)
+                            lastError = failed
+                        } else {
+                            copied++
+                            if (move) {
+                                if (NativeBridge.deleteFile(srcHandle, srcPath) == 0) moved++
+                            }
+                        }
                     }
                 } catch (_: Exception) {
-                    lastError = "Could not copy ${entry.name} into the other volume."
+                    failed = "Could not copy ${entry.name} into the other volume."
+                    lastError = failed
                 } finally {
                     Hardening.wipeFile(temp)
+                    transferQueue.finish(index, failed)
+                    publishTransferQueue()
                 }
             }
             val saveHandles = mutableSetOf<Long>()
             if (copied > 0) saveHandles.add(dest.handle)
             if (move && moved > 0) saveHandles.add(srcHandle)
             val saveWarning = if (saveHandles.isNotEmpty()) autoSaveSaveWarning(saveHandles) else null
+            val cancelled = transferQueue.cancelRequested && copied < toCopy.size && lastError == null
             runOnUiThread {
+                clearTransferQueue()
                 endWork()
                 val base = when {
+                        cancelled && copied == 0 -> "Queue cancelled."
+                        cancelled -> "Copied $copied of ${toCopy.size} file(s). Queue cancelled."
                         lastError != null && copied == 0 -> lastError
                         move && moved < copied ->
                             "Copied $copied file(s) into $label. Could not delete ${copied - moved} from the source volume."
