@@ -73,12 +73,12 @@ Android emulator / device: `ports/android/run_device_sim.sh` (starts AVD
 `ports/ios/run_ipad_sim.sh` (skips if CoreSimulator has no iPad runtime). Device
 sideload under your Apple ID: `ports/ios/sideload-sign.sh` (needs a 10-character
 Team ID: `VC_PORT_IOS_TEAM` or `./sideload-sign.sh YOUR10CHARID`). CI builds the
-Android APKs and the unsigned iOS IPA in parallel, and runs the same UI walk
-on an Android emulator and an iOS Simulator (`ui-walk-android`, `ui-walk-ios`,
-no `needs:` between them). Local phone builds are `ports/scripts/build-phones.sh`.
+Android APKs and the unsigned iOS IPA in parallel. It does not run the UI walk.
+Local phone builds are `ports/scripts/build-phones.sh`.
 The walk's regressive set is the old 10-phase session. Progressive cases
 (USB select, scribble reset, shared password rows) sit on top of it.
-`ports/tests/test_agile.py` fails if either set or the GitHub jobs disappear.
+`ports/tests/test_agile.py` fails if either set disappears, and fails if the
+walk is added back to GitHub Actions.
 That Android test never calls `UpdateChecker.check()`. `DeviceSimulationTest` is a person-session
 on NativeBridge: wrap/unwrap (wrong password and a flipped byte fail), create,
 open, FAT mkdir/import/list/export/copy-to-folder/rename/delete, wipe free
@@ -113,7 +113,7 @@ and PIM fields are empty; Tools header ops still use the last unlock in RAM.
 Tests must not tap Panic wipe.
 One local command for the visible UI walk on both phones:
 `ports/scripts/run-ui-walk.sh` (results and USB limits: `ports/tests/UI-WALK.md`).
-GitHub runs `VC_PORT_WALK=android` and `VC_PORT_WALK=ios` from that script.
+That command is not a GitHub Actions job.
 iPad Simulator has the same session as `ports/ios/VCPortTests/AppInterfaceSessionTests.swift`
 (`ports/ios/run_ios_session_test.sh`; skips Files/share sheets like Android
 skips SAF). Sprint 10 (create a random volume on one phone, open it on the

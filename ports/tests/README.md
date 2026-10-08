@@ -5,7 +5,7 @@ phone, an iOS simulator.
 
 ```
 ports/tests/run-all.sh              # full host pass on a laptop (wrap + volumes + emulator if present)
-# GitHub Actions: host-contracts Python (includes test_agile) plus ui-walk-android and ui-walk-ios
+# GitHub Actions: host-contracts Python (includes test_agile). UI walk is local only.
 python3 ports/tests/test_quality.py # taxonomy + property/fuzz
 ```
 

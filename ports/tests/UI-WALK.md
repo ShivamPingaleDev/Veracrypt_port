@@ -8,7 +8,7 @@ ports/scripts/run-ui-walk.sh
 
 `SLOW=1` also scribbles the Android entropy pad (`SlowHumanSessionTest`). Does not tap Panic wipe or Check for updates.
 
-GitHub Actions runs this same walk in parallel with the APK and IPA jobs: `ui-walk-android` (`VC_PORT_WALK=android`) and `ui-walk-ios` (`VC_PORT_WALK=ios`). `VC_PORT_CI=1` fails the iOS job if the Simulator is missing. A missing Android emulator is a failure, not a skip. Local default is still both phones together.
+This walk stays on a local Mac. GitHub Actions builds the APK and IPA and runs host contracts. It does not boot an emulator or a Simulator. Local default is both phones together. `VC_PORT_CI=1` is only for a manual CI-style run: a missing iOS Simulator then fails instead of skipping.
 
 Android walk boots AVD `vcport-api35` itself when `adb` is empty: Java 17 from `JAVA_HOME`, `/usr/libexec/java_home`, or Homebrew `openjdk@17`; headless SwiftShader + `nohup` so qemu is not killed when the launching shell exits. After boot it keeps the AVD awake (`svc power stayon`). If the device is gone before Gradle, the walk starts the emulator again and retries once on “no connected devices.” Waits for `adb` `device` + `sys.boot_completed`, not the emulator launcher PID. If qemu for that AVD is already running, the walk waits instead of starting a second emulator. `VC_PORT_EMU_WINDOW=1` keeps a window. Do not treat a missing emulator as SKIP — the walk fails with the qemu log.
 

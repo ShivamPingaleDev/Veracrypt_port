@@ -4,7 +4,7 @@
 Regressive cases are the old 10-phase session. They must stay in both
 phone tests and in the walk. Progressive cases are behavior added after
 that session (USB select, scribble reset, shared password rows). The walk
-runs both sets, and GitHub Actions runs the same walk on each phone.
+runs both sets on a local Mac. GitHub Actions does not boot an emulator.
 """
 
 from __future__ import annotations
@@ -129,18 +129,15 @@ class ProgressiveWalkTests(unittest.TestCase):
         self.assertIn('Locale(identifier: "en_US")', pim)
         self.assertIn("500_000", pim)
 
-    def test_github_actions_runs_the_same_walk(self) -> None:
+    def test_ui_walk_stays_local(self) -> None:
         wf = read(".github/workflows/vcport.yml")
-        self.assertIn("ui-walk-android:", wf)
-        self.assertIn("ui-walk-ios:", wf)
-        self.assertIn("VC_PORT_WALK=android", wf)
-        self.assertIn("VC_PORT_WALK=ios", wf)
-        self.assertIn("VC_PORT_CI=1", wf)
-        self.assertIn("VC_PORT_CREATE_AVD=1", wf)
-        self.assertIn("ports/scripts/run-ui-walk.sh", wf)
+        walk = read("ports/scripts/run-ui-walk.sh")
+        self.assertNotIn("ui-walk-android:", wf)
+        self.assertNotIn("ui-walk-ios:", wf)
+        self.assertNotIn("VC_PORT_WALK=", wf)
+        self.assertNotIn("run-ui-walk.sh", wf)
         self.assertIn("test_agile", wf)
+        self.assertIn("VC_PORT_WALK:-both", walk)
+        self.assertIn("UiWalkSuite", walk)
         self.assertNotIn("needs: android", wf)
         self.assertNotIn("needs: ios", wf)
-        self.assertNotIn("needs: ui-walk-android", wf)
-        self.assertNotIn("needs: ui-walk-ios", wf)
-        self.assertNotIn("SLOW=1", wf)
