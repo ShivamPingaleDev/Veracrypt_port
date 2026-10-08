@@ -126,6 +126,8 @@ class MainActivity : AppCompatActivity() {
     internal val otgDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
     internal val usbPromptOpenState = mutableStateOf(false)
     internal val usbPromptDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
+    internal val usbPreviewLabelState = mutableStateOf("")
+    internal val usbListedPreviewState = mutableStateOf("")
     internal val otgCandidatesState = mutableStateOf<List<OtgCandidate>>(emptyList())
     private var pendingOtgScsi: OtgScsiDevice? = null
     private var pendingOtgFile: File? = null
@@ -301,6 +303,47 @@ class MainActivity : AppCompatActivity() {
                 statusState.value =
                     "Simulated USB disk. Pick a partition, then type the password and Open volume. Nothing auto-mounted."
                 tabState.intValue = 0
+            } finally {
+                done.countDown()
+            }
+        }
+        done.await(5, TimeUnit.SECONDS)
+    }
+
+    /**
+     * Emulator has no USB host device, so the select prompt cannot list a real
+     * [UsbDevice]. This only opens the prompt. It does not request permission
+     * and it does not mount.
+     */
+    @androidx.annotation.VisibleForTesting
+    fun testingPreviewUsbSelect(label: String) {
+        val done = CountDownLatch(1)
+        runOnUiThread {
+            try {
+                usbPreviewLabelState.value = label
+                usbListedPreviewState.value = ""
+                usbPromptDevicesState.value = emptyList()
+                usbPromptOpenState.value = true
+                tabState.intValue = 0
+                statusState.value =
+                    "Select a USB device. Grant permission and it shows up under USB devices. Nothing auto-mounts."
+            } finally {
+                done.countDown()
+            }
+        }
+        done.await(5, TimeUnit.SECONDS)
+    }
+
+    /** Test stand-in for the system USB allow button. Still does not mount. */
+    @androidx.annotation.VisibleForTesting
+    fun testingFinishUsbPermission() {
+        val done = CountDownLatch(1)
+        runOnUiThread {
+            try {
+                usbPromptOpenState.value = false
+                usbListedPreviewState.value = usbPreviewLabelState.value
+                statusState.value =
+                    "USB device listed. Nothing auto-mounted."
             } finally {
                 done.countDown()
             }
@@ -648,6 +691,8 @@ class MainActivity : AppCompatActivity() {
                 var otgDevices by otgDevicesState
                 var usbPromptOpen by usbPromptOpenState
                 var usbPromptDevices by usbPromptDevicesState
+                var usbPreviewLabel by usbPreviewLabelState
+                var usbListedPreview by usbListedPreviewState
                 var otgCandidates by otgCandidatesState
                 var status by statusState
                 var entries by entriesState
@@ -1155,6 +1200,8 @@ class MainActivity : AppCompatActivity() {
                                                 devices = otgDevices,
                                                 promptOpen = usbPromptOpen,
                                                 promptDevices = usbPromptDevices,
+                                                previewLabel = usbPreviewLabel,
+                                                listedPreview = usbListedPreview,
                                                 deviceHasPermission = { OtgUsb.hasPermission(this@MainActivity, it) },
                                                 candidates = otgCandidates,
                                                 shareWithFiles = shareWithFiles,
@@ -1176,13 +1223,22 @@ class MainActivity : AppCompatActivity() {
                                                     }
                                                     if (found.isEmpty()) {
                                                         usbPromptOpen = false
+                                                        usbPreviewLabel = ""
+                                                        usbListedPreview = ""
                                                         status = "No USB mass-storage device. Plug a stick, then Scan USB disks. This never auto-mounts."
                                                     } else {
                                                         usbPromptOpen = true
                                                         status = "Select a USB device. Grant permission and it shows up under USB devices. Nothing auto-mounts."
                                                     }
                                                 },
-                                                onDismissPrompt = { usbPromptOpen = false },
+                                                onDismissPrompt = {
+                                                    usbPromptOpen = false
+                                                    usbPreviewLabel = ""
+                                                },
+                                                onChoosePreview = {
+                                                    usbPromptOpen = false
+                                                    status = "Grant USB permission. The disk shows up under USB devices after you allow it. Still no auto-mount."
+                                                },
                                                 onChoosePromptDevice = { device ->
                                                     usbPromptOpen = false
                                                     if (OtgUsb.hasPermission(this@MainActivity, device)) {

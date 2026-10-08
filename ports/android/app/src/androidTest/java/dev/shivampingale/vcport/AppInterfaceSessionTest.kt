@@ -108,6 +108,11 @@ class AppInterfaceSessionTest {
 
         clickCreateVolume()
         waitStatus("from the basket into the volume", 180_000)
+        assertEquals(
+            "Create resets the scribble pad before the file is saved",
+            0,
+            NativeBridge.entropyPercent()
+        )
         val basketDest = File(work, "basket.jpg")
         assertTrue(rule.activity.testingFinishCreateSave(basketDest))
         rule.waitForIdle()
@@ -159,6 +164,11 @@ class AppInterfaceSessionTest {
         scribbleUntilFull()
         clickCreateVolume()
         waitStatus("Nested volume is inside", 240_000)
+        assertEquals(
+            "Create resets the scribble pad before the file is saved",
+            0,
+            NativeBridge.entropyPercent()
+        )
         val nestedDest = File(work, "photos.jpg")
         assertTrue(rule.activity.testingFinishCreateSave(nestedDest))
         rule.waitForIdle()
@@ -167,7 +177,10 @@ class AppInterfaceSessionTest {
         rule.onNodeWithTag("tab_create").performClick()
         rule.waitForIdle()
         rule.onNodeWithTag("create_password").performScrollTo().assert(hasText(""))
-        rule.onNodeWithTag("create_hidden_password").performScrollTo().assert(hasText(""))
+        assertTrue(
+            "Session clear turns nested volume off, so the nested password field is gone",
+            rule.onAllNodesWithTag("create_hidden_password").fetchSemanticsNodes().isEmpty()
+        )
 
         homeAndReturn(ctx)
 

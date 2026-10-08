@@ -63,6 +63,11 @@ final class AppInterfaceSessionTests: XCTestCase {
 
         onMain { t.createVolume() }
         waitStatus("from the basket into the volume", 180)
+        XCTAssertEqual(
+            VcMobileBridge.entropyPercent(),
+            0,
+            "Create resets the scribble pad before the file is saved"
+        )
         let basketDest = work.appendingPathComponent("basket.jpg")
         XCTAssertTrue(onMainValue { t.finishCreateSave(basketDest) })
         waitStatus("Session cleared", 15)
@@ -102,6 +107,11 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.setCreateFilename("photos.jpg") }
         onMain { t.createVolume() }
         waitStatus("Nested volume is inside", 240)
+        XCTAssertEqual(
+            VcMobileBridge.entropyPercent(),
+            0,
+            "Create resets the scribble pad before the file is saved"
+        )
         let nestedDest = work.appendingPathComponent("photos.jpg")
         XCTAssertTrue(onMainValue { t.finishCreateSave(nestedDest) })
         waitStatus("Session cleared", 15)

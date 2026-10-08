@@ -63,7 +63,7 @@ fi
 
 run "phase 9 python" sh -c "cd \"$PORTS/tests\" && python3 -m unittest \
 	test_phases.Phase9LegalVersionTests \
-	test_contracts test_factors test_wipe test_quality -v"
+	test_contracts test_factors test_wipe test_quality test_agile -v"
 run "phase 9 official VeraCrypt pin" python3 "$PORTS/scripts/check_veracrypt_release.py" --pin-only
 run "phase 9 emulator NativeBridge+UI" "$PORTS/android/run_device_sim.sh"
 run "phase 9 iPad Simulator" "$PORTS/ios/run_ipad_sim.sh"

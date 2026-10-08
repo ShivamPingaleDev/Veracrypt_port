@@ -1,8 +1,10 @@
 #!/bin/sh
-# One slow UI walk on Android and iOS at the same time.
+# One slow UI walk. Default runs Android and iOS together.
+# VC_PORT_WALK=android or VC_PORT_WALK=ios runs one phone (GitHub Actions).
+# VC_PORT_CI=1 fails if the iOS Simulator is missing instead of skipping.
 # 10-phase session on both phones; this branch also runs fake USB (Android)
 # and no-whole-disk + View in app (iOS). Does not tap Panic wipe or
-# Check for updates. Does not run on GitHub Actions (no emulator there).
+# Check for updates.
 # SLOW=1 also runs Android SlowHumanSessionTest (entropy scribble on screen).
 # Android: boots AVD vcport-api35 headless if adb is empty. Needs Java 17
 # (JAVA_HOME, java_home, or Homebrew openjdk@17).
@@ -12,15 +14,17 @@ PORTS="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 . "$PORTS/scripts/android-dev.sh"
 LOG="${TMPDIR:-/tmp}/vcport-ui-walk"
 mkdir -p "$LOG"
+SCOPE="${VC_PORT_WALK:-both}"
 
-vcport_resolve_java || exit 1
-vcport_android_sdk
-export PATH="${JAVA_HOME:+$JAVA_HOME/bin:}${ANDROID_HOME:+$ANDROID_HOME/platform-tools:}$PATH"
-
-if ! vcport_ensure_emulator; then
-	echo "FAIL  android emulator did not start (see ${TMPDIR:-/tmp}/vcport-emu.log)"
-	exit 1
-fi
+start_android() {
+	vcport_resolve_java || return 1
+	vcport_android_sdk
+	export PATH="${JAVA_HOME:+$JAVA_HOME/bin:}${ANDROID_HOME:+$ANDROID_HOME/platform-tools:}$PATH"
+	if ! vcport_ensure_emulator; then
+		echo "FAIL  android emulator did not start (see ${TMPDIR:-/tmp}/vcport-emu.log)"
+		return 1
+	fi
+}
 
 android_classes="dev.shivampingale.vcport.UiWalkSuite"
 if [ "${SLOW:-0}" = "1" ]; then
@@ -93,6 +97,10 @@ android_walk() {
 ios_walk() {
 	UDID="$(pick_ios_udid | awk 'NF{print; exit}')"
 	if [ -z "$UDID" ]; then
+		if [ "${VC_PORT_CI:-0}" = "1" ]; then
+			echo "FAIL  no iOS Simulator"
+			return 1
+		fi
 		echo "SKIP  no iOS Simulator"
 		return 0
 	fi
@@ -110,21 +118,38 @@ ios_walk() {
 		test
 }
 
-android_walk >"$LOG/android.log" 2>&1 &
-APID=$!
-ios_walk >"$LOG/ios.log" 2>&1 &
-IPID=$!
-
-A=0
-I=0
-wait "$APID" || A=$?
-wait "$IPID" || I=$?
-echo "==== android UI walk ===="
-cat "$LOG/android.log"
-echo "==== ios UI walk ===="
-cat "$LOG/ios.log"
-if [ "$A" -ne 0 ] || [ "$I" -ne 0 ]; then
-	echo "FAIL  android=$A ios=$I"
-	exit 1
-fi
-echo "PASS  UI walk android+ios (logs in $LOG)"
+case "$SCOPE" in
+	android)
+		start_android
+		android_walk
+		echo "PASS  UI walk android (log follows on stdout)"
+		;;
+	ios)
+		ios_walk
+		echo "PASS  UI walk ios"
+		;;
+	both)
+		start_android
+		android_walk >"$LOG/android.log" 2>&1 &
+		APID=$!
+		ios_walk >"$LOG/ios.log" 2>&1 &
+		IPID=$!
+		A=0
+		I=0
+		wait "$APID" || A=$?
+		wait "$IPID" || I=$?
+		echo "==== android UI walk ===="
+		cat "$LOG/android.log"
+		echo "==== ios UI walk ===="
+		cat "$LOG/ios.log"
+		if [ "$A" -ne 0 ] || [ "$I" -ne 0 ]; then
+			echo "FAIL  android=$A ios=$I"
+			exit 1
+		fi
+		echo "PASS  UI walk android+ios (logs in $LOG)"
+		;;
+	*)
+		echo "FAIL  VC_PORT_WALK=$SCOPE (use android, ios, or both)"
+		exit 1
+		;;
+esac

@@ -685,6 +685,9 @@ struct ContentView: View {
                     status = "Create failed (code \(rc))."
                     return
                 }
+                entropyPercent = 0
+                entropyMarks = []
+                VcMobileBridge.resetEntropy()
                 pendingCreateURL = dest
                 var msg = "Created \(SizeUnit.formatBytes(sizeBytes)) \(cipher) / \(kdf) \(filesystem) volume as \(dest.lastPathComponent) (standard VeraCrypt file; the name is only a disguise). Open volume, or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
                 if packed > 0 {
@@ -2499,7 +2502,7 @@ struct ContentView: View {
             }
         }
         testing.finishCreateSave = { dest in
-            guard let src = containerURL else { return false }
+            guard let src = pendingCreateURL ?? containerURL else { return false }
             let fm = FileManager.default
             try? fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? fm.removeItem(at: dest)

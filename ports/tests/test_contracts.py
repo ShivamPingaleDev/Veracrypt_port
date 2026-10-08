@@ -750,6 +750,8 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("EXTRA_PERMISSION_GRANTED", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgUsb.kt"))
         self.assertIn("addPermittedUsbDevice", main)
         self.assertIn("USB permission denied", main)
+        self.assertIn("testingPreviewUsbSelect", main)
+        self.assertIn("testingFinishUsbPermission", main)
         self.assertIn("class FakeUsbUiTest", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/FakeUsbUiTest.kt"))
         self.assertIn("class UiWalkSuite", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/UiWalkSuite.kt"))
         walk = read("ports/scripts/run-ui-walk.sh")
@@ -889,6 +891,16 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("Nested volume", main)
         self.assertIn("Move your finger", view)
         self.assertIn("Nested volume", view)
+        form = read("ports/android/app/src/main/java/dev/shivampingale/vcport/CreateVolumeForm.kt")
+        saved = form.split("onSaved = {", 1)[1].split("}", 1)[0]
+        self.assertIn("NativeBridge.resetEntropy()", saved)
+        self.assertIn("entropyPercent = 0", saved)
+        pad = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
+        self.assertIn("if (percent == 0) marks.clear()", pad)
+        created = view.split("if rc != 0 {", 1)[1].split("pendingCreateURL = dest", 1)[0]
+        self.assertIn("entropyPercent = 0", created)
+        self.assertIn("entropyMarks = []", created)
+        self.assertIn("VcMobileBridge.resetEntropy()", created)
 
 
 class IosHighThreatTests(unittest.TestCase):

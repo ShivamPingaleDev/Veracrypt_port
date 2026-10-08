@@ -6,12 +6,14 @@ extension ContentView {
         Form {
             statusSection
             Section("Tools") {
-                SecureField("New password (empty = keep current)", text: $newPassword)
-                    .neverSaveHistory()
-                    .portTag("tools_new_password")
-                TextField("New PIM (0 = VeraCrypt default)", text: $newPim)
-                    .keyboardType(.numberPad)
-                    .portTag("tools_new_pim")
+                passwordAndPim(
+                    password: $newPassword,
+                    passwordPrompt: "New password (empty = keep current)",
+                    passwordTag: "tools_new_password",
+                    pim: $newPim,
+                    pimPrompt: "New PIM (0 = VeraCrypt default)",
+                    pimTag: "tools_new_pim"
+                )
                 Button("Change volume password") { changeVolumePassword() }
                     .portTag("tools_change_password")
                 Picker("Header KDF", selection: $headerKdf) {

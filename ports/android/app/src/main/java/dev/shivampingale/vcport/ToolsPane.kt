@@ -100,21 +100,16 @@ internal fun MainActivity.ToolsPane(
     VcCard {
 
         Text("Volume header", style = MaterialTheme.typography.titleMedium)
-        SecretField(
-            newPassword,
-            { newPassword = it },
-            "New password (empty = keep current)",
-            modifier = Modifier.testTag("tools_new_password"),
+        PasswordAndPim(
+            password = newPassword,
+            onPassword = { newPassword = it },
+            passwordLabel = "New password (empty = keep current)",
+            passwordTag = "tools_new_password",
+            pim = newPim,
+            onPim = { newPim = it },
+            pimLabel = "New PIM (0 = VeraCrypt default)",
+            pimTag = "tools_new_pim",
             enabled = !busy
-        )
-        OutlinedTextField(
-            newPim,
-            { newPim = it },
-            label = { Text("New PIM (0 = VeraCrypt default)") },
-            modifier = Modifier.fillMaxWidth().testTag("tools_new_pim"),
-            enabled = !busy,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
         Button(
             onClick = {

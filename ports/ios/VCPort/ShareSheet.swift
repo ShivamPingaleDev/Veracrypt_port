@@ -46,7 +46,6 @@ enum SystemFiles {
 
     static func exportCopy(urls: [URL], onFinish: @escaping ([URL]?) -> Void) {
         if VcPortTesting.shared.skipSystemPickers {
-            onFinish(nil)
             return
         }
         let controller = FilesExportController(onFinish: onFinish)

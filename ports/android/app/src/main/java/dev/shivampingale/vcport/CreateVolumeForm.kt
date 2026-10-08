@@ -220,22 +220,19 @@ internal fun MainActivity.CreateVolumePane(
         }
 
         VcHint("2 MiB–64 GiB.")
-        SecretField(
-            createPassword,
-            { createPassword = it },
-            "Volume password (never stored)",
-            modifier = Modifier.testTag("create_password"),
-            enabled = !busy
-        )
-        Text(PasswordEntropy.label(createPassword), style = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(
-            createPim,
-            { createPim = it },
-            label = { Text("PIM (0 = default)") },
-            modifier = Modifier.fillMaxWidth().testTag("create_pim"),
+        PasswordAndPim(
+            password = createPassword,
+            onPassword = { createPassword = it },
+            passwordLabel = "Volume password (never stored)",
+            passwordTag = "create_password",
+            pim = createPim,
+            onPim = { createPim = it },
+            pimLabel = "PIM (0 = default)",
+            pimTag = "create_pim",
             enabled = !busy,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            between = {
+                Text(PasswordEntropy.label(createPassword), style = MaterialTheme.typography.bodySmall)
+            }
         )
         FilledTonalButton(
             onClick = {
@@ -281,37 +278,18 @@ internal fun MainActivity.CreateVolumePane(
 
         Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
         VcHint("Pick several in Files (long-press). Any extension. VeraCrypt mixes the first 1 MiB of each. Generate more below.")
-        if (keyfileUris.isEmpty()) {
-
-            Text("No keyfiles in this session.", style = MaterialTheme.typography.bodySmall)
-        }
-
-        keyfileUris.forEach { uri ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-
-                Text(
-                    ShareHelper.displayName(this@CreateVolumePane, uri) ?: uri.toString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(onClick = { keyfileUris = keyfileUris.filterNot { it == uri } }) {
-
-                    Text("Remove")
-                }
-
-            }
-
-        }
-
-        OutlinedButton(
-            onClick = {
-
+        KeyfileList(
+            labels = keyfileUris.map { ShareHelper.displayName(this@CreateVolumePane, it) ?: it.toString() },
+            onRemove = { index ->
+                keyfileUris = keyfileUris.filterIndexed { i, _ -> i != index }
+            },
+            onAdd = {
                 holdLockForPicker()
                 onPickKeyfiles()
             },
             enabled = !busy,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Add keyfiles") }
+            emptyText = "No keyfiles in this session."
+        )
 
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -450,14 +428,12 @@ internal fun MainActivity.CreateVolumePane(
 
             }
 
-            OutlinedTextField(
+            PimField(
                 createHiddenPim,
                 { createHiddenPim = it },
-                label = { Text("Nested PIM (0 = default)") },
-                modifier = Modifier.fillMaxWidth().testTag("create_hidden_pim"),
-                enabled = !busy,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                "Nested PIM (0 = default)",
+                "create_hidden_pim",
+                !busy
             )
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

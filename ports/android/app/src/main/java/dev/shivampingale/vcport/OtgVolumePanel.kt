@@ -28,12 +28,15 @@ fun OtgVolumePanel(
     devices: List<UsbDevice>,
     promptOpen: Boolean,
     promptDevices: List<UsbDevice>,
+    previewLabel: String,
+    listedPreview: String,
     deviceHasPermission: (UsbDevice) -> Boolean,
     candidates: List<OtgCandidate>,
     shareWithFiles: Boolean,
     onShareWithFiles: (Boolean) -> Unit,
     onScan: () -> Unit,
     onDismissPrompt: () -> Unit,
+    onChoosePreview: () -> Unit,
     onChoosePromptDevice: (UsbDevice) -> Unit,
     onPickDevice: (UsbDevice) -> Unit,
     onPickPartition: (OtgCandidate) -> Unit
@@ -45,8 +48,17 @@ fun OtgVolumePanel(
         enabled = !busy,
         modifier = Modifier.fillMaxWidth().testTag("scan_usb")
     ) { Text("Scan USB disks") }
-    if (devices.isNotEmpty()) {
+    if (devices.isNotEmpty() || listedPreview.isNotEmpty()) {
         Text("USB devices", style = MaterialTheme.typography.titleSmall)
+    }
+    if (listedPreview.isNotEmpty()) {
+        OutlinedButton(
+            onClick = {},
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().testTag("usb_device")
+        ) {
+            Text(listedPreview)
+        }
     }
     devices.forEach { device ->
         OutlinedButton(
@@ -64,6 +76,15 @@ fun OtgVolumePanel(
             text = {
                 Column(modifier = Modifier.fillMaxWidth().testTag("usb_select_prompt")) {
                     Text("Choose one disk. VC Port asks for USB permission next. The disk shows up under USB devices only after you allow it. Nothing auto-mounts.")
+                    if (previewLabel.isNotEmpty()) {
+                        OutlinedButton(
+                            onClick = onChoosePreview,
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().testTag("usb_prompt_device")
+                        ) {
+                            Text("$previewLabel — Needs permission")
+                        }
+                    }
                     promptDevices.forEach { device ->
                         val access = if (deviceHasPermission(device)) "Allowed" else "Needs permission"
                         OutlinedButton(

@@ -758,6 +758,9 @@ fun EntropyPad(
 ) {
     val colors = MaterialTheme.colorScheme
     val marks = remember { mutableStateListOf<Offset>() }
+    LaunchedEffect(percent) {
+        if (percent == 0) marks.clear()
+    }
     val bar by animateFloatAsState(
         targetValue = (percent.coerceIn(0, 100)) / 100f,
         animationSpec = tween(120),
