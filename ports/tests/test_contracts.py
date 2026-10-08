@@ -946,10 +946,13 @@ class IosHighThreatTests(unittest.TestCase):
 
     def test_never_save_history_is_default(self) -> None:
         view = read_ios_ui()
-        self.assertIn("neverSaveHistory()", view)
-        self.assertGreaterEqual(view.count("SecureField("), 5)
-        self.assertGreaterEqual(view.count(".neverSaveHistory()"), 5)
+        fields = read("ports/ios/VCPort/FactorFields.swift")
+        self.assertIn("func neverSaveHistory()", view)
         self.assertIn("textContentType(.oneTimeCode)", view)
+        self.assertIn("SecureField(", fields)
+        self.assertIn(".neverSaveHistory()", fields)
+        self.assertNotIn("SecureField(", view)
+        self.assertGreaterEqual(view.count("passwordAndPim("), 5)
 
 
 class MobileSrcOverlayTests(unittest.TestCase):
@@ -998,7 +1001,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertNotIn("lockSession()", onstop)
         self.assertIn("Create form kept", main)
         self.assertIn('testTag("copy_once")', main)
-        self.assertIn('testTag("create_password")', main)
+        self.assertIn('passwordTag = "create_password"', main)
 
     def test_wrap_panic_share_stay_offline_on_ios(self) -> None:
         view = read_ios_ui()
@@ -1017,7 +1020,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("generatePassword(length: Int32 = 64)", read("ports/ios/VCPort/VcMobileBridge.swift"))
         self.assertIn("VC_ENTROPY_NEED = 8192", read("ports/shared/vc_mobile.cpp"))
         self.assertIn('portTag("copy_once")', view)
-        self.assertIn('portTag("create_password")', view)
+        self.assertIn('passwordTag: "create_password"', view)
 
     def test_volume_tools_on_android_and_ios(self) -> None:
         main = read_android_ui()
