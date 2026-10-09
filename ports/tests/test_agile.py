@@ -3,18 +3,79 @@
 
 Regressive cases are the old 10-phase session. They must stay in both
 phone tests and in the walk. Progressive cases are behavior added after
-that session (USB select, scribble reset, shared password rows). The walk
-runs both sets on a local Mac. GitHub Actions does not boot an emulator.
+that session. Each one is a WALK_FEATURES row whose proof the walk runs
+on both phones. A new UI test file that is missing from the walk fails
+here. The walk runs on a local Mac. GitHub Actions does not boot an emulator.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from repo_paths import read  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[2]
+
+# Proof strings that the local UI walk must execute on both phones.
+# A new user-facing feature adds one row and the same proof in the
+# Android and iOS tests the walk already runs, plus UI-WALK.md.
+WALK_FEATURES = (
+    (
+        "Transfer queue finished the copy",
+        "Transfer queue finished the copy",
+        "Transfer queue finished the copy",
+    ),
+    (
+        "Create resets the scribble pad before the file is saved",
+        "Create resets the scribble pad before the file is saved",
+        "Create resets the scribble pad before the file is saved",
+    ),
+    ("USB select", "testingPreviewUsbSelect", "enableOtgDisk"),
+    ("In-app preview", "preview-in-app-ok", "preview-in-app-ok"),
+    (
+        "In-app file browser lists the mounted volume",
+        "In-app file browser lists the mounted volume",
+        "In-app file browser lists the mounted volume",
+    ),
+    (
+        "Files app",
+        "Files app lists the mounted volume only after the user allows it",
+        "Mounted volume does not appear in Files.app",
+    ),
+    (
+        "Test vectors passed",
+        "Test vectors passed",
+        "Test vectors passed",
+    ),
+    (
+        "Quick format left the unused part of the volume empty",
+        "Quick format left the unused part of the volume empty",
+        "Quick format left the unused part of the volume empty",
+    ),
+    (
+        "Full format filled the volume",
+        "Full format filled the volume",
+        "Full format filled the volume",
+    ),
+)
+
+# Native or compat checks. They are not a screen walk. A new UI test
+# must not be added here; it goes in UiWalkSuite and run-ui-walk.sh.
+WALK_EXEMPT = frozenset(
+    {
+        "DeviceSimulationTest",
+        "DesktopCompatVolumeTest",
+        "DesktopCompatVolumeTests",
+        "CrossPhoneVolumeTest",
+        "CrossPhoneVolumeTests",
+        "WholeUsbSimTest",
+        "MainActivityUiTest",
+    }
+)
 
 
 REGRESSIVE = (
@@ -65,7 +126,67 @@ class RegressiveWalkTests(unittest.TestCase):
         self.assertIn("test_agile", phases)
 
 
+def _walk_android_text() -> str:
+    suite = read(
+        "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/UiWalkSuite.kt"
+    )
+    names = [
+        name
+        for name in re.findall(r"(\w+)::class", suite)
+        if name.endswith("Test")
+    ]
+    parts = [suite, read("ports/scripts/run-ui-walk.sh")]
+    base = ROOT / "ports/android/app/src/androidTest/java/dev/shivampingale/vcport"
+    for name in names:
+        parts.append((base / f"{name}.kt").read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
+def _walk_ios_text() -> str:
+    walk = read("ports/scripts/run-ui-walk.sh")
+    names = re.findall(r"-only-testing:VCPortTests/(\w+)", walk)
+    base = ROOT / "ports/ios/VCPortTests"
+    parts = [walk]
+    for name in names:
+        parts.append((base / f"{name}.swift").read_text(encoding="utf-8"))
+    return "\n".join(parts)
+
+
 class ProgressiveWalkTests(unittest.TestCase):
+    def test_every_ui_test_is_on_the_walk(self) -> None:
+        suite = read(
+            "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/UiWalkSuite.kt"
+        )
+        walk = read("ports/scripts/run-ui-walk.sh")
+        android_dir = ROOT / "ports/android/app/src/androidTest/java/dev/shivampingale/vcport"
+        for path in android_dir.glob("*Test.kt"):
+            name = path.stem
+            if name in WALK_EXEMPT:
+                continue
+            self.assertTrue(
+                name in suite or name in walk,
+                f"{name} is not in the UI walk. Add it to UiWalkSuite and run-ui-walk.sh.",
+            )
+        ios_dir = ROOT / "ports/ios/VCPortTests"
+        for path in ios_dir.glob("*Tests.swift"):
+            name = path.stem
+            if name in WALK_EXEMPT:
+                continue
+            self.assertIn(
+                name,
+                walk,
+                f"{name} is not in the UI walk. Add -only-testing:VCPortTests/{name} to run-ui-walk.sh.",
+            )
+
+    def test_listed_features_run_on_both_phone_walks(self) -> None:
+        android = _walk_android_text()
+        ios = _walk_ios_text()
+        doc = read("ports/tests/UI-WALK.md")
+        for name, android_proof, ios_proof in WALK_FEATURES:
+            self.assertIn(name, doc, name)
+            self.assertIn(android_proof, android, name)
+            self.assertIn(ios_proof, ios, name)
+
     def test_new_cases_are_in_the_walk(self) -> None:
         suite = read(
             "ports/android/app/src/androidTest/java/dev/shivampingale/vcport/UiWalkSuite.kt"

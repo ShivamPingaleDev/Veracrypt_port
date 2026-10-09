@@ -1,0 +1,22 @@
+---
+description: Every new phone feature must be exercised by the local UI walk on both phones
+alwaysApply: true
+---
+
+# UI walk covers new features
+
+A user-facing phone feature is not done until both UI walks run it.
+
+## Required
+
+- Add the proof to the Android test class `UiWalkSuite` already runs, and to the iOS class named in `ports/scripts/run-ui-walk.sh`.
+- Add one row to `WALK_FEATURES` in `ports/tests/test_agile.py`: feature name, Android proof, iOS proof.
+- Put that feature name in `ports/tests/UI-WALK.md`.
+- A new `*Test.kt` or `*Tests.swift` must be named by the walk. Do not add it to `WALK_EXEMPT`. That set is only the older native and compat checks.
+- Run `ports/scripts/run-ui-walk.sh` on this Mac before calling the feature done. GitHub Actions does not boot an emulator.
+
+## Leave alone
+
+- Do not tap Panic wipe or Check for updates.
+- Do not put the emulator walk back on GitHub Actions.
+- Regressive status strings in the 10-phase session stay.

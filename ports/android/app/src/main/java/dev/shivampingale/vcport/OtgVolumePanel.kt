@@ -114,6 +114,7 @@ fun OtgVolumePanel(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("files_app_share")
             .toggleable(
                 value = shareWithFiles,
                 enabled = !busy,
@@ -122,6 +123,6 @@ fun OtgVolumePanel(
             )
     ) {
         Checkbox(shareWithFiles, onCheckedChange = null, enabled = !busy)
-        Text("Allow Files app to browse unlocked volumes (seizure leak; off by default)")
+        Text("Show unlocked volumes in the Files app (off until you tick this)")
     }
 }

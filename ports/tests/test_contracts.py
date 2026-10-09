@@ -599,7 +599,12 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("format_fill_data_area", mobile)
         self.assertIn("Full format", mobile)
         create = mobile.split("int vc_create_volume")[1].split("catch (PasswordException")[0]
-        self.assertIn("volSkipStart", create)
+        self.assertIn("outerFull, 0, 0", create)
+        self.assertIn("including the nested", create)
+        volume = read("ports/shared/test_volume_main.cpp")
+        self.assertIn("quick format left the unused part of the volume empty", volume)
+        self.assertIn("full format filled the volume", volume)
+        self.assertIn("full format filled the nested free space", volume)
         main = read_android_ui()
         view = read_ios_ui()
         self.assertIn('testTag("create_full_format")', main)

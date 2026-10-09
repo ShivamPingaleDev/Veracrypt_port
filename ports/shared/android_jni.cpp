@@ -67,11 +67,11 @@ static void jni_wipe_string(std::string &s)
 	s.shrink_to_fit();
 }
 
-/* Error codes are 0 and VC_ERR_* (-1..-6). A live VcVolume* may look negative
+/* Error codes are 0 and VC_ERR_* (-1..-7). A live VcVolume* may look negative
  * as signed jlong on 64-bit Android. */
 static int jni_live_handle(jlong handle)
 {
-	return handle < (jlong) VC_ERR_UNSUPPORTED || handle > 0;
+	return handle < (jlong) VC_ERR_SELFTEST || handle > 0;
 }
 
 static JavaVM *g_otg_vm = nullptr;
@@ -661,6 +661,12 @@ extern "C" JNIEXPORT jint JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_testVectors(JNIEnv *, jobject)
 {
 	return vc_test_vectors();
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_dev_shivampingale_vcport_NativeBridge_autoTest(JNIEnv *, jobject)
+{
+	return vc_auto_test();
 }
 
 extern "C" JNIEXPORT void JNICALL

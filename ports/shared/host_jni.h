@@ -20,6 +20,7 @@
 #define JNI_FALSE 0
 #define JNI_TRUE 1
 #define JNI_ABORT 2
+#define JNI_OK 0
 #define JNI_VERSION_1_6 0x00010006
 
 typedef uint8_t jboolean;
@@ -48,7 +49,7 @@ typedef MockJniRef *jclass;
 typedef MockJniRef *jobjectArray;
 typedef MockJniRef *jbyteArray;
 typedef MockJniRef *jarray;
-typedef void JavaVM;
+typedef struct _jmethodID *jmethodID;
 
 struct JNIEnv
 {
@@ -134,6 +135,43 @@ struct JNIEnv
 	}
 
 	void ReleaseByteArrayElements(jbyteArray, jbyte *, jint) {}
+
+	jbyteArray NewByteArray(jsize n)
+	{
+		MockJniRef *a = new MockJniRef();
+		a->kind = MockJniRef::BYTEARR;
+		a->bytes.assign((size_t) (n > 0 ? n : 0), 0);
+		return a;
+	}
+
+	void GetByteArrayRegion(jbyteArray, jsize, jsize, jbyte *) {}
+	void SetByteArrayRegion(jbyteArray, jsize, jsize, const jbyte *) {}
+	jboolean ExceptionCheck() { return JNI_FALSE; }
+	void ExceptionClear() {}
+
+	jobject NewGlobalRef(jobject obj) { return obj; }
+	jmethodID GetStaticMethodID(jclass, const char *, const char *) { return nullptr; }
+
+	jint CallStaticIntMethod(jclass, jmethodID, ...) { return 0; }
+	jlong CallStaticLongMethod(jclass, jmethodID, ...) { return 0; }
+	jboolean CallStaticBooleanMethod(jclass, jmethodID, ...) { return JNI_FALSE; }
+};
+
+struct JavaVM
+{
+	jint GetEnv(void **env, jint)
+	{
+		if (env)
+			*env = nullptr;
+		return -1;
+	}
+
+	jint AttachCurrentThread(JNIEnv **env, void *)
+	{
+		if (env)
+			*env = nullptr;
+		return -1;
+	}
 };
 
 inline jstring host_jni_string(const char *s)

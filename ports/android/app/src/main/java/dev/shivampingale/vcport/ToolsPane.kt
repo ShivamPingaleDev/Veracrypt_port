@@ -378,12 +378,12 @@ internal fun MainActivity.ToolsPane(
                 beginWork("Running known-answer test vectors…")
                 Thread {
 
-                    val rc = NativeBridge.testVectors()
+                    val rc = NativeBridge.autoTest()
                     runOnUiThread {
 
                         endWork()
                         status = if (rc == 0)
-                            "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests."
+                            "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests. CRC-32 self-test passed. Argon2id self-test passed."
                         else
                             "Test vectors failed."
                     }
@@ -391,7 +391,7 @@ internal fun MainActivity.ToolsPane(
                 }.start()
             },
             enabled = !busy,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("tools_test_vectors")
         ) { Text("Test vectors") }
 
         VcHint(PimEstimator.describe(createKdf, createPim))

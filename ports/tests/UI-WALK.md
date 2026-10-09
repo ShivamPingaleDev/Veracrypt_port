@@ -20,7 +20,9 @@ These status strings are the old walk. Both phone session tests wait for them. A
 
 ## Progressive cases (added on top)
 
-USB select, then permission, then the disk under USB devices (`FakeUsbUiTest`). Create resets the scribble pad before the file is saved. Password, PIM, and keyfile rows are shared widgets with the same tags. A skipped Files sheet does not delete the new volume. The session copy records a transfer queue row. Transfer queue finished the copy when that row is Done. iOS has no whole-disk USB. In-app preview stays inside the app.
+USB select, then permission, then the disk under USB devices (`FakeUsbUiTest`). Create resets the scribble pad before the file is saved. Password, PIM, and keyfile rows are shared widgets with the same tags. A skipped Files sheet does not delete the new volume. The session copy records a transfer queue row. Transfer queue finished the copy when that row is Done. In-app file browser lists the mounted volume under a path you can tap. The Files app does not see that volume. On Android the walk ticks Show this unlocked volume in the Files app, opens the system Files app, and sees that unlocked volume there. It then turns sharing off. Leaving the app after that dismounts again. Test vectors passed on both phones: the Tools button runs VeraCrypt EncryptionTest, the CRC-32 self-test, and the Argon2id self-test. Quick format left the unused part of the volume empty. Full format filled the volume, including the nested free space. The first create stays on quick format. The nested create ticks Full format. A flipped primary header still refuses to open. On iPhone the mounted volume does not appear in Files.app. iOS has no whole-disk USB. In-app preview stays inside the app.
+
+A new user-facing feature adds one row to `WALK_FEATURES` in `ports/tests/test_agile.py`, the proof string in the Android and iOS tests this walk already runs, and the feature name in this section. Host contracts fail if a new UI test file is left out of `UiWalkSuite` or `run-ui-walk.sh`. The emulator walk itself stays on this Mac.
 
 ## 10 phases (session test)
 

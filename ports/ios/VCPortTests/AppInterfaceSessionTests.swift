@@ -70,6 +70,12 @@ final class AppInterfaceSessionTests: XCTestCase {
         )
         let basketDest = work.appendingPathComponent("basket.jpg")
         XCTAssertTrue(onMainValue { t.finishCreateSave(basketDest) })
+        let basketSize = (try? basketDest.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        XCTAssertGreaterThanOrEqual(basketSize, 4 * 1024 * 1024)
+        XCTAssertTrue(
+            spanIsZero(basketDest, 1024 * 1024, 4096),
+            "Quick format left the unused part of the volume empty"
+        )
         waitStatus("Session cleared", 15)
         XCTAssertEqual(onMainValue { t.volumePassword() }, "")
         XCTAssertEqual(onMainValue { t.volumePim() }, "0")
@@ -105,6 +111,7 @@ final class AppInterfaceSessionTests: XCTestCase {
         onMain { t.setCreateHiddenSize("2") }
         onMain { t.setCreateSize("8") }
         onMain { t.setCreateFilename("photos.jpg") }
+        onMain { t.setCreateFullFormat(true) }
         onMain { t.createVolume() }
         waitStatus("Nested volume is inside", 240)
         XCTAssertEqual(
@@ -114,6 +121,12 @@ final class AppInterfaceSessionTests: XCTestCase {
         )
         let nestedDest = work.appendingPathComponent("photos.jpg")
         XCTAssertTrue(onMainValue { t.finishCreateSave(nestedDest) })
+        let nestedSize = (try? nestedDest.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        XCTAssertEqual(nestedSize, 8 * 1024 * 1024)
+        XCTAssertFalse(
+            spanIsZero(nestedDest, nestedFreeSample(UInt64(nestedSize)), 4096),
+            "Full format filled the volume"
+        )
         waitStatus("Session cleared", 15)
         XCTAssertEqual(onMainValue { t.volumePassword() }, "")
         onMain { t.selectTab(1) }
@@ -140,6 +153,10 @@ final class AppInterfaceSessionTests: XCTestCase {
         XCTAssertEqual(onMainValue { t.volumePim() }, "0")
 
         onMain { t.selectTab(3) }
+        onMain { t.runTestVectors() }
+        waitStatus("Test vectors passed", 180)
+        XCTAssertTrue(onMainValue { t.status() }.contains("CRC-32 self-test passed"))
+        XCTAssertTrue(onMainValue { t.status() }.contains("Argon2id self-test passed"))
         onMain { t.showVolumeProperties() }
         waitUntil(15) {
             let info = t.volumeInfo() ?? t.status()
@@ -148,6 +165,11 @@ final class AppInterfaceSessionTests: XCTestCase {
 
         onMain { t.selectTab(2) }
         let names = onMainValue { t.entryNames() }
+        XCTAssertFalse(names.isEmpty, "In-app file browser lists the mounted volume")
+        XCTAssertFalse(
+            onMainValue { t.filesAppSeesVolume() },
+            "Mounted volume does not appear in Files.app"
+        )
         XCTAssertTrue(names.contains("BASKET.sha256"))
         XCTAssertTrue(names.contains { $0.localizedCaseInsensitiveContains("MEMO") })
         XCTAssertTrue(names.contains { $0.localizedCaseInsensitiveContains("PHOTO") })
@@ -541,6 +563,25 @@ final class AppInterfaceSessionTests: XCTestCase {
 
     private func pump(_ seconds: TimeInterval) {
         RunLoop.current.run(until: Date().addingTimeInterval(seconds))
+    }
+
+    private func spanIsZero(_ url: URL, _ offset: UInt64, _ length: Int) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        do {
+            try handle.seek(toOffset: offset)
+            let data = try handle.read(upToCount: length) ?? Data()
+            return data.count == length && data.allSatisfy { $0 == 0 }
+        } catch {
+            return false
+        }
+    }
+
+    /// Nested free space for a 2 MiB nested volume: past its FAT, before the backup headers.
+    private func nestedFreeSample(_ length: UInt64) -> UInt64 {
+        let header: UInt64 = 64 * 1024
+        let hidden: UInt64 = 2 * 1024 * 1024
+        return length - 2 * header - hidden + 256 * 1024
     }
 
     private func onMain(_ body: () -> Void) {

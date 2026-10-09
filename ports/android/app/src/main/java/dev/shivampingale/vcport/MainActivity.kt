@@ -505,6 +505,14 @@ class MainActivity : AppCompatActivity() {
     @androidx.annotation.VisibleForTesting
     fun testingEntryNames(): List<String> = entriesState.value.map { it.name }
 
+    /** Labels the Android Files app would see. Empty unless the user allowed sharing. */
+    @androidx.annotation.VisibleForTesting
+    fun testingFilesAppRootLabels(): List<String> = OtgMountShare.roots().map { it.label }
+
+    /** Root ids the system Files app opens. Empty unless the user allowed sharing. */
+    @androidx.annotation.VisibleForTesting
+    fun testingFilesAppRootIds(): List<String> = OtgMountShare.roots().map { it.id }
+
     @androidx.annotation.VisibleForTesting
     fun testingOpenDir(name: String) {
         runOnUiThread {
@@ -1543,6 +1551,17 @@ class MainActivity : AppCompatActivity() {
                                 onWipeFreeSpace = {
                                     wipeFreeSpace(handle, dirPath, { entries = it }, { status = it })
                                 },
+                                shareWithFiles = shareWithFiles,
+                                onShareWithFiles = {
+                                    shareWithFiles = it
+                                    OtgMountShare.shareWithFiles = it
+                                    refreshDocumentRoots()
+                                    status = if (it) {
+                                        "Unlocked volume is in the Files app until you turn this off, dismount, or the screen locks."
+                                    } else {
+                                        "Files app no longer shows this volume."
+                                    }
+                                },
                                 onSelectAll = {
                                     hashResult = ""
                                     val files = entries.filter { !it.isDir }.map { it.name }.toSet()
@@ -1815,6 +1834,13 @@ class MainActivity : AppCompatActivity() {
         if (suppressLock || busyState.value) {
             return
         }
+        // The user ticked Allow Files app. Keep the unlocked volume open so the
+        // system Files app can browse it. Screen lock, idle, Dismount, and Panic
+        // still close it. Sharing off returns to dismount-on-leave.
+        if (OtgMountShare.shareWithFiles && mountedVolumesState.value.isNotEmpty()) {
+            refreshDocumentRoots()
+            return
+        }
         dismountOnLeave()
     }
 
@@ -1919,6 +1945,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun clearMountedVolumeState() {
+        OtgMountShare.shareWithFiles = false
         mountedVolumesState.value = emptyList()
         activeMountIndexState.intValue = 0
         handleState.value = 0L
@@ -3018,7 +3045,7 @@ class MainActivity : AppCompatActivity() {
     private fun refreshDocumentRoots() {
         val roots = if (OtgMountShare.shareWithFiles) {
             mountedVolumesState.value.map { vol ->
-                OtgMountShare.Root(vol.path.ifEmpty { vol.label }, vol.handle, vol.label)
+                OtgMountShare.Root("v${vol.handle}", vol.handle, vol.label)
             }
         } else {
             emptyList()
@@ -3393,6 +3420,7 @@ class MainActivity : AppCompatActivity() {
         return when (code.toInt()) {
             -2 -> "Wrong password, PIM, or keyfile mix."
             -6 -> "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported."
+            -7 -> "VeraCrypt self-test failed. This build will not open a volume."
             -1 -> "Could not read the container file."
             -3 -> "Not a VeraCrypt-compatible volume, or the header is damaged."
             -4 -> "Missing path or password argument."

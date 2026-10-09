@@ -26,7 +26,9 @@ enum VcError
 	VC_ERR_FORMAT = -3,
 	VC_ERR_ARGUMENT = -4,
 	VC_ERR_MEMORY = -5,
-	VC_ERR_UNSUPPORTED = -6
+	VC_ERR_UNSUPPORTED = -6,
+	/* Official algorithm self-test failed. Open and create refuse. */
+	VC_ERR_SELFTEST = -7
 };
 
 /* In-app FAT listing cap. Path lookup uses the full directory (up to 32768). */
@@ -159,6 +161,8 @@ int vc_volume_info (VcVolume *volume, char *out, size_t out_size);
 int vc_protection_triggered (VcVolume *volume);
 int vc_benchmark (char *out, size_t out_size);
 int vc_test_vectors (void);
+/* EncryptionTest::TestAll, crc32_selftests, and argon2id_selftest. */
+int vc_auto_test (void);
 
 #ifdef __cplusplus
 }

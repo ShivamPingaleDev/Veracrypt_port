@@ -1,6 +1,7 @@
 package dev.shivampingale.vcport
 
 import android.content.Intent
+import android.provider.DocumentsContract
 import android.view.WindowManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assert
@@ -21,6 +22,9 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -28,7 +32,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.RandomAccessFile
 import java.security.MessageDigest
 
 /**
@@ -115,6 +121,11 @@ class AppInterfaceSessionTest {
         )
         val basketDest = File(work, "basket.jpg")
         assertTrue(rule.activity.testingFinishCreateSave(basketDest))
+        assertTrue(basketDest.length() >= 4L * 1024L * 1024L)
+        assertTrue(
+            "Quick format left the unused part of the volume empty",
+            spanIsZero(basketDest, 1024L * 1024L, 4096)
+        )
         rule.waitForIdle()
 
         rule.onNodeWithText("Session cleared", substring = true).assertIsDisplayed()
@@ -159,6 +170,7 @@ class AppInterfaceSessionTest {
         rule.onNodeWithTag("create_size").performScrollTo().performTextReplacement("8")
         rule.onNodeWithTag("create_filename").performScrollTo()
             .performTextReplacement("photos.jpg")
+        rule.onNodeWithTag("create_full_format").performScrollTo().performClick()
         rule.waitForIdle()
 
         scribbleUntilFull()
@@ -171,6 +183,11 @@ class AppInterfaceSessionTest {
         )
         val nestedDest = File(work, "photos.jpg")
         assertTrue(rule.activity.testingFinishCreateSave(nestedDest))
+        assertEquals(8L * 1024L * 1024L, nestedDest.length())
+        assertFalse(
+            "Full format filled the volume",
+            spanIsZero(nestedDest, nestedFreeSample(nestedDest.length()), 4096)
+        )
         rule.waitForIdle()
         rule.onNodeWithText("Session cleared", substring = true).assertIsDisplayed()
         rule.onNodeWithTag("volume_password").assert(hasText(""))
@@ -210,6 +227,16 @@ class AppInterfaceSessionTest {
 
         rule.onNodeWithTag("tab_tools").performClick()
         rule.waitForIdle()
+        rule.onNodeWithTag("tools_test_vectors").performScrollTo().performClick()
+        waitStatus("Test vectors passed", 180_000)
+        assertTrue(
+            "CRC-32 self-test passed",
+            rule.activity.testingStatus().contains("CRC-32 self-test passed")
+        )
+        assertTrue(
+            "Argon2id self-test passed",
+            rule.activity.testingStatus().contains("Argon2id self-test passed")
+        )
         rule.onNodeWithTag("tools_volume_properties").performScrollTo().performClick()
         rule.waitUntil(15_000) {
             val info = rule.activity.testingVolumeInfo() ?: rule.activity.testingStatus()
@@ -219,6 +246,38 @@ class AppInterfaceSessionTest {
         rule.onNodeWithTag("tab_mounted").performClick()
         rule.waitForIdle()
         rule.onAllNodesWithText("Mounted in this app").onFirst().assertIsDisplayed()
+        rule.onNodeWithTag("vault_path").assertExists()
+        assertTrue(
+            "In-app file browser lists the mounted volume",
+            rule.activity.testingEntryNames().isNotEmpty()
+        )
+        assertTrue(
+            "Files app does not list the mounted volume until the user allows it",
+            rule.activity.testingFilesAppRootLabels().isEmpty()
+        )
+        rule.onNodeWithText("Show this unlocked volume in the Files app").performClick()
+        try {
+            rule.waitUntil(8_000) {
+                rule.activity.testingFilesAppRootIds().size == 1
+            }
+        } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            throw AssertionError(
+                "Ticking Show this unlocked volume did not publish it: ids=${rule.activity.testingFilesAppRootIds()} status=${rule.activity.testingStatus()}",
+                e
+            )
+        }
+        val rootId = rule.activity.testingFilesAppRootIds().single()
+        val shown = systemFilesHierarchy(rootId)
+        assertTrue(
+            "Files app lists the mounted volume only after the user allows it: ${clipUi(shown)}",
+            shown.contains("VC Port") && shown.contains("BASKET")
+        )
+        returnToVcPort()
+        rule.waitForIdle()
+        rule.onNodeWithText("Show this unlocked volume in the Files app").performClick()
+        rule.waitUntil(8_000) {
+            rule.activity.testingFilesAppRootLabels().isEmpty()
+        }
         assertTrue(rule.activity.testingEntryNames().contains("BASKET.sha256"))
         assertTrue(rule.activity.testingEntryNames().any { it.contains("MEMO", ignoreCase = true) })
         assertTrue(rule.activity.testingEntryNames().any { it.contains("PHOTO", ignoreCase = true) })
@@ -713,6 +772,83 @@ class AppInterfaceSessionTest {
         rule.waitUntil(20_000) {
             rule.onAllNodesWithText("100%").fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    private fun uiDevice(): UiDevice =
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+
+    /** Opens the unlocked volume in the system Files app and returns that window. */
+    private fun systemFilesHierarchy(rootId: String): String {
+        val device = uiDevice()
+        val uri = DocumentsContract.buildRootUri("dev.shivampingale.vcport.documents", rootId)
+        device.executeShellCommand("am force-stop com.google.android.documentsui")
+        device.executeShellCommand("am force-stop com.android.documentsui")
+        val started = device.executeShellCommand(
+            "am start -a android.intent.action.VIEW -d $uri -t vnd.android.document/root"
+        )
+        val opened = device.wait(
+            Until.hasObject(By.pkg("com.google.android.documentsui")),
+            12_000
+        )
+        assertTrue(
+            "System Files app did not open (package=${device.currentPackageName}) $started",
+            opened
+        )
+        device.waitForIdle(4_000)
+        val nodes = device.findObjects(By.pkg("com.google.android.documentsui"))
+        val text = nodes.joinToString("\n") { node ->
+            listOfNotNull(node.text, node.contentDescription).joinToString(" ")
+        }
+        if (text.isNotBlank()) return text
+        return dumpWindow(device)
+    }
+
+    private fun dumpWindow(device: UiDevice): String {
+        val out = ByteArrayOutputStream()
+        device.dumpWindowHierarchy(out)
+        return out.toString(Charsets.UTF_8.name())
+    }
+
+    private fun returnToVcPort() {
+        val device = uiDevice()
+        val pkg = "dev.shivampingale.vcport"
+        repeat(5) {
+            if (device.currentPackageName == pkg) return
+            device.pressBack()
+            device.wait(Until.hasObject(By.pkg(pkg)), 2_000)
+        }
+        if (device.currentPackageName != pkg) {
+            val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+            ctx.startActivity(
+                Intent(ctx, MainActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                )
+            )
+            device.wait(Until.hasObject(By.pkg(pkg)), 8_000)
+        }
+    }
+
+    private fun spanIsZero(file: File, offset: Long, length: Int): Boolean {
+        RandomAccessFile(file, "r").use { raf ->
+            raf.seek(offset)
+            val buf = ByteArray(length)
+            if (raf.read(buf) != length) return false
+            return buf.all { it == 0.toByte() }
+        }
+    }
+
+    /** Nested free space for a 2 MiB nested volume: past its FAT, before the backup headers. */
+    private fun nestedFreeSample(length: Long): Long {
+        val header = 64L * 1024L
+        val hidden = 2L * 1024L * 1024L
+        return length - 2L * header - hidden + 256L * 1024L
+    }
+
+    private fun clipUi(xml: String): String {
+        val flat = xml.replace(Regex("\\s+"), " ")
+        val at = listOf("VC Port", "BASKET").map { flat.indexOf(it) }.filter { it >= 0 }.minOrNull()
+        if (at == null) return flat.take(600)
+        return flat.substring((at - 80).coerceAtLeast(0), (at + 400).coerceAtMost(flat.length))
     }
 
     private fun assertSecure() {

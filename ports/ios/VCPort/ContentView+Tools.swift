@@ -42,6 +42,7 @@ extension ContentView {
                     .portTag("tools_generate_keyfile")
                 Button("Benchmark") { runBenchmark() }
                 Button("Test vectors") { runTestVectors() }
+                    .portTag("tools_test_vectors")
                 Text(PimEstimator.describe(kdf: createKdf, pimText: createPim))
                     .font(.caption)
                     .foregroundStyle(.secondary)

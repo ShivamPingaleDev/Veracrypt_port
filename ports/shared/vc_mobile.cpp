@@ -26,9 +26,14 @@
 #include "Crypto/Sha2.h"
 #include "Crypto/cpu.h"
 #include "Common/Volumes.h"
+#include "Common/Crc.h"
+#include "argon2.h"
+
+static int ensure_official_self_test (void);
 
 #include <algorithm>
 #include <chrono>
+#include <mutex>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -107,6 +112,12 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 
 	try
 	{
+		if (ensure_official_self_test () != VC_OK)
+		{
+			if (error)
+				*error = VC_ERR_SELFTEST;
+			return nullptr;
+		}
 		vc_progress_set (-1, "Unlocking");
 		const char *pw = options->password ? options->password : "";
 		size_t pwLen = options->password_len;
@@ -2123,6 +2134,8 @@ int vc_create_volume (const VcCreateOptions *options)
 
 	try
 	{
+		if (ensure_official_self_test () != VC_OK)
+			return VC_ERR_SELFTEST;
 		vc_runtime_start ();
 		vc_progress_set (-1, "Deriving keys");
 		shared_ptr <VeraCrypt::EncryptionAlgorithm> ea = FindCipher (
@@ -2195,20 +2208,13 @@ int vc_create_volume (const VcCreateOptions *options)
 			useExfat = options->size_bytes >= 4ull * 1024ull * 1024ull * 1024ull;
 		if (options->size_bytes >= 4ull * 1024ull * 1024ull * 1024ull)
 			useExfat = 1;
-		uint64_t volSkipStart = 0;
-		uint64_t volSkipEnd = 0;
-		if (hiddenSize > 0)
-		{
-			VolumeLayoutV2Hidden hiddenLayout;
-			uint64_t hiddenDataStart = options->size_bytes
-				- (uint64_t) hiddenLayout.GetHeaderSize () * 2 - hiddenSize;
-			volSkipStart = hiddenDataStart - outerDataStart;
-			volSkipEnd = outerDataSize;
-		}
+		/* Full format covers the whole outer data area, including the nested
+		 * volume. The nested call only writes its filesystem on top. Skipping
+		 * that region leaves a zero hole where the nested volume sits. */
 		const int outerFull = options->full_format != 0 ? 1 : 0;
 		rc = FormatOpened (options->path, pw, pwLen, options->pim,
 			options->keyfiles, options->keyfile_count, outerDataSize, useExfat,
-			outerFull, volSkipStart, volSkipEnd);
+			outerFull, 0, 0);
 		if (rc != VC_OK)
 			return rc;
 		if (hiddenSize > 0)
@@ -2632,4 +2638,29 @@ int vc_test_vectors (void)
 	{
 		return VC_ERR_FORMAT;
 	}
+}
+
+int vc_auto_test (void)
+{
+	/* Official Unix self-test (Volume/EncryptionTest.cpp) plus the CRC-32
+	   and Argon2id self-tests from the VeraCrypt tree. The 256 MiB Argon2
+	   cases in selftest.c are not compiled in upstream. */
+	if (vc_test_vectors () != VC_OK)
+		return VC_ERR_SELFTEST;
+	if (!crc32_selftests ())
+		return VC_ERR_SELFTEST;
+	if (argon2id_selftest () != 0)
+		return VC_ERR_SELFTEST;
+	return VC_OK;
+}
+
+static int g_self_test_rc = VC_ERR_SELFTEST;
+static std::once_flag g_self_test_once;
+
+static int ensure_official_self_test (void)
+{
+	std::call_once (g_self_test_once, [] {
+		g_self_test_rc = vc_auto_test ();
+	});
+	return g_self_test_rc;
 }

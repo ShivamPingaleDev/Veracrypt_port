@@ -113,6 +113,7 @@ extension ContentView {
                         }
                     }
                 }
+                .portTag("vault_path")
                 ForEach(entries) { entry in
                     Button {
                         if entry.isDir {

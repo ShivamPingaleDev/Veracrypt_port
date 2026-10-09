@@ -527,6 +527,13 @@ struct ContentView: View {
         entropyPercent = Int(VcMobileBridge.entropyPercent())
     }
 
+    /// Files.app only sees a volume through a File Provider extension. This app has none.
+    func mountedVolumeAppearsInFilesApp() -> Bool {
+        guard let plugIns = Bundle.main.builtInPlugInsURL else { return false }
+        let items = (try? FileManager.default.contentsOfDirectory(at: plugIns, includingPropertiesForKeys: nil)) ?? []
+        return items.contains { $0.lastPathComponent.localizedCaseInsensitiveContains("FileProvider") }
+    }
+
     func publishTransferQueue() {
         let gen = transferQueue.generation
         let jobs = transferQueue.snapshot()
@@ -1837,6 +1844,7 @@ struct ContentView: View {
         switch code {
         case -2: return "Wrong password, PIM, or keyfile mix."
         case -6: return "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported."
+        case -7: return "VeraCrypt self-test failed. This build will not open a volume."
         case -1: return "Could not read the container file."
         case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
         case -4: return "Missing path or password argument."
@@ -2360,11 +2368,11 @@ struct ContentView: View {
     func runTestVectors() {
         beginWork("Running known-answer test vectors…")
         DispatchQueue.global(qos: .userInitiated).async {
-            let rc = VcMobileBridge.testVectors()
+            let rc = VcMobileBridge.autoTest()
             DispatchQueue.main.async {
                 endWork()
                 status = rc == 0
-                    ? "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests."
+                    ? "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests. CRC-32 self-test passed. Argon2id self-test passed."
                     : "Test vectors failed."
             }
         }
@@ -2513,6 +2521,7 @@ struct ContentView: View {
         testing.setCreateKdf = { createKdf = $0 }
         testing.setCreatePim = { createPim = $0 }
         testing.setCreateFilename = { createFileName = $0 }
+        testing.setCreateFullFormat = { createFullFormat = $0 }
         testing.setCreateSize = { createSizeAmount = $0 }
         testing.setCreateHidden = { createHidden = $0 }
         testing.setCreateHiddenPim = { createHiddenPim = $0 }
@@ -2569,6 +2578,7 @@ struct ContentView: View {
         testing.openVolume = { openVolume() }
         testing.lockSession = { lockSession() }
         testing.showVolumeProperties = { showVolumeProperties() }
+        testing.runTestVectors = { runTestVectors() }
         testing.backupHeader = { backupVolumeHeader() }
         testing.changePassword = { changeVolumePassword() }
         testing.setKdf = { setHeaderKdf() }
@@ -2688,6 +2698,7 @@ struct ContentView: View {
             return true
         }
         testing.lastTransferReport = { lastTransferReport }
+        testing.filesAppSeesVolume = { mountedVolumeAppearsInFilesApp() }
         testing.restoreHeader = { bak in
             restoreVolumeHeader(bak)
         }
