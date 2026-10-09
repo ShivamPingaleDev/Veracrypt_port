@@ -3,6 +3,12 @@
 Local phones together:
 
 ```
+ports/tests/contrib.sh
+```
+
+That is the contributor suite. It checks the regressive session, the progressive walk rows, and the host nuances, then runs this walk. `VC_PORT_CONTRIB=host` stops before the phones. The walk by itself is still:
+
+```
 ports/scripts/run-ui-walk.sh
 ```
 

@@ -2,6 +2,14 @@
 
 Host tests stand in for a phone or an iOS simulator.
 
+A contribution runs one command. It is the regressive session, the progressive walk rows, the host nuances, the crypto-safety and volume proofs, and the UI walk:
+
+```
+ports/tests/contrib.sh
+```
+
+`VC_PORT_CONTRIB=host` skips the walk. The release pass on a laptop is still `ports/tests/run-all.sh`. GitHub Actions runs the catalog and does not boot an emulator.
+
 ```
 ports/tests/run-all.sh
 python3 ports/tests/test_quality.py
