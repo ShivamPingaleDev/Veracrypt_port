@@ -189,6 +189,8 @@ class ContribCatalogTests(unittest.TestCase):
         self.assertIn("run_volume_test.sh", script)
         self.assertIn("run-ui-walk.sh", script)
         self.assertIn("VC_PORT_CONTRIB", script)
+        self.assertIn("FAIL  contribution suite", script)
+        self.assertIn("Stopped before the UI walk.", script)
         wf = read(".github/workflows/vcport.yml")
         self.assertNotIn("contrib.sh", wf)
         self.assertNotIn("run-ui-walk.sh", wf)
@@ -196,6 +198,55 @@ class ContribCatalogTests(unittest.TestCase):
         self.assertIn("test_contrib", phases)
         guide = read("ports/CONTRIBUTING.md")
         self.assertIn("ports/tests/contrib.sh", guide)
+
+    def test_app_and_suite_fail_with_the_same_codes(self) -> None:
+        header = read("ports/shared/vc_mobile.h")
+        android = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
+        ios = read("ports/ios/VCPort/ContentView.swift")
+        script = read("ports/tests/contrib.sh")
+        for phrase in (
+            "-1  IO. Stay on the current screen. Nothing new is mounted.",
+            "-2  PASSWORD. Stay. The password field is kept for another try.",
+            "-3  FORMAT. Stay unmounted. A partial container is discarded.",
+            "-4  ARGUMENT. Stay. No file is written.",
+            "-5  MEMORY. Stay. The operation stops.",
+            "-6  UNSUPPORTED. Stay. That cipher or filesystem is refused.",
+            "-7  SELFTEST. Open and create refuse. The rest of the app stays usable.",
+            "-8  Open aborted after unlock. The volume is closed.",
+            "-9  Create aborted. The incomplete file is discarded.",
+            "-10 Hidden protection. The outer volume stays mounted and writes stop.",
+        ):
+            self.assertIn(phrase, header, phrase)
+        self.assertIn('"$message (code $code)"', android)
+        self.assertIn(r'"\(message) (code \(code))"', ios)
+        for sentence in (
+            "Could not read the container file.",
+            "Wrong password, PIM, or keyfile mix.",
+            "Not a VeraCrypt-compatible volume, or the header is damaged.",
+            "Missing path or password argument.",
+            "Not enough memory to open the volume.",
+            "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported.",
+            "VeraCrypt self-test failed. This build will not open a volume.",
+            "VeraCrypt self-test failed. This build will not create a volume.",
+        ):
+            self.assertIn(f'coded(rc, "{sentence}")', android, sentence)
+            self.assertIn(f'coded(code, "{sentence}")', ios, sentence)
+        for sentence in (
+            "Open failed. The volume was not left mounted. (code -8)",
+            "The incomplete file was discarded. (code -9)",
+            "write-protected until you dismount. (code -10)",
+        ):
+            self.assertIn(sentence, android, sentence)
+            self.assertIn(sentence, ios, sentence)
+        password_fail = android.split("if (!NativeBridge.isOpen(result))")[1].split("return@Thread")[0]
+        self.assertIn("openErrorMessage", password_fail)
+        self.assertNotIn("wipeUnlockForm", password_fail)
+        ios_fail = ios.split("guard let handle else")[1].split("return")[0]
+        self.assertIn("openErrorMessage", ios_fail)
+        self.assertNotIn("wipeUnlockForm", ios_fail)
+        for code in (11, 12, 13, 14):
+            self.assertIn(f"suite code {code}", script)
+            self.assertIn(f"exit {code}", script)
 
 
 if __name__ == "__main__":

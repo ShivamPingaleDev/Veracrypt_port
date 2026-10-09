@@ -725,7 +725,9 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 endWork()
                 if rc != 0 {
-                    status = "Create failed (code \(rc))."
+                    let discarded = FileManager.default.fileExists(atPath: dest.path)
+                    if discarded { wipeFile(dest) }
+                    status = createErrorMessage(rc) + (discarded ? " The incomplete file was discarded. (code -9)" : "")
                     return
                 }
                 entropyPercent = 0
@@ -847,6 +849,7 @@ struct ContentView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let keyfilePaths = keys.map(\.path)
             var error: Int32 = 0
+            var opened: OpaquePointer?
             let handle = VcMobileBridge.open(
                 path: path,
                 password: text,
@@ -865,10 +868,19 @@ struct ContentView: View {
                     status = openErrorMessage(error)
                     return
                 }
+                opened = handle
+                var mounted = false
+                defer {
+                    if !mounted, let opened {
+                        VcMobileBridge.close(opened)
+                        if !status.contains("(code ") {
+                            status = "Open failed. The volume was not left mounted. (code -8)"
+                        }
+                    }
+                }
                 persistActiveMount()
                 switch VcMobileBridge.listDir(handle, path: "/") {
                 case .failure(let err):
-                    VcMobileBridge.close(handle)
                     status = listErrorMessage(err.rawValue)
                 case .success(let listed):
                     let truncated = listed.contains { $0.name == "!truncated!" }
@@ -894,6 +906,7 @@ struct ContentView: View {
                     headerKeyfileURLs = keys
                     rememberUnlock(text, pimText)
                     wipeUnlockForm()
+                    mounted = true
                     selectedTab = 2
                     bumpIdle()
                     var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Slots are on the Mounted tab. Tap Open on a folder, or select files. Copy to volume moves selected files into another mounted container."
@@ -1840,62 +1853,83 @@ struct ContentView: View {
         return String(dir[..<slash])
     }
 
+    func coded(_ code: Int32, _ message: String) -> String {
+        "\(message) (code \(code))"
+    }
+
+    func createErrorMessage(_ code: Int32) -> String {
+        switch code {
+        case -7: return coded(code, "VeraCrypt self-test failed. This build will not create a volume.")
+        case -6: return coded(code, "That cipher or KDF is not available in this build.")
+        case -5: return coded(code, "Not enough memory to create the volume.")
+        case -4: return coded(code, "Missing path, password, or size.")
+        case -3: return coded(code, "The volume could not be formatted.")
+        case -2: return coded(code, "Password or PIM was rejected.")
+        case -1: return coded(code, "Could not write the container file.")
+        default: return "Create failed (code \(code))."
+        }
+    }
+
     func openErrorMessage(_ code: Int32) -> String {
         switch code {
-        case -2: return "Wrong password, PIM, or keyfile mix."
-        case -6: return "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported."
-        case -7: return "VeraCrypt self-test failed. This build will not open a volume."
-        case -1: return "Could not read the container file."
-        case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
-        case -4: return "Missing path or password argument."
-        case -5: return "Not enough memory to open the volume."
+        case -2: return coded(code, "Wrong password, PIM, or keyfile mix.")
+        case -6: return coded(code, "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported.")
+        case -7: return coded(code, "VeraCrypt self-test failed. This build will not open a volume.")
+        case -1: return coded(code, "Could not read the container file.")
+        case -3: return coded(code, "Not a VeraCrypt-compatible volume, or the header is damaged.")
+        case -4: return coded(code, "Missing path or password argument.")
+        case -5: return coded(code, "Not enough memory to open the volume.")
         default: return "Open failed (code \(code))."
         }
     }
 
     func listErrorMessage(_ code: Int32) -> String {
         switch code {
-        case -6: return "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here."
-        case -4: return "Could not list that folder path."
-        case -5: return "Not enough memory to list the folder."
-        case -1: return "Could not read the folder from the volume."
+        case -6: return coded(code, "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here.")
+        case -4: return coded(code, "Could not list that folder path.")
+        case -5: return coded(code, "Not enough memory to list the folder.")
+        case -1: return coded(code, "Could not read the folder from the volume.")
+        case -3: return coded(code, "Could not list files. The folder is not a readable FAT or exFAT directory.")
         default: return "Could not list files (code \(code))."
         }
     }
 
     func extractErrorMessage(_ name: String, _ rc: Int32) -> String {
         switch rc {
-        case -6: return "Could not extract \(name). NTFS/ext are unsupported; FAT and exFAT work."
-        case -4: return "Could not extract \(name). Bad path."
-        case -5: return "Could not extract \(name). Not enough memory."
-        case -1: return "Could not extract \(name). Read failed."
-        case -2: return "Could not extract \(name). Wrong password or header."
+        case -6: return coded(rc, "Could not extract \(name). NTFS/ext are unsupported; FAT and exFAT work.")
+        case -4: return coded(rc, "Could not extract \(name). Bad path.")
+        case -5: return coded(rc, "Could not extract \(name). Not enough memory.")
+        case -1: return coded(rc, "Could not extract \(name). Read failed.")
+        case -2: return coded(rc, "Could not extract \(name). Wrong password or header.")
+        case -3: return coded(rc, "Could not extract \(name). The file is not in this folder.")
         default: return "Could not extract \(name) (code \(rc))."
         }
     }
 
     func importErrorMessage(_ name: String, _ rc: Int32, handle: OpaquePointer? = nil) -> String {
         if let handle, VcMobileBridge.protectionTriggered(handle) {
-            return "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+            return coded(-10, "Hidden volume protection triggered. The outer volume is now write-protected until you dismount.")
         }
         switch rc {
-        case -6: return "Could not copy \(name). Folders are not created this way."
-        case -4: return "Could not copy \(name). Bad name or path."
-        case -5: return "Could not copy \(name). Volume is full, or the file is larger than 4 GiB (FAT limit)."
-        case -3: return "A file named \(name) already exists in this folder."
-        case -1: return "Could not copy \(name) into the volume."
+        case -6: return coded(rc, "Could not copy \(name). Folders are not created this way.")
+        case -4: return coded(rc, "Could not copy \(name). Bad name or path.")
+        case -5: return coded(rc, "Could not copy \(name). Volume is full, or the file is larger than 4 GiB (FAT limit).")
+        case -3: return coded(rc, "A file named \(name) already exists in this folder.")
+        case -1: return coded(rc, "Could not copy \(name) into the volume.")
+        case -2: return coded(rc, "Could not copy \(name). Wrong password or header.")
         default: return "Could not copy \(name) (code \(rc))."
         }
     }
 
     func headerErrorMessage(_ rc: Int32) -> String {
         switch rc {
-        case -4: return "Need a container path and at least a password or keyfile."
-        case -2: return "Wrong password, PIM, or keyfile mix."
-        case -1: return "Could not read or write the container. Close it first if it is open."
-        case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
-        case -6: return "That KDF is not available in this build."
-        case -5: return "Not enough memory."
+        case -4: return coded(rc, "Need a container path and at least a password or keyfile.")
+        case -2: return coded(rc, "Wrong password, PIM, or keyfile mix.")
+        case -1: return coded(rc, "Could not read or write the container. Close it first if it is open.")
+        case -3: return coded(rc, "Not a VeraCrypt-compatible volume, or the header is damaged.")
+        case -6: return coded(rc, "That KDF is not available in this build.")
+        case -5: return coded(rc, "Not enough memory.")
+        case -7: return coded(rc, "VeraCrypt self-test failed. This build will not change a header.")
         default: return "Header operation failed (code \(rc))."
         }
     }
@@ -2253,7 +2287,7 @@ struct ContentView: View {
                 endWork()
                 if rc != 0 {
                     if VcMobileBridge.protectionTriggered(handle) {
-                        status = "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+                        status = "Hidden volume protection triggered. The outer volume is now write-protected until you dismount. (code -10)"
                     } else {
                         status = "Could not wipe free space (code \(rc)). Read-only volumes refuse this."
                     }

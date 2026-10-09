@@ -29,6 +29,20 @@ enum VcError
 	VC_ERR_UNSUPPORTED = -6,
 	/* Official algorithm self-test failed. Open and create refuse. */
 	VC_ERR_SELFTEST = -7
+	/* Predictable degradation. The same code always does the same thing.
+	 *  0  OK. The operation finished.
+	 * -1  IO. Stay on the current screen. Nothing new is mounted.
+	 * -2  PASSWORD. Stay. The password field is kept for another try.
+	 * -3  FORMAT. Stay unmounted. A partial container is discarded.
+	 * -4  ARGUMENT. Stay. No file is written.
+	 * -5  MEMORY. Stay. The operation stops.
+	 * -6  UNSUPPORTED. Stay. That cipher or filesystem is refused.
+	 * -7  SELFTEST. Open and create refuse. The rest of the app stays usable.
+	 * Host only. This library never returns these:
+	 * -8  Open aborted after unlock. The volume is closed.
+	 * -9  Create aborted. The incomplete file is discarded.
+	 * -10 Hidden protection. The outer volume stays mounted and writes stop.
+	 */
 };
 
 /* In-app FAT listing cap. Path lookup uses the full directory (up to 32768). */

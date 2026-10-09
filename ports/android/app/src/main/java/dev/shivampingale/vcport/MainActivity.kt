@@ -2534,7 +2534,10 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     endWork()
                     if (rc != 0) {
-                        onStatus(createErrorMessage(rc))
+                        val discarded = dest.exists()
+                        if (discarded) Hardening.wipeFile(dest)
+                        val extra = if (discarded) " The incomplete file was discarded. (code -9)" else ""
+                        onStatus(createErrorMessage(rc) + extra)
                     } else {
                         pendingCreatedPathState.value = dest.absolutePath
                         var msg = "Created ${SizeUnits.formatBytes(bytes)} $cipher / $kdf $fs volume as ${dest.name} (standard VeraCrypt file; the name is only a disguise). Save a copy, then Open volume or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
@@ -2556,9 +2559,11 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (_: Exception) {
+                val partial = File(cacheDir, ShareHelper.sanitizeDisguiseName(fileName))
+                if (partial.exists()) Hardening.wipeFile(partial)
                 runOnUiThread {
                     endWork()
-                    onStatus("Create failed.")
+                    onStatus("Create failed. The incomplete file was discarded. (code -9)")
                 }
             } finally {
                 temps.forEach { KeyfileIo.wipe(it) }
@@ -2567,25 +2572,30 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun coded(code: Int, message: String): String = "$message (code $code)"
+
     private fun createErrorMessage(rc: Int): String {
         return when (rc) {
-            -4 -> "Missing path, password, or size."
-            -6 -> "That cipher or KDF is not available in this build."
-            -5 -> "Not enough memory to create the volume."
-            -2 -> "Password or PIM was rejected."
-            -1 -> "Could not write the container file."
+            -4 -> coded(rc, "Missing path, password, or size.")
+            -6 -> coded(rc, "That cipher or KDF is not available in this build.")
+            -5 -> coded(rc, "Not enough memory to create the volume.")
+            -2 -> coded(rc, "Password or PIM was rejected.")
+            -1 -> coded(rc, "Could not write the container file.")
+            -3 -> coded(rc, "The volume could not be formatted.")
+            -7 -> coded(rc, "VeraCrypt self-test failed. This build will not create a volume.")
             else -> "Create failed (code $rc)."
         }
     }
 
     private fun headerErrorMessage(rc: Int): String {
         return when (rc) {
-            -4 -> "Need a container path and at least a password or keyfile."
-            -2 -> "Wrong password, PIM, or keyfile mix."
-            -1 -> "Could not read or write the container. Close it first if it is open."
-            -3 -> "Not a VeraCrypt-compatible volume, or the header is damaged."
-            -6 -> "That KDF is not available in this build."
-            -5 -> "Not enough memory."
+            -4 -> coded(rc, "Need a container path and at least a password or keyfile.")
+            -2 -> coded(rc, "Wrong password, PIM, or keyfile mix.")
+            -1 -> coded(rc, "Could not read or write the container. Close it first if it is open.")
+            -3 -> coded(rc, "Not a VeraCrypt-compatible volume, or the header is damaged.")
+            -6 -> coded(rc, "That KDF is not available in this build.")
+            -5 -> coded(rc, "Not enough memory.")
+            -7 -> coded(rc, "VeraCrypt self-test failed. This build will not change a header.")
             else -> "Header operation failed (code $rc)."
         }
     }
@@ -3108,6 +3118,7 @@ class MainActivity : AppCompatActivity() {
         beginWork("Opening volume…")
         Thread {
             val temps = mutableListOf<File>()
+            var opened = 0L
             try {
                 for (uri in keyfileUris) {
                     val copied = KeyfileIo.copyUri(this, uri)
@@ -3139,12 +3150,14 @@ class MainActivity : AppCompatActivity() {
                     }
                     return@Thread
                 }
+                opened = result
                 val listed = NativeBridge.listDir(result, "/")
                 val parsed = listed.mapNotNull { parseEntry(it) }
                 val truncated = parsed.any { it.name == "!truncated!" }
                 val files = parsed.filter { it.name != "!error!" && it.name != "!truncated!" }
                 val volumeBytes = NativeBridge.volumeSize(result)
                 runOnUiThread {
+                    try {
                     endWork()
                     if (parsed.size == 1 && parsed[0].name == "!error!") {
                         NativeBridge.closeVolume(result)
@@ -3186,11 +3199,18 @@ class MainActivity : AppCompatActivity() {
                         if (truncated) msg += " Listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more."
                         onStatus(msg)
                     }
+                    } catch (_: Exception) {
+                        if (NativeBridge.isOpen(opened)) NativeBridge.closeVolume(opened)
+                        mountedVolumesState.value = mountedVolumesState.value.filter { it.handle != opened }
+                        endWork()
+                        onStatus("Open failed. The volume was not left mounted. (code -8)")
+                    }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
+                if (NativeBridge.isOpen(opened)) NativeBridge.closeVolume(opened)
                 runOnUiThread {
                     endWork()
-                    onStatus("Open failed.")
+                    onStatus("Open failed. The volume was not left mounted. (code -8)")
                 }
             } finally {
                 temps.forEach { KeyfileIo.wipe(it) }
@@ -3417,49 +3437,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openErrorMessage(code: Long): String {
-        return when (code.toInt()) {
-            -2 -> "Wrong password, PIM, or keyfile mix."
-            -6 -> "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported."
-            -7 -> "VeraCrypt self-test failed. This build will not open a volume."
-            -1 -> "Could not read the container file."
-            -3 -> "Not a VeraCrypt-compatible volume, or the header is damaged."
-            -4 -> "Missing path or password argument."
-            -5 -> "Not enough memory to open the volume."
+        val rc = code.toInt()
+        return when (rc) {
+            -2 -> coded(rc, "Wrong password, PIM, or keyfile mix.")
+            -6 -> coded(rc, "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported.")
+            -7 -> coded(rc, "VeraCrypt self-test failed. This build will not open a volume.")
+            -1 -> coded(rc, "Could not read the container file.")
+            -3 -> coded(rc, "Not a VeraCrypt-compatible volume, or the header is damaged.")
+            -4 -> coded(rc, "Missing path or password argument.")
+            -5 -> coded(rc, "Not enough memory to open the volume.")
             else -> "Open failed (code $code)."
         }
     }
 
     private fun listErrorMessage(code: Int): String {
         return when (code) {
-            -6 -> "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here."
-            -4 -> "Could not list that folder path."
-            -5 -> "Not enough memory to list the folder."
-            -1 -> "Could not read the folder from the volume."
+            -6 -> coded(code, "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here.")
+            -4 -> coded(code, "Could not list that folder path.")
+            -5 -> coded(code, "Not enough memory to list the folder.")
+            -1 -> coded(code, "Could not read the folder from the volume.")
+            -3 -> coded(code, "Could not list files. The folder is not a readable FAT or exFAT directory.")
             else -> "Could not list files (code $code)."
         }
     }
 
     private fun extractErrorMessage(name: String, rc: Int): String {
         return when (rc) {
-            -6 -> "Could not extract $name. NTFS/ext are unsupported; FAT and exFAT work."
-            -4 -> "Could not extract $name. Bad path."
-            -5 -> "Could not extract $name. Not enough memory."
-            -1 -> "Could not extract $name. Read failed."
-            -2 -> "Could not extract $name. Wrong password or header."
+            -6 -> coded(rc, "Could not extract $name. NTFS/ext are unsupported; FAT and exFAT work.")
+            -4 -> coded(rc, "Could not extract $name. Bad path.")
+            -5 -> coded(rc, "Could not extract $name. Not enough memory.")
+            -1 -> coded(rc, "Could not extract $name. Read failed.")
+            -2 -> coded(rc, "Could not extract $name. Wrong password or header.")
+            -3 -> coded(rc, "Could not extract $name. The file is not in this folder.")
             else -> "Could not extract $name (code $rc)."
         }
     }
 
     private fun importErrorMessage(name: String, rc: Int, handle: Long = 0L): String {
         if (NativeBridge.isOpen(handle) && NativeBridge.protectionTriggered(handle)) {
-            return "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+            return coded(-10, "Hidden volume protection triggered. The outer volume is now write-protected until you dismount.")
         }
         return when (rc) {
-            -6 -> "Could not copy $name. Folders are not created this way."
-            -4 -> "Could not copy $name. Bad name or path."
-            -5 -> "Could not copy $name. Volume is full, or the file is larger than 4 GiB (FAT limit)."
-            -3 -> "A file named $name already exists in this folder."
-            -1 -> "Could not copy $name into the volume."
+            -6 -> coded(rc, "Could not copy $name. Folders are not created this way.")
+            -4 -> coded(rc, "Could not copy $name. Bad name or path.")
+            -5 -> coded(rc, "Could not copy $name. Volume is full, or the file is larger than 4 GiB (FAT limit).")
+            -3 -> coded(rc, "A file named $name already exists in this folder.")
+            -1 -> coded(rc, "Could not copy $name into the volume.")
+            -2 -> coded(rc, "Could not copy $name. Wrong password or header.")
             else -> "Could not copy $name (code $rc)."
         }
     }
@@ -3920,7 +3944,7 @@ class MainActivity : AppCompatActivity() {
                 if (rc != 0) {
                     onStatus(
                         if (NativeBridge.protectionTriggered(handle))
-                            "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+                            "Hidden volume protection triggered. The outer volume is now write-protected until you dismount. (code -10)"
                         else
                             "Could not wipe free space (code $rc). Read-only volumes refuse this."
                     )
