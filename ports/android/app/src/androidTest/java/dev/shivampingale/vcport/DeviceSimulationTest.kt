@@ -25,6 +25,7 @@ class DeviceSimulationTest {
         }
         fillEntropy()
         assertEquals(0, NativeBridge.testVectors())
+        assertEquals(0, NativeBridge.autoTest())
 
         NativeBridge.resetProgress()
         NativeBridge.setProgress(5, "Create volume")
@@ -287,6 +288,7 @@ class DeviceSimulationTest {
         assertEquals(0, NativeBridge.backupHeaders(volA.absolutePath, bak.absolutePath, pwA, pim, emptyArray()))
         assertTrue("backup header too small: ${bak.length()}", bak.length() >= 64L * 1024L)
 
+        assertEquals("Official self-test before the header integrity check", 0, NativeBridge.autoTest())
         corruptPrimaryHeader(volA)
         assertTrue(
             "primary header still opened after corruption",

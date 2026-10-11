@@ -12,8 +12,16 @@ enum PimEstimator {
             return "Argon2id. PIM changes Argon2 time cost. This is not seconds-to-open and not a crack-time estimate."
         }
         let n = hmacIterations(pim)
-        let formatted = NumberFormatter.localizedString(from: NSNumber(value: n), number: .decimal)
+        let formatted = formatCount(n)
         let pimBit = pim <= 0 ? "PIM 0 (VeraCrypt default)" : "PIM \(pim)"
         return "\(kdf): about \(formatted) header iterations (\(pimBit)). Not a crack-time estimate. Benchmark measures cipher speed, not this."
+    }
+
+    /// Fixed grouping so 500000 stays "500,000" on every phone locale.
+    private static func formatCount(_ n: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: n)) ?? String(n)
     }
 }

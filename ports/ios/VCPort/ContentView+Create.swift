@@ -86,15 +86,19 @@ extension ContentView {
                 Text("2 MiB–64 GiB.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                SecureField("Volume password (never stored)", text: $createPassword)
-                    .neverSaveHistory()
-                    .portTag("create_password")
-                Text(PasswordEntropy.label(createPassword))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                TextField("PIM (0 = default)", text: $createPim)
-                    .keyboardType(.numberPad)
-                    .portTag("create_pim")
+                passwordAndPim(
+                    password: $createPassword,
+                    passwordPrompt: "Volume password (never stored)",
+                    passwordTag: "create_password",
+                    pim: $createPim,
+                    pimPrompt: "PIM (0 = default)",
+                    pimTag: "create_pim",
+                    between: {
+                        Text(PasswordEntropy.label(createPassword))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                )
                 Button("Generate strong password") {
                     if let generated = VcMobileBridge.generatePassword() {
                         createPassword = generated
@@ -159,34 +163,38 @@ extension ContentView {
                     Text("Same cipher and KDF. Different password. Do not fill the outer volume.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    SecureField("Nested volume password", text: $createHiddenPassword)
-                        .neverSaveHistory()
-                        .portTag("create_hidden_password")
-                    Text(PasswordEntropy.label(createHiddenPassword))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Button("Generate nested password") {
-                        if let generated = VcMobileBridge.generatePassword() {
-                            createHiddenPassword = generated
-                            status = PasswordEntropy.label(generated) + " Nested password generated in memory. Copy once if you need it elsewhere. It is not saved."
+                    passwordAndPim(
+                        password: $createHiddenPassword,
+                        passwordPrompt: "Nested volume password",
+                        passwordTag: "create_hidden_password",
+                        pim: $createHiddenPim,
+                        pimPrompt: "Nested PIM (0 = default)",
+                        pimTag: "create_hidden_pim",
+                        between: {
+                            Text(PasswordEntropy.label(createHiddenPassword))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Button("Generate nested password") {
+                                if let generated = VcMobileBridge.generatePassword() {
+                                    createHiddenPassword = generated
+                                    status = PasswordEntropy.label(generated) + " Nested password generated in memory. Copy once if you need it elsewhere. It is not saved."
+                                }
+                            }
+                            HStack(spacing: 8) {
+                                Button("Copy nested once") {
+                                    guard !createHiddenPassword.isEmpty else { return }
+                                    SensitivePaste.copyOnce(createHiddenPassword)
+                                    status = "Copied nested password once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
+                                }
+                                .portTag("copy_nested_once")
+                                Button("Forget nested") {
+                                    createHiddenPassword = ""
+                                    SensitivePaste.forget()
+                                    status = "Nested password forgotten. Clipboard cleared."
+                                }
+                            }
                         }
-                    }
-                    HStack(spacing: 8) {
-                        Button("Copy nested once") {
-                            guard !createHiddenPassword.isEmpty else { return }
-                            SensitivePaste.copyOnce(createHiddenPassword)
-                            status = "Copied nested password once. Clipboard expires in 30 seconds and stays off iCloud clipboard."
-                        }
-                        .portTag("copy_nested_once")
-                        Button("Forget nested") {
-                            createHiddenPassword = ""
-                            SensitivePaste.forget()
-                            status = "Nested password forgotten. Clipboard cleared."
-                        }
-                    }
-                    TextField("Nested PIM (0 = default)", text: $createHiddenPim)
-                        .keyboardType(.numberPad)
-                        .portTag("create_hidden_pim")
+                    )
                     HStack(alignment: .center, spacing: 8) {
                         TextField("Nested size", text: $createHiddenSizeAmount)
                             .keyboardType(.numberPad)

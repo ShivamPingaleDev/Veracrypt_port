@@ -84,13 +84,15 @@ object NativeBridge {
     external fun protectionTriggered(handle: Long): Boolean
     external fun benchmark(): String?
     external fun testVectors(): Int
+    /** Official CRC-32, Argon2id, and EncryptionTest::TestAll. */
+    external fun autoTest(): Int
     external fun resetProgress()
     external fun setProgress(percent: Int, phase: String)
     external fun progressPercent(): Int
     external fun progressPhase(): String
 
-    /** Live volume pointer. Error codes from openVolume are 0 and -1..-6. */
-    fun isOpen(handle: Long): Boolean = handle < -6L || handle > 0L
+    /** Live volume pointer. Error codes from openVolume are 0 and -1..-7. */
+    fun isOpen(handle: Long): Boolean = handle < -7L || handle > 0L
 
     val CIPHERS = listOf(
         "AES",

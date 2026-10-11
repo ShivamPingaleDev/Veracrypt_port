@@ -47,13 +47,19 @@ extension ContentView {
             Section("Volume password") {
                 Toggle("Password", isOn: $useTextPassword)
                 if useTextPassword {
-                    SecureField("Password", text: $password)
-                        .neverSaveHistory()
-                        .portTag("volume_password")
+                    passwordAndPim(
+                        password: $password,
+                        passwordPrompt: "Password",
+                        passwordTag: "volume_password",
+                        pim: $pim,
+                        pimPrompt: "PIM (0 = default)",
+                        pimTag: "volume_pim"
+                    )
+                } else {
+                    TextField("PIM (0 = default)", text: $pim)
+                        .keyboardType(.numberPad)
+                        .portTag("volume_pim")
                 }
-                TextField("PIM (0 = default)", text: $pim)
-                    .keyboardType(.numberPad)
-                    .portTag("volume_pim")
                 keyfileRows
                 Text("Mount options")
                     .font(.headline)
@@ -66,12 +72,14 @@ extension ContentView {
                 Toggle("Protect hidden volume against damage caused by writing to outer volume", isOn: $protectHidden)
                     .portTag("protect_hidden")
                 if protectHidden {
-                    SecureField("Password to hidden volume", text: $hiddenProtectPassword)
-                        .neverSaveHistory()
-                        .portTag("hidden_protect_password")
-                    TextField("Hidden volume PIM (0 = default)", text: $hiddenProtectPim)
-                        .keyboardType(.numberPad)
-                        .portTag("hidden_protect_pim")
+                    passwordAndPim(
+                        password: $hiddenProtectPassword,
+                        passwordPrompt: "Password to hidden volume",
+                        passwordTag: "hidden_protect_password",
+                        pim: $hiddenProtectPim,
+                        pimPrompt: "Hidden volume PIM (0 = default)",
+                        pimTag: "hidden_protect_pim"
+                    )
                 }
                 Text("Idle dismount")
                     .font(.headline)

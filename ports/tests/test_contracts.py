@@ -599,7 +599,12 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("format_fill_data_area", mobile)
         self.assertIn("Full format", mobile)
         create = mobile.split("int vc_create_volume")[1].split("catch (PasswordException")[0]
-        self.assertIn("volSkipStart", create)
+        self.assertIn("outerFull, 0, 0", create)
+        self.assertIn("including the nested", create)
+        volume = read("ports/shared/test_volume_main.cpp")
+        self.assertIn("quick format left the unused part of the volume empty", volume)
+        self.assertIn("full format filled the volume", volume)
+        self.assertIn("full format filled the nested free space", volume)
         main = read_android_ui()
         view = read_ios_ui()
         self.assertIn('testTag("create_full_format")', main)
@@ -739,8 +744,19 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("/vcport-otg-dev/", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgBlockStore.kt"))
         self.assertIn("bindFile", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgBlockStore.kt"))
         self.assertIn("testingInjectFakeUsb", main)
-        self.assertIn("testTag(\"scan_usb\")", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgVolumePanel.kt"))
-        self.assertIn("testTag(\"otg_partition\")", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgVolumePanel.kt"))
+        panel = read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgVolumePanel.kt")
+        self.assertIn("testTag(\"scan_usb\")", panel)
+        self.assertIn("testTag(\"otg_partition\")", panel)
+        self.assertIn("Select USB device", panel)
+        self.assertIn("USB devices", panel)
+        self.assertIn("testTag(\"usb_device\")", panel)
+        self.assertIn("testTag(\"usb_select_prompt\")", panel)
+        self.assertIn("requestPermission", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgUsb.kt"))
+        self.assertIn("EXTRA_PERMISSION_GRANTED", read("ports/android/app/src/main/java/dev/shivampingale/vcport/OtgUsb.kt"))
+        self.assertIn("addPermittedUsbDevice", main)
+        self.assertIn("USB permission denied", main)
+        self.assertIn("testingPreviewUsbSelect", main)
+        self.assertIn("testingFinishUsbPermission", main)
         self.assertIn("class FakeUsbUiTest", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/FakeUsbUiTest.kt"))
         self.assertIn("class UiWalkSuite", read("ports/android/app/src/androidTest/java/dev/shivampingale/vcport/UiWalkSuite.kt"))
         walk = read("ports/scripts/run-ui-walk.sh")
@@ -880,6 +896,16 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("Nested volume", main)
         self.assertIn("Move your finger", view)
         self.assertIn("Nested volume", view)
+        form = read("ports/android/app/src/main/java/dev/shivampingale/vcport/CreateVolumeForm.kt")
+        saved = form.split("onSaved = {", 1)[1].split("}", 1)[0]
+        self.assertIn("NativeBridge.resetEntropy()", saved)
+        self.assertIn("entropyPercent = 0", saved)
+        pad = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
+        self.assertIn("if (percent == 0) marks.clear()", pad)
+        created = view.split("if rc != 0 {", 1)[1].split("pendingCreateURL = dest", 1)[0]
+        self.assertIn("entropyPercent = 0", created)
+        self.assertIn("entropyMarks = []", created)
+        self.assertIn("VcMobileBridge.resetEntropy()", created)
 
 
 class IosHighThreatTests(unittest.TestCase):
@@ -925,10 +951,13 @@ class IosHighThreatTests(unittest.TestCase):
 
     def test_never_save_history_is_default(self) -> None:
         view = read_ios_ui()
-        self.assertIn("neverSaveHistory()", view)
-        self.assertGreaterEqual(view.count("SecureField("), 5)
-        self.assertGreaterEqual(view.count(".neverSaveHistory()"), 5)
+        fields = read("ports/ios/VCPort/FactorFields.swift")
+        self.assertIn("func neverSaveHistory()", view)
         self.assertIn("textContentType(.oneTimeCode)", view)
+        self.assertIn("SecureField(", fields)
+        self.assertIn(".neverSaveHistory()", fields)
+        self.assertNotIn("SecureField(", view)
+        self.assertGreaterEqual(view.count("passwordAndPim("), 5)
 
 
 class MobileSrcOverlayTests(unittest.TestCase):
@@ -977,7 +1006,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertNotIn("lockSession()", onstop)
         self.assertIn("Create form kept", main)
         self.assertIn('testTag("copy_once")', main)
-        self.assertIn('testTag("create_password")', main)
+        self.assertIn('passwordTag = "create_password"', main)
 
     def test_wrap_panic_share_stay_offline_on_ios(self) -> None:
         view = read_ios_ui()
@@ -996,7 +1025,7 @@ class CrossPortGuiParityTests(unittest.TestCase):
         self.assertIn("generatePassword(length: Int32 = 64)", read("ports/ios/VCPort/VcMobileBridge.swift"))
         self.assertIn("VC_ENTROPY_NEED = 8192", read("ports/shared/vc_mobile.cpp"))
         self.assertIn('portTag("copy_once")', view)
-        self.assertIn('portTag("create_password")', view)
+        self.assertIn('passwordTag: "create_password"', view)
 
     def test_volume_tools_on_android_and_ios(self) -> None:
         main = read_android_ui()

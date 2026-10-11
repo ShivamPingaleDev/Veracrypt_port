@@ -379,6 +379,10 @@ enum VcMobileBridge {
         vc_test_vectors()
     }
 
+    static func autoTest() -> Int32 {
+        vc_auto_test()
+    }
+
     static func resetProgress() {
         vc_progress_reset()
     }

@@ -123,36 +123,29 @@ fun OpenVolumeForm(
                 Text("Password")
             }
             if (useTextPassword) {
-                SecretField(
-                    password,
-                    onPassword,
-                    "Password",
-                    modifier = Modifier.testTag("volume_password"),
+                PasswordAndPim(
+                    password = password,
+                    onPassword = onPassword,
+                    passwordLabel = "Password",
+                    passwordTag = "volume_password",
+                    pim = pim,
+                    onPim = onPim,
+                    pimLabel = "PIM (0 = default)",
+                    pimTag = "volume_pim",
                     enabled = !busy
                 )
+            } else {
+                PimField(pim, onPim, "PIM (0 = default)", "volume_pim", !busy)
             }
-            OutlinedTextField(
-                pim,
-                onPim,
-                label = { Text("PIM (0 = default)") },
-                modifier = Modifier.fillMaxWidth().testTag("volume_pim"),
-                enabled = !busy,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
             Text("Keyfiles", style = MaterialTheme.typography.titleSmall)
             VcHint("Same as VeraCrypt on a computer: pick several in Files (long-press). Any extension. First 1 MiB of each.")
-            keyfileLabels.forEachIndexed { index, label ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { onRemoveKeyfile(index) }) { Text("Remove") }
-                }
-            }
-            OutlinedButton(
-                onClick = onAddKeyfiles,
+            KeyfileList(
+                labels = keyfileLabels,
+                onRemove = onRemoveKeyfile,
+                onAdd = onAddKeyfiles,
                 enabled = !busy,
-                modifier = Modifier.fillMaxWidth().testTag("add_keyfiles")
-            ) { Text("Add keyfiles") }
+                addTag = "add_keyfiles"
+            )
             biometricSlot()
             Text("Mount options", style = MaterialTheme.typography.titleSmall)
             OptionRow("Use backup header", "use_backup_header", useBackupHeader, busy, onBackupHeader)
@@ -166,21 +159,16 @@ fun OpenVolumeForm(
                 onProtectHidden
             )
             if (protectHidden) {
-                SecretField(
-                    hiddenPassword,
-                    onHiddenPassword,
-                    "Password to hidden volume",
-                    modifier = Modifier.testTag("hidden_protect_password"),
+                PasswordAndPim(
+                    password = hiddenPassword,
+                    onPassword = onHiddenPassword,
+                    passwordLabel = "Password to hidden volume",
+                    passwordTag = "hidden_protect_password",
+                    pim = hiddenPim,
+                    onPim = onHiddenPim,
+                    pimLabel = "Hidden volume PIM (0 = default)",
+                    pimTag = "hidden_protect_pim",
                     enabled = !busy
-                )
-                OutlinedTextField(
-                    hiddenPim,
-                    onHiddenPim,
-                    label = { Text("Hidden volume PIM (0 = default)") },
-                    modifier = Modifier.fillMaxWidth().testTag("hidden_protect_pim"),
-                    enabled = !busy,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
             Text("Idle dismount", style = MaterialTheme.typography.titleSmall)

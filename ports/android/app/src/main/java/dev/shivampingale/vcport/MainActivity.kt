@@ -124,6 +124,10 @@ class MainActivity : AppCompatActivity() {
     internal val containerUriState = mutableStateOf<Uri?>(null)
     internal val statusState = mutableStateOf("Stay offline. Select a VeraCrypt container, or share an encrypted file as-is.")
     internal val otgDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
+    internal val usbPromptOpenState = mutableStateOf(false)
+    internal val usbPromptDevicesState = mutableStateOf<List<UsbDevice>>(emptyList())
+    internal val usbPreviewLabelState = mutableStateOf("")
+    internal val usbListedPreviewState = mutableStateOf("")
     internal val otgCandidatesState = mutableStateOf<List<OtgCandidate>>(emptyList())
     private var pendingOtgScsi: OtgScsiDevice? = null
     private var pendingOtgFile: File? = null
@@ -151,6 +155,10 @@ class MainActivity : AppCompatActivity() {
     internal val dirPathState = mutableStateOf("")
     internal val listTruncatedState = mutableStateOf(false)
     internal val busyState = mutableStateOf(false)
+    private val transferQueue = TransferQueue()
+    internal val transferJobsState = mutableStateOf<List<TransferJob>>(emptyList())
+    internal val transferEtaState = mutableStateOf("")
+    internal val lastTransferReportState = mutableStateOf("")
     internal val hashResultState = mutableStateOf("")
     internal val pimEstimateResultState = mutableStateOf("")
     internal val useBackupHeaderState = mutableStateOf(false)
@@ -306,6 +314,47 @@ class MainActivity : AppCompatActivity() {
         done.await(5, TimeUnit.SECONDS)
     }
 
+    /**
+     * Emulator has no USB host device, so the select prompt cannot list a real
+     * [UsbDevice]. This only opens the prompt. It does not request permission
+     * and it does not mount.
+     */
+    @androidx.annotation.VisibleForTesting
+    fun testingPreviewUsbSelect(label: String) {
+        val done = CountDownLatch(1)
+        runOnUiThread {
+            try {
+                usbPreviewLabelState.value = label
+                usbListedPreviewState.value = ""
+                usbPromptDevicesState.value = emptyList()
+                usbPromptOpenState.value = true
+                tabState.intValue = 0
+                statusState.value =
+                    "Select a USB device. Grant permission and it shows up under USB devices. Nothing auto-mounts."
+            } finally {
+                done.countDown()
+            }
+        }
+        done.await(5, TimeUnit.SECONDS)
+    }
+
+    /** Test stand-in for the system USB allow button. Still does not mount. */
+    @androidx.annotation.VisibleForTesting
+    fun testingFinishUsbPermission() {
+        val done = CountDownLatch(1)
+        runOnUiThread {
+            try {
+                usbPromptOpenState.value = false
+                usbListedPreviewState.value = usbPreviewLabelState.value
+                statusState.value =
+                    "USB device listed. Nothing auto-mounted."
+            } finally {
+                done.countDown()
+            }
+        }
+        done.await(5, TimeUnit.SECONDS)
+    }
+
     @androidx.annotation.VisibleForTesting
     fun testingSelectContainer(file: File) {
         runOnUiThread {
@@ -441,6 +490,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     @androidx.annotation.VisibleForTesting
+    fun testingLastTransferReport(): String = lastTransferReportState.value
+
+    @androidx.annotation.VisibleForTesting
     fun testingExportNamed(name: String, dest: File): Boolean {
         val handle = handleState.value
         if (!NativeBridge.isOpen(handle)) return false
@@ -452,6 +504,14 @@ class MainActivity : AppCompatActivity() {
 
     @androidx.annotation.VisibleForTesting
     fun testingEntryNames(): List<String> = entriesState.value.map { it.name }
+
+    /** Labels the Android Files app would see. Empty unless the user allowed sharing. */
+    @androidx.annotation.VisibleForTesting
+    fun testingFilesAppRootLabels(): List<String> = OtgMountShare.roots().map { it.label }
+
+    /** Root ids the system Files app opens. Empty unless the user allowed sharing. */
+    @androidx.annotation.VisibleForTesting
+    fun testingFilesAppRootIds(): List<String> = OtgMountShare.roots().map { it.id }
 
     @androidx.annotation.VisibleForTesting
     fun testingOpenDir(name: String) {
@@ -615,8 +675,16 @@ class MainActivity : AppCompatActivity() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
         }
-        usbPermissionReceiver = OtgUsb.registerPermissionReceiver(this) { device ->
-            openUsbMassStorage(device)
+        usbPermissionReceiver = OtgUsb.registerPermissionReceiver(this) { device, granted ->
+            usbPromptOpenState.value = false
+            if (!granted) {
+                otgDevicesState.value = otgDevicesState.value.filter { !OtgUsb.sameDevice(it, device) }
+                statusState.value = "USB permission denied. That disk is not listed under USB devices."
+                return@registerPermissionReceiver
+            }
+            val live = OtgUsb.massStorageDevices(this).firstOrNull { OtgUsb.sameDevice(it, device) } ?: device
+            addPermittedUsbDevice(live)
+            openUsbMassStorage(live)
         }
         setContent {
             var skin by remember { mutableStateOf(loadSkin()) }
@@ -636,6 +704,10 @@ class MainActivity : AppCompatActivity() {
                 var useBiometric by remember { mutableStateOf(false) }
                 var shareWithFiles by remember { mutableStateOf(OtgMountShare.shareWithFiles) }
                 var otgDevices by otgDevicesState
+                var usbPromptOpen by usbPromptOpenState
+                var usbPromptDevices by usbPromptDevicesState
+                var usbPreviewLabel by usbPreviewLabelState
+                var usbListedPreview by usbListedPreviewState
                 var otgCandidates by otgCandidatesState
                 var status by statusState
                 var entries by entriesState
@@ -645,6 +717,8 @@ class MainActivity : AppCompatActivity() {
                 var dirPath by dirPathState
                 var listTruncated by listTruncatedState
                 var busy by busyState
+                var transferJobs by transferJobsState
+                var transferEta by transferEtaState
                 var hashResult by hashResultState
                 var pimEstimateResult by pimEstimateResultState
                 var tab by tabState
@@ -1141,6 +1215,11 @@ class MainActivity : AppCompatActivity() {
                                             OtgVolumePanel(
                                                 busy = busy,
                                                 devices = otgDevices,
+                                                promptOpen = usbPromptOpen,
+                                                promptDevices = usbPromptDevices,
+                                                previewLabel = usbPreviewLabel,
+                                                listedPreview = usbListedPreview,
+                                                deviceHasPermission = { OtgUsb.hasPermission(this@MainActivity, it) },
                                                 candidates = otgCandidates,
                                                 shareWithFiles = shareWithFiles,
                                                 onShareWithFiles = {
@@ -1150,20 +1229,50 @@ class MainActivity : AppCompatActivity() {
                                                 },
                                                 onScan = {
                                                     pendingOtgFile = null
-                                                    otgDevices = OtgUsb.massStorageDevices(this@MainActivity)
+                                                    val found = OtgUsb.massStorageDevices(this@MainActivity)
+                                                    usbPromptDevices = found
                                                     otgCandidates = emptyList()
-                                                    status = if (otgDevices.isEmpty()) {
-                                                        "No USB mass-storage device. Plug a stick, then Scan USB disks. This never auto-mounts."
+                                                    otgDevices = otgDevices.mapNotNull { selected ->
+                                                        found.firstOrNull {
+                                                            OtgUsb.sameDevice(it, selected) &&
+                                                                OtgUsb.hasPermission(this@MainActivity, it)
+                                                        }
+                                                    }
+                                                    if (found.isEmpty()) {
+                                                        usbPromptOpen = false
+                                                        usbPreviewLabel = ""
+                                                        usbListedPreview = ""
+                                                        status = "No USB mass-storage device. Plug a stick, then Scan USB disks. This never auto-mounts."
                                                     } else {
-                                                        "Found ${otgDevices.size} USB disk(s). Tap one. Grant permission. Then pick a partition and Open volume."
+                                                        usbPromptOpen = true
+                                                        status = "Select a USB device. Grant permission and it shows up under USB devices. Nothing auto-mounts."
+                                                    }
+                                                },
+                                                onDismissPrompt = {
+                                                    usbPromptOpen = false
+                                                    usbPreviewLabel = ""
+                                                },
+                                                onChoosePreview = {
+                                                    usbPromptOpen = false
+                                                    status = "Grant USB permission. The disk shows up under USB devices after you allow it. Still no auto-mount."
+                                                },
+                                                onChoosePromptDevice = { device ->
+                                                    usbPromptOpen = false
+                                                    if (OtgUsb.hasPermission(this@MainActivity, device)) {
+                                                        addPermittedUsbDevice(device)
+                                                        openUsbMassStorage(device)
+                                                    } else {
+                                                        OtgUsb.requestPermission(this@MainActivity, device)
+                                                        status = "Grant USB permission. The disk shows up under USB devices after you allow it. Still no auto-mount."
                                                     }
                                                 },
                                                 onPickDevice = { device ->
                                                     if (OtgUsb.hasPermission(this@MainActivity, device)) {
                                                         openUsbMassStorage(device)
                                                     } else {
+                                                        otgDevices = otgDevices.filter { !OtgUsb.sameDevice(it, device) }
                                                         OtgUsb.requestPermission(this@MainActivity, device)
-                                                        status = "Grant USB permission, then the partition list appears. Still no auto-mount."
+                                                        status = "Grant USB permission. The disk shows up under USB devices after you allow it. Still no auto-mount."
                                                     }
                                                 },
                                                 onPickPartition = { cand ->
@@ -1442,6 +1551,17 @@ class MainActivity : AppCompatActivity() {
                                 onWipeFreeSpace = {
                                     wipeFreeSpace(handle, dirPath, { entries = it }, { status = it })
                                 },
+                                shareWithFiles = shareWithFiles,
+                                onShareWithFiles = {
+                                    shareWithFiles = it
+                                    OtgMountShare.shareWithFiles = it
+                                    refreshDocumentRoots()
+                                    status = if (it) {
+                                        "Unlocked volume is in the Files app until you turn this off, dismount, or the screen locks."
+                                    } else {
+                                        "Files app no longer shows this volume."
+                                    }
+                                },
                                 onSelectAll = {
                                     hashResult = ""
                                     val files = entries.filter { !it.isDir }.map { it.name }.toSet()
@@ -1661,7 +1781,10 @@ class MainActivity : AppCompatActivity() {
                 WorkOverlay(
                     visible = busy,
                     title = overlayTitle.ifEmpty { status },
-                    percent = overlayPercent
+                    percent = overlayPercent,
+                    jobs = transferJobs,
+                    eta = transferEta,
+                    onCancelQueue = { transferQueue.requestCancel() }
                 )
                 }
             }
@@ -1709,6 +1832,13 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         if (suppressLock || busyState.value) {
+            return
+        }
+        // The user ticked Allow Files app. Keep the unlocked volume open so the
+        // system Files app can browse it. Screen lock, idle, Dismount, and Panic
+        // still close it. Sharing off returns to dismount-on-leave.
+        if (OtgMountShare.shareWithFiles && mountedVolumesState.value.isNotEmpty()) {
+            refreshDocumentRoots()
             return
         }
         dismountOnLeave()
@@ -1815,6 +1945,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun clearMountedVolumeState() {
+        OtgMountShare.shareWithFiles = false
         mountedVolumesState.value = emptyList()
         activeMountIndexState.intValue = 0
         handleState.value = 0L
@@ -1911,6 +2042,7 @@ class MainActivity : AppCompatActivity() {
      * and creation can continue. Dismount and Panic wipe still call [lockSession].
      */
     private fun dismountOnLeave() {
+        transferQueue.requestCancel()
         val wasOpen = NativeBridge.isOpen(handleState.value) || mountedVolumesState.value.isNotEmpty()
         if (wasOpen) {
             saveAllMountedSync()
@@ -1975,6 +2107,7 @@ class MainActivity : AppCompatActivity() {
         pimEstimateResultState.value = ""
         tabState.intValue = 0
         sessionResetPulseState.intValue++
+        clearTransferQueue()
         if (statusMessage.isNotEmpty() && !statusState.value.startsWith("Panic")) {
             statusState.value = statusMessage
         }
@@ -2027,6 +2160,7 @@ class MainActivity : AppCompatActivity() {
      * [Hardening.panic] after lock. Do not grow a fifth path.
      */
     internal fun closeOpenVolumes(reason: String) {
+        transferQueue.requestCancel()
         if (NativeBridge.isOpen(handleState.value) || mountedVolumesState.value.isNotEmpty()) {
             beginWork(reason)
             NativeBridge.setProgress(100, reason)
@@ -2054,12 +2188,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun panicWipe() {
+        transferQueue.requestCancel()
+        clearTransferQueue()
         closeMountedVolume()
         OtgBlockStore.releaseAll()
         releasePendingPfd()
         wipeRamSecrets()
         Hardening.panic(this)
         basketUrisState.value = emptyList()
+    }
+
+    private fun publishTransferQueue() {
+        val gen = transferQueue.generation
+        val jobs = transferQueue.snapshot()
+        val eta = transferQueue.etaLabel()
+        runOnUiThread {
+            if (gen != transferQueue.generation) return@runOnUiThread
+            transferJobsState.value = jobs
+            transferEtaState.value = eta
+        }
+    }
+
+    private fun clearTransferQueue() {
+        val jobs = transferQueue.snapshot()
+        if (jobs.isNotEmpty()) {
+            lastTransferReportState.value = jobs.joinToString("\n") { "${it.name}=${it.state.label}" }
+        }
+        transferQueue.reset()
+        transferJobsState.value = emptyList()
+        transferEtaState.value = ""
     }
 
     internal fun beginWork(title: String = "", updateStatus: Boolean = true) {
@@ -2377,7 +2534,10 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     endWork()
                     if (rc != 0) {
-                        onStatus(createErrorMessage(rc))
+                        val discarded = dest.exists()
+                        if (discarded) Hardening.wipeFile(dest)
+                        val extra = if (discarded) " The incomplete file was discarded. (code -9)" else ""
+                        onStatus(createErrorMessage(rc) + extra)
                     } else {
                         pendingCreatedPathState.value = dest.absolutePath
                         var msg = "Created ${SizeUnits.formatBytes(bytes)} $cipher / $kdf $fs volume as ${dest.name} (standard VeraCrypt file; the name is only a disguise). Save a copy, then Open volume or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
@@ -2399,9 +2559,11 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (_: Exception) {
+                val partial = File(cacheDir, ShareHelper.sanitizeDisguiseName(fileName))
+                if (partial.exists()) Hardening.wipeFile(partial)
                 runOnUiThread {
                     endWork()
-                    onStatus("Create failed.")
+                    onStatus("Create failed. The incomplete file was discarded. (code -9)")
                 }
             } finally {
                 temps.forEach { KeyfileIo.wipe(it) }
@@ -2410,25 +2572,30 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    private fun coded(code: Int, message: String): String = "$message (code $code)"
+
     private fun createErrorMessage(rc: Int): String {
         return when (rc) {
-            -4 -> "Missing path, password, or size."
-            -6 -> "That cipher or KDF is not available in this build."
-            -5 -> "Not enough memory to create the volume."
-            -2 -> "Password or PIM was rejected."
-            -1 -> "Could not write the container file."
+            -4 -> coded(rc, "Missing path, password, or size.")
+            -6 -> coded(rc, "That cipher or KDF is not available in this build.")
+            -5 -> coded(rc, "Not enough memory to create the volume.")
+            -2 -> coded(rc, "Password or PIM was rejected.")
+            -1 -> coded(rc, "Could not write the container file.")
+            -3 -> coded(rc, "The volume could not be formatted.")
+            -7 -> coded(rc, "VeraCrypt self-test failed. This build will not create a volume.")
             else -> "Create failed (code $rc)."
         }
     }
 
     private fun headerErrorMessage(rc: Int): String {
         return when (rc) {
-            -4 -> "Need a container path and at least a password or keyfile."
-            -2 -> "Wrong password, PIM, or keyfile mix."
-            -1 -> "Could not read or write the container. Close it first if it is open."
-            -3 -> "Not a VeraCrypt-compatible volume, or the header is damaged."
-            -6 -> "That KDF is not available in this build."
-            -5 -> "Not enough memory."
+            -4 -> coded(rc, "Need a container path and at least a password or keyfile.")
+            -2 -> coded(rc, "Wrong password, PIM, or keyfile mix.")
+            -1 -> coded(rc, "Could not read or write the container. Close it first if it is open.")
+            -3 -> coded(rc, "Not a VeraCrypt-compatible volume, or the header is damaged.")
+            -6 -> coded(rc, "That KDF is not available in this build.")
+            -5 -> coded(rc, "Not enough memory.")
+            -7 -> coded(rc, "VeraCrypt self-test failed. This build will not change a header.")
             else -> "Header operation failed (code $rc)."
         }
     }
@@ -2856,6 +3023,11 @@ class MainActivity : AppCompatActivity() {
         return ""
     }
 
+    private fun addPermittedUsbDevice(device: UsbDevice) {
+        val current = otgDevicesState.value
+        otgDevicesState.value = current.filter { !OtgUsb.sameDevice(it, device) } + device
+    }
+
     private fun openUsbMassStorage(device: UsbDevice) {
         beginWork("Reading USB disk…")
         Thread {
@@ -2883,7 +3055,7 @@ class MainActivity : AppCompatActivity() {
     private fun refreshDocumentRoots() {
         val roots = if (OtgMountShare.shareWithFiles) {
             mountedVolumesState.value.map { vol ->
-                OtgMountShare.Root(vol.path.ifEmpty { vol.label }, vol.handle, vol.label)
+                OtgMountShare.Root("v${vol.handle}", vol.handle, vol.label)
             }
         } else {
             emptyList()
@@ -2946,6 +3118,7 @@ class MainActivity : AppCompatActivity() {
         beginWork("Opening volume…")
         Thread {
             val temps = mutableListOf<File>()
+            var opened = 0L
             try {
                 for (uri in keyfileUris) {
                     val copied = KeyfileIo.copyUri(this, uri)
@@ -2977,12 +3150,14 @@ class MainActivity : AppCompatActivity() {
                     }
                     return@Thread
                 }
+                opened = result
                 val listed = NativeBridge.listDir(result, "/")
                 val parsed = listed.mapNotNull { parseEntry(it) }
                 val truncated = parsed.any { it.name == "!truncated!" }
                 val files = parsed.filter { it.name != "!error!" && it.name != "!truncated!" }
                 val volumeBytes = NativeBridge.volumeSize(result)
                 runOnUiThread {
+                    try {
                     endWork()
                     if (parsed.size == 1 && parsed[0].name == "!error!") {
                         NativeBridge.closeVolume(result)
@@ -3024,11 +3199,18 @@ class MainActivity : AppCompatActivity() {
                         if (truncated) msg += " Listing truncated at ${NativeBridge.LIST_UI_MAX} entries. Tap Load more."
                         onStatus(msg)
                     }
+                    } catch (_: Exception) {
+                        if (NativeBridge.isOpen(opened)) NativeBridge.closeVolume(opened)
+                        mountedVolumesState.value = mountedVolumesState.value.filter { it.handle != opened }
+                        endWork()
+                        onStatus("Open failed. The volume was not left mounted. (code -8)")
+                    }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
+                if (NativeBridge.isOpen(opened)) NativeBridge.closeVolume(opened)
                 runOnUiThread {
                     endWork()
-                    onStatus("Open failed.")
+                    onStatus("Open failed. The volume was not left mounted. (code -8)")
                 }
             } finally {
                 temps.forEach { KeyfileIo.wipe(it) }
@@ -3255,48 +3437,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openErrorMessage(code: Long): String {
-        return when (code.toInt()) {
-            -2 -> "Wrong password, PIM, or keyfile mix."
-            -6 -> "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported."
-            -1 -> "Could not read the container file."
-            -3 -> "Not a VeraCrypt-compatible volume, or the header is damaged."
-            -4 -> "Missing path or password argument."
-            -5 -> "Not enough memory to open the volume."
+        val rc = code.toInt()
+        return when (rc) {
+            -2 -> coded(rc, "Wrong password, PIM, or keyfile mix.")
+            -6 -> coded(rc, "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported.")
+            -7 -> coded(rc, "VeraCrypt self-test failed. This build will not open a volume.")
+            -1 -> coded(rc, "Could not read the container file.")
+            -3 -> coded(rc, "Not a VeraCrypt-compatible volume, or the header is damaged.")
+            -4 -> coded(rc, "Missing path or password argument.")
+            -5 -> coded(rc, "Not enough memory to open the volume.")
             else -> "Open failed (code $code)."
         }
     }
 
     private fun listErrorMessage(code: Int): String {
         return when (code) {
-            -6 -> "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here."
-            -4 -> "Could not list that folder path."
-            -5 -> "Not enough memory to list the folder."
-            -1 -> "Could not read the folder from the volume."
+            -6 -> coded(code, "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here.")
+            -4 -> coded(code, "Could not list that folder path.")
+            -5 -> coded(code, "Not enough memory to list the folder.")
+            -1 -> coded(code, "Could not read the folder from the volume.")
+            -3 -> coded(code, "Could not list files. The folder is not a readable FAT or exFAT directory.")
             else -> "Could not list files (code $code)."
         }
     }
 
     private fun extractErrorMessage(name: String, rc: Int): String {
         return when (rc) {
-            -6 -> "Could not extract $name. NTFS/ext are unsupported; FAT and exFAT work."
-            -4 -> "Could not extract $name. Bad path."
-            -5 -> "Could not extract $name. Not enough memory."
-            -1 -> "Could not extract $name. Read failed."
-            -2 -> "Could not extract $name. Wrong password or header."
+            -6 -> coded(rc, "Could not extract $name. NTFS/ext are unsupported; FAT and exFAT work.")
+            -4 -> coded(rc, "Could not extract $name. Bad path.")
+            -5 -> coded(rc, "Could not extract $name. Not enough memory.")
+            -1 -> coded(rc, "Could not extract $name. Read failed.")
+            -2 -> coded(rc, "Could not extract $name. Wrong password or header.")
+            -3 -> coded(rc, "Could not extract $name. The file is not in this folder.")
             else -> "Could not extract $name (code $rc)."
         }
     }
 
     private fun importErrorMessage(name: String, rc: Int, handle: Long = 0L): String {
         if (NativeBridge.isOpen(handle) && NativeBridge.protectionTriggered(handle)) {
-            return "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+            return coded(-10, "Hidden volume protection triggered. The outer volume is now write-protected until you dismount.")
         }
         return when (rc) {
-            -6 -> "Could not copy $name. Folders are not created this way."
-            -4 -> "Could not copy $name. Bad name or path."
-            -5 -> "Could not copy $name. Volume is full, or the file is larger than 4 GiB (FAT limit)."
-            -3 -> "A file named $name already exists in this folder."
-            -1 -> "Could not copy $name into the volume."
+            -6 -> coded(rc, "Could not copy $name. Folders are not created this way.")
+            -4 -> coded(rc, "Could not copy $name. Bad name or path.")
+            -5 -> coded(rc, "Could not copy $name. Volume is full, or the file is larger than 4 GiB (FAT limit).")
+            -3 -> coded(rc, "A file named $name already exists in this folder.")
+            -1 -> coded(rc, "Could not copy $name into the volume.")
+            -2 -> coded(rc, "Could not copy $name. Wrong password or header.")
             else -> "Could not copy $name (code $rc)."
         }
     }
@@ -3328,40 +3515,61 @@ class MainActivity : AppCompatActivity() {
             if (uris.size == 1) "$verb from device…"
             else "$verb ${uris.size} files from device…"
         )
+        val queued = uris.map { uri ->
+            val display = ShareHelper.displayName(this, uri) ?: "file"
+            display to uriLength(uri).coerceAtLeast(0L)
+        }
+        transferQueue.begin(queued)
+        publishTransferQueue()
         Thread {
             val used = existingNames.toMutableSet()
             var copied = 0
             var moved = 0
             var lastError: String? = null
             val destDir = if (dirPath.isEmpty()) "/" else dirPath
-            for (uri in uris) {
+            for ((index, uri) in uris.withIndex()) {
+                if (!transferQueue.claim(index)) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 var cache: File? = null
+                var failed: String? = null
                 try {
                     val display = ShareHelper.displayName(this, uri) ?: "file"
                     val name = uniqueDestName(display, used)
                     val outFile = copyUriForNativeImport(uri, name, "Reading $name")
                     if (outFile == null) {
-                        lastError = "Could not read $display. Pick it again from Files."
-                        continue
+                        failed = "Could not read $display. Pick it again from Files."
+                        lastError = failed
+                    } else {
+                        cache = outFile
+                        val rc = NativeBridge.importFile(handle, destDir, outFile.absolutePath, name)
+                        if (rc != 0) {
+                            failed = importErrorMessage(name, rc, handle)
+                            lastError = failed
+                        } else {
+                            copied++
+                            if (move && tryDeleteDocument(uri)) moved++
+                        }
                     }
-                    cache = outFile
-                    val rc = NativeBridge.importFile(handle, destDir, outFile.absolutePath, name)
-                    if (rc != 0) {
-                        lastError = importErrorMessage(name, rc, handle)
-                        continue
-                    }
-                    copied++
-                    if (move && tryDeleteDocument(uri)) moved++
                 } catch (_: Exception) {
-                    lastError = "Could not copy that file into the volume."
+                    failed = "Could not copy that file into the volume."
+                    lastError = failed
                 } finally {
                     cache?.let { KeyfileIo.wipe(it) }
+                    transferQueue.finish(index, failed)
+                    publishTransferQueue()
                 }
             }
             val saveWarning = if (copied > 0) autoSaveSaveWarning(setOf(handle)) else null
+            val cancelled = transferQueue.cancelRequested && copied < uris.size && lastError == null
             runOnUiThread {
+                clearTransferQueue()
                 endWork()
                 val base = when {
+                        cancelled && copied == 0 -> "Queue cancelled."
+                        cancelled -> "Copied $copied of ${uris.size} file(s). Queue cancelled."
                         lastError != null && copied == 0 -> lastError
                         move && moved < copied ->
                             "Copied $copied file(s) into the volume. Could not delete the original; remove them in Files if you meant a move."
@@ -3484,46 +3692,64 @@ class MainActivity : AppCompatActivity() {
         }
         val verb = if (move) "Moving" else "Copying"
         beginWork("$verb ${toCopy.size} files to device…")
+        transferQueue.begin(toCopy.map { it.name to it.size })
+        publishTransferQueue()
         Thread {
             var copied = 0
             var moved = 0
             var lastError: String? = null
-            for (entry in toCopy) {
+            for ((index, entry) in toCopy.withIndex()) {
+                if (!transferQueue.claim(index)) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 val dest = File(cacheDir, "to-device-${System.nanoTime()}-${ShareHelper.safeName(entry.name)}")
+                var failed: String? = null
                 try {
                     val volumePath = joinDir(dirPath, entry.name)
                     val rc = NativeBridge.exportFile(handle, volumePath, dest.absolutePath)
                     if (rc != 0 || !dest.exists()) {
-                        lastError = extractErrorMessage(entry.name, rc)
-                        continue
-                    }
-                    val outUri = createDocumentInTree(treeUri, entry.name)
-                    if (outUri == null) {
-                        lastError = "Could not save ${entry.name} in that folder."
-                        continue
-                    }
-                    val wrote = contentResolver.openOutputStream(outUri)?.use { out ->
-                        dest.inputStream().use { input ->
-                            copyStreamProgress(input, out, dest.length(), "Saving ${entry.name}")
+                        failed = extractErrorMessage(entry.name, rc)
+                        lastError = failed
+                    } else {
+                        val outUri = createDocumentInTree(treeUri, entry.name)
+                        if (outUri == null) {
+                            failed = "Could not save ${entry.name} in that folder."
+                            lastError = failed
+                        } else {
+                            val wrote = contentResolver.openOutputStream(outUri)?.use { out ->
+                                dest.inputStream().use { input ->
+                                    copyStreamProgress(input, out, dest.length(), "Saving ${entry.name}")
+                                }
+                                true
+                            } ?: false
+                            if (!wrote) {
+                                failed = "Could not save ${entry.name} on the device."
+                                lastError = failed
+                            } else {
+                                copied++
+                                if (move && NativeBridge.deleteFile(handle, volumePath) == 0) moved++
+                            }
                         }
-                        true
-                    } ?: false
-                    if (!wrote) {
-                        lastError = "Could not save ${entry.name} on the device."
-                        continue
                     }
-                    copied++
-                    if (move && NativeBridge.deleteFile(handle, volumePath) == 0) moved++
                 } catch (_: Exception) {
-                    lastError = "Could not copy ${entry.name} to the device."
+                    failed = "Could not copy ${entry.name} to the device."
+                    lastError = failed
                 } finally {
-                    dest.delete()
+                    Hardening.wipeFile(dest)
+                    transferQueue.finish(index, failed)
+                    publishTransferQueue()
                 }
             }
+            val cancelled = transferQueue.cancelRequested && copied < toCopy.size && lastError == null
             runOnUiThread {
+                clearTransferQueue()
                 endWork()
                 onStatus(
                     when {
+                        cancelled && copied == 0 -> "Queue cancelled."
+                        cancelled -> "Copied $copied of ${toCopy.size} file(s). Queue cancelled."
                         lastError != null && copied == 0 -> lastError
                         move && moved < copied ->
                             "Copied $copied file(s) to the device, but could not remove ${copied - moved} from the volume."
@@ -3718,7 +3944,7 @@ class MainActivity : AppCompatActivity() {
                 if (rc != 0) {
                     onStatus(
                         if (NativeBridge.protectionTriggered(handle))
-                            "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+                            "Hidden volume protection triggered. The outer volume is now write-protected until you dismount. (code -10)"
                         else
                             "Could not wipe free space (code $rc). Read-only volumes refuse this."
                     )
@@ -3856,42 +4082,59 @@ class MainActivity : AppCompatActivity() {
             if (toCopy.size == 1) "$verb ${toCopy[0].name} to $label…"
             else "$verb ${toCopy.size} files to $label…"
         )
+        transferQueue.begin(toCopy.map { it.name to it.size })
+        publishTransferQueue()
         Thread {
             var copied = 0
             var moved = 0
             var lastError: String? = null
-            for (entry in toCopy) {
+            for ((index, entry) in toCopy.withIndex()) {
+                if (!transferQueue.claim(index)) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 val temp = File(cacheDir, "xfer-${System.nanoTime()}-${ShareHelper.safeName(entry.name)}")
+                var failed: String? = null
                 try {
                     val srcPath = joinDir(srcDir, entry.name)
                     val rcExport = NativeBridge.exportFile(srcHandle, srcPath, temp.absolutePath)
                     if (rcExport != 0 || !temp.exists()) {
-                        lastError = extractErrorMessage(entry.name, rcExport)
-                        continue
-                    }
-                    val destDir = dest.dirPath.ifEmpty { "/" }
-                    val rcImport = NativeBridge.importFile(dest.handle, destDir, temp.absolutePath, entry.name)
-                    if (rcImport != 0) {
-                        lastError = importErrorMessage(entry.name, rcImport, dest.handle)
-                        continue
-                    }
-                    copied++
-                    if (move) {
-                        if (NativeBridge.deleteFile(srcHandle, srcPath) == 0) moved++
+                        failed = extractErrorMessage(entry.name, rcExport)
+                        lastError = failed
+                    } else {
+                        val destDir = dest.dirPath.ifEmpty { "/" }
+                        val rcImport = NativeBridge.importFile(dest.handle, destDir, temp.absolutePath, entry.name)
+                        if (rcImport != 0) {
+                            failed = importErrorMessage(entry.name, rcImport, dest.handle)
+                            lastError = failed
+                        } else {
+                            copied++
+                            if (move) {
+                                if (NativeBridge.deleteFile(srcHandle, srcPath) == 0) moved++
+                            }
+                        }
                     }
                 } catch (_: Exception) {
-                    lastError = "Could not copy ${entry.name} into the other volume."
+                    failed = "Could not copy ${entry.name} into the other volume."
+                    lastError = failed
                 } finally {
                     Hardening.wipeFile(temp)
+                    transferQueue.finish(index, failed)
+                    publishTransferQueue()
                 }
             }
             val saveHandles = mutableSetOf<Long>()
             if (copied > 0) saveHandles.add(dest.handle)
             if (move && moved > 0) saveHandles.add(srcHandle)
             val saveWarning = if (saveHandles.isNotEmpty()) autoSaveSaveWarning(saveHandles) else null
+            val cancelled = transferQueue.cancelRequested && copied < toCopy.size && lastError == null
             runOnUiThread {
+                clearTransferQueue()
                 endWork()
                 val base = when {
+                        cancelled && copied == 0 -> "Queue cancelled."
+                        cancelled -> "Copied $copied of ${toCopy.size} file(s). Queue cancelled."
                         lastError != null && copied == 0 -> lastError
                         move && moved < copied ->
                             "Copied $copied file(s) into $label. Could not delete ${copied - moved} from the source volume."

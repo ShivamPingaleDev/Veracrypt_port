@@ -3,6 +3,7 @@ package dev.shivampingale.vcport
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -38,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,7 +80,9 @@ fun VaultPane(
     onHashSelected: () -> Unit,
     onWipeFreeSpace: () -> Unit,
     onSelectAll: () -> Unit,
-    onMore: () -> Unit
+    onMore: () -> Unit,
+    shareWithFiles: Boolean = false,
+    onShareWithFiles: (Boolean) -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     val fileCount = entries.count { !it.isDir }
@@ -98,6 +103,27 @@ fun VaultPane(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
+        if (live) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .testTag("files_app_share")
+                    .toggleable(
+                        value = shareWithFiles,
+                        enabled = !busy,
+                        role = Role.Checkbox,
+                        onValueChange = onShareWithFiles
+                    )
+            ) {
+                Checkbox(shareWithFiles, onCheckedChange = null, enabled = !busy)
+                Text(
+                    "Show this unlocked volume in the Files app",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
         if (readOnly) {
             Text(
                 "Read-only. This slot refuses writes (wipe, import, delete, rename).",
@@ -276,7 +302,8 @@ fun VaultPane(
         Row(
             Modifier
                 .padding(horizontal = 8.dp, vertical = 4.dp)
-                .horizontalScroll(rememberScrollState()),
+                .horizontalScroll(rememberScrollState())
+                .testTag("vault_path"),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (dirPath.isNotEmpty()) {

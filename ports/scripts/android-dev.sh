@@ -108,6 +108,59 @@ vcport_adb_has_emulator() {
 	"$_adb" devices 2>/dev/null | awk 'NR>1 && $1 ~ /^emulator-/ {found=1} END {exit found?0:1}'
 }
 
+# Writes AVD $_avd when VC_PORT_CREATE_AVD=1 and a platform-35 image is installed.
+# Prefers x86_64 (GitHub ubuntu) then arm64-v8a (this Mac).
+vcport_create_avd() {
+	_avd="${1:-${VC_PORT_AVD:-vcport-api35}}"
+	vcport_android_sdk
+	_home="${ANDROID_AVD_HOME:-$HOME/.android}"
+	_dir="$_home/avd/${_avd}.avd"
+	_rel=""
+	_abi=""
+	for _pair in \
+		"system-images/android-35/google_apis/x86_64|x86_64" \
+		"system-images/android-35/google_apis/arm64-v8a|arm64-v8a"
+	do
+		_rel="${_pair%%|*}"
+		_abi="${_pair##*|}"
+		if [ -d "$ANDROID_HOME/$_rel" ]; then
+			break
+		fi
+		_rel=""
+	done
+	if [ -z "$_rel" ]; then
+		echo "FAIL  no Android 35 Google APIs system image under $ANDROID_HOME" >&2
+		return 1
+	fi
+	mkdir -p "$_dir"
+	cat > "$_home/avd/${_avd}.ini" <<EOF
+avd.ini.encoding=UTF-8
+path=$_dir
+path.rel=avd/${_avd}.avd
+target=android-35
+EOF
+	_ram="${VC_PORT_AVD_RAM:-2048}"
+	cat > "$_dir/config.ini" <<EOF
+PlayStore.enabled=false
+abi.type=${_abi}
+avd.ini.encoding=UTF-8
+disk.dataPartition.size=2048M
+hw.cpu.arch=${_abi}
+hw.gpu.mode=swiftshader_indirect
+hw.keyboard=yes
+hw.lcd.density=420
+hw.lcd.height=2400
+hw.lcd.width=1080
+hw.ramSize=${_ram}
+image.sysdir.1=${_rel}/
+showDeviceFrame=no
+tag.display=Google APIs
+tag.id=google_apis
+target=android-35
+EOF
+	echo "Created AVD $_avd ($_abi)"
+}
+
 # 0 = a device is ready. 1 = cannot boot (caller should fail, not skip).
 # Waits on adb `device` + sys.boot_completed. Never treats the emulator
 # launcher PID as qemu (that PID can exit while qemu is still starting).
@@ -146,7 +199,12 @@ vcport_ensure_emulator() {
 		return 1
 	fi
 	if ! "$_emu" -list-avds 2>/dev/null | grep -qx "$_avd"; then
-		echo "FAIL  AVD $_avd not found. Create it, or set VC_PORT_AVD." >&2
+		if [ "${VC_PORT_CREATE_AVD:-0}" = "1" ]; then
+			vcport_create_avd "$_avd" || return 1
+		fi
+	fi
+	if ! "$_emu" -list-avds 2>/dev/null | grep -qx "$_avd"; then
+		echo "FAIL  AVD $_avd not found. Create it, or set VC_PORT_AVD / VC_PORT_CREATE_AVD=1." >&2
 		return 1
 	fi
 	_gpu="swiftshader_indirect"

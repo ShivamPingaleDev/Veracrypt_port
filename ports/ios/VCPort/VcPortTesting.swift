@@ -36,6 +36,7 @@ final class VcPortTesting {
     var setCreateKdf: (String) -> Void = { _ in }
     var setCreatePim: (String) -> Void = { _ in }
     var setCreateFilename: (String) -> Void = { _ in }
+    var setCreateFullFormat: (Bool) -> Void = { _ in }
     var setCreateSize: (String) -> Void = { _ in }
     var setCreateHidden: (Bool) -> Void = { _ in }
     var setCreateHiddenPim: (String) -> Void = { _ in }
@@ -63,6 +64,7 @@ final class VcPortTesting {
     var openVolume: () -> Void = {}
     var lockSession: () -> Void = {}
     var showVolumeProperties: () -> Void = {}
+    var runTestVectors: () -> Void = {}
     var backupHeader: () -> Void = {}
     var changePassword: () -> Void = {}
     var setKdf: () -> Void = {}
@@ -81,6 +83,8 @@ final class VcPortTesting {
     var openDir: (String) -> Void = { _ in }
     var goParent: () -> Void = {}
     var transferNamed: (Set<String>, String, Bool) -> Bool = { _, _, _ in false }
+    var lastTransferReport: () -> String = { "" }
+    var filesAppSeesVolume: () -> Bool = { false }
     var restoreHeader: (URL) -> Void = { _ in }
     var copyHeaderBackup: (URL) -> Bool = { _ in false }
     var homeLeave: () -> Void = {}

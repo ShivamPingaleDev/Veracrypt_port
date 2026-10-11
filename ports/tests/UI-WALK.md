@@ -3,14 +3,32 @@
 Local phones together:
 
 ```
+ports/tests/contrib.sh
+```
+
+That is the contributor suite. It checks the regressive session, the progressive walk rows, and the host nuances, then runs this walk. `VC_PORT_CONTRIB=host` stops before the phones. The walk by itself is still:
+
+```
 ports/scripts/run-ui-walk.sh
 ```
 
 `SLOW=1` also scribbles the Android entropy pad (`SlowHumanSessionTest`). Does not tap Panic wipe or Check for updates.
 
-This is **not** GitHub Actions (no emulator there). CI builds APK/IPA and runs **host Python contracts** only. Run this walk on this Mac after each new feature.
+This walk stays on a local Mac. GitHub Actions builds the APK and IPA and runs host contracts. It does not boot an emulator or a Simulator. Local default is both phones together. `VC_PORT_CI=1` is only for a manual CI-style run: a missing iOS Simulator then fails instead of skipping.
 
 Android walk boots AVD `vcport-api35` itself when `adb` is empty: Java 17 from `JAVA_HOME`, `/usr/libexec/java_home`, or Homebrew `openjdk@17`; headless SwiftShader + `nohup` so qemu is not killed when the launching shell exits. After boot it keeps the AVD awake (`svc power stayon`). If the device is gone before Gradle, the walk starts the emulator again and retries once on “no connected devices.” Waits for `adb` `device` + `sys.boot_completed`, not the emulator launcher PID. If qemu for that AVD is already running, the walk waits instead of starting a second emulator. `VC_PORT_EMU_WINDOW=1` keeps a window. Do not treat a missing emulator as SKIP — the walk fails with the qemu log.
+
+## Regressive session (must stay)
+
+These status strings are the old walk. Both phone session tests wait for them. A new feature does not replace this list.
+
+`from the basket into the volume` · `Session cleared` · `Nested volume is inside` · `Mounted in this app` · `Created folder INBOX` · `volumes mounted` · `Dismounted` · `Wrong password` · `Restored from embedded backup header` · `Read-only volumes refuse` · `SHA-256 in volume` · `Idle timeout`
+
+## Progressive cases (added on top)
+
+USB select, then permission, then the disk under USB devices (`FakeUsbUiTest`). Create resets the scribble pad before the file is saved. Password, PIM, and keyfile rows are shared widgets with the same tags. A skipped Files sheet does not delete the new volume. The session copy records a transfer queue row. Transfer queue finished the copy when that row is Done. In-app file browser lists the mounted volume under a path you can tap. The Files app does not see that volume. On Android the walk ticks Show this unlocked volume in the Files app, opens the system Files app, and sees that unlocked volume there. It then turns sharing off. Leaving the app after that dismounts again. Test vectors passed on both phones: the Tools button runs VeraCrypt EncryptionTest, the CRC-32 self-test, and the Argon2id self-test. Quick format left the unused part of the volume empty. Full format filled the volume, including the nested free space. The first create stays on quick format. The nested create ticks Full format. A flipped primary header still refuses to open. On iPhone the mounted volume does not appear in Files.app. iOS has no whole-disk USB. In-app preview stays inside the app.
+
+A new user-facing feature adds one row to `WALK_FEATURES` in `ports/tests/test_agile.py`, the proof string in the Android and iOS tests this walk already runs, and the feature name in this section. Host contracts fail if a new UI test file is left out of `UiWalkSuite` or `run-ui-walk.sh`. The emulator walk itself stays on this Mac.
 
 ## 10 phases (session test)
 

@@ -167,7 +167,7 @@ When the **0.3.x freeze** lifts for user-facing volume features:
 | ext4 in container | No | Yes (read/write) | Yes (read) |
 | LUKS / DMG | No | No | Yes |
 | Cloud remote images | No | No | Yes |
-| Batch transfer queue | No (planned) | No | No |
+| Batch transfer queue | Yes (one worker, cancel, ETA) | No | No |
 | File Provider | No | Partial | Yes |
 | Biometrics | No (master) | Yes | Yes |
 | Panic wipe | Yes | Yes (panic PIN) | Passcode app lock |

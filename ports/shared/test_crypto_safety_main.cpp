@@ -12,6 +12,8 @@
 
 #include "Crypto/Aes.h"
 #include "Common/Tcdefs.h"
+#include "Common/Crc.h"
+#include "argon2.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -276,6 +278,14 @@ static void test_enclave_keyfile_roundtrip_then_wipe(void)
 		TEST_ASSERT_EQUAL_INT(0, keyfile[i]);
 }
 
+/* Official VeraCrypt CRC-32 and Argon2id self-tests. The 256 MiB Argon2
+   cases stay compiled out in src/Crypto/Argon2/src/selftest.c. */
+static void test_official_crc32_and_argon2id_selftests(void)
+{
+	TEST_ASSERT_TRUE(crc32_selftests());
+	TEST_ASSERT_EQUAL_INT(0, argon2id_selftest());
+}
+
 int main(void)
 {
 	snprintf(g_tmp, sizeof(g_tmp), "%s/vcport-crypto-safety-XXXXXX",
@@ -293,6 +303,7 @@ int main(void)
 	RUN_TEST(test_unwrap_rejects_overflow_before_kdf);
 	RUN_TEST(test_jni_utf_cap_and_live_handle);
 	RUN_TEST(test_enclave_keyfile_roundtrip_then_wipe);
+	RUN_TEST(test_official_crc32_and_argon2id_selftests);
 	int rc = UNITY_END();
 
 	char cmd[640];

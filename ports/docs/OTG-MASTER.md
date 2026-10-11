@@ -18,7 +18,7 @@ VC Port did **not** copy that tree. OTG Master is GPL-2.0-or-later; this port st
 
 | Flavor | Biometrics | USB whole disk | Auto-mount | Network |
 | --- | --- | --- | --- | --- |
-| Android **foss** | No | Yes, tap Scan → pick partition → Open | **No** | No |
+| Android **foss** | No | Yes, tap Scan → select a USB device → grant permission → disk appears under USB devices → pick partition → Open | **No** | No |
 | Android **github** | No | Same | **No** | No |
 | iOS | No (`VCPortEnableBiometrics` stays false) | **No** (file on a stick via Files only) | **No** | No |
 

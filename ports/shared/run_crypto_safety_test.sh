@@ -72,6 +72,8 @@ compile_c "$OBJ/blake2b.o" "$SRC/Crypto/Argon2/src/blake2/blake2b.c"
 compile_c "$OBJ/argon2.o" "$SRC/Crypto/Argon2/src/argon2.c"
 compile_c "$OBJ/argon2core.o" "$SRC/Crypto/Argon2/src/core.c"
 compile_c "$OBJ/argon2ref.o" "$SRC/Crypto/Argon2/src/ref.c"
+compile_c "$OBJ/argon2self.o" "$SRC/Crypto/Argon2/src/selftest.c"
+compile_c "$OBJ/Crc.o" "$SRC/Common/Crc.c"
 
 AES_HW=""
 EXTRA_OBJS=""
@@ -106,6 +108,7 @@ if [ ! -x "$OUT" ]; then
 else
 	for o in "$OBJ/Aescrypt.o" "$OBJ/Aeskey.o" "$OBJ/Aestab.o" "$OBJ/Sha2.o" \
 		"$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o" \
+		"$OBJ/argon2self.o" "$OBJ/Crc.o" \
 		"$OBJ/vc_wrap.o" "$OBJ/vc_progress.o" "$OBJ/mobile_mocks.o" "$OBJ/test_crypto_safety.o"; do
 		if [ -f "$o" ] && [ "$o" -nt "$OUT" ]; then
 			need_link=1
@@ -117,7 +120,8 @@ if [ "$need_link" -eq 1 ]; then
 	# shellcheck disable=SC2086
 	$CXX $SAN -o "$OUT" "$OBJ/test_crypto_safety.o" "$OBJ/mobile_mocks.o" "$OBJ/vc_wrap.o" "$OBJ/vc_progress.o" \
 		"$OBJ/Aescrypt.o" "$OBJ/Aeskey.o" "$OBJ/Aestab.o" "$OBJ/Sha2.o" $AES_HW $EXTRA_OBJS \
-		"$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o"
+		"$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o" \
+		"$OBJ/argon2self.o" "$OBJ/Crc.o"
 fi
 echo "Running $OUT (ASan/UBSan)"
 "$OUT"

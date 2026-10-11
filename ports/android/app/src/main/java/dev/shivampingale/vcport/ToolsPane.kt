@@ -100,21 +100,16 @@ internal fun MainActivity.ToolsPane(
     VcCard {
 
         Text("Volume header", style = MaterialTheme.typography.titleMedium)
-        SecretField(
-            newPassword,
-            { newPassword = it },
-            "New password (empty = keep current)",
-            modifier = Modifier.testTag("tools_new_password"),
+        PasswordAndPim(
+            password = newPassword,
+            onPassword = { newPassword = it },
+            passwordLabel = "New password (empty = keep current)",
+            passwordTag = "tools_new_password",
+            pim = newPim,
+            onPim = { newPim = it },
+            pimLabel = "New PIM (0 = VeraCrypt default)",
+            pimTag = "tools_new_pim",
             enabled = !busy
-        )
-        OutlinedTextField(
-            newPim,
-            { newPim = it },
-            label = { Text("New PIM (0 = VeraCrypt default)") },
-            modifier = Modifier.fillMaxWidth().testTag("tools_new_pim"),
-            enabled = !busy,
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
         Button(
             onClick = {
@@ -383,12 +378,12 @@ internal fun MainActivity.ToolsPane(
                 beginWork("Running known-answer test vectors…")
                 Thread {
 
-                    val rc = NativeBridge.testVectors()
+                    val rc = NativeBridge.autoTest()
                     runOnUiThread {
 
                         endWork()
                         status = if (rc == 0)
-                            "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests."
+                            "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests. CRC-32 self-test passed. Argon2id self-test passed."
                         else
                             "Test vectors failed."
                     }
@@ -396,7 +391,7 @@ internal fun MainActivity.ToolsPane(
                 }.start()
             },
             enabled = !busy,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().testTag("tools_test_vectors")
         ) { Text("Test vectors") }
 
         VcHint(PimEstimator.describe(createKdf, createPim))

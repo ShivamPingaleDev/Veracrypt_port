@@ -191,6 +191,132 @@ static bool has_name (VcDirEntry *entries, int n, const char *name, int wantDir)
 
 static const char kCompatPassword[] = "EngineCompat-password-one-OK";
 
+static int span_is_zero (const char *path, uint64_t off, size_t n)
+{
+	FILE *f = fopen (path, "rb");
+	if (!f)
+		return -1;
+	if (fseeko (f, (off_t) off, SEEK_SET) != 0)
+	{
+		fclose (f);
+		return -1;
+	}
+	std::vector<unsigned char> buf (n);
+	if (fread (buf.data (), 1, n, f) != n)
+	{
+		fclose (f);
+		return -1;
+	}
+	fclose (f);
+	for (size_t i = 0; i < n; ++i)
+	{
+		if (buf[i] != 0)
+			return 0;
+	}
+	return 1;
+}
+
+static void refill_entropy (void)
+{
+	for (int i = 0; i < 320; ++i)
+		vc_entropy_add ("0123456789abcdef0123456789abcdef", 32);
+}
+
+/* 1 MiB is past the FAT of a 2 MiB volume and before the backup headers. */
+static const uint64_t kQuickSample = 1024ull * 1024ull;
+
+/* Nested free space: host - two headers - hidden size, then past the nested FAT. */
+static uint64_t nested_free_sample (uint64_t host, uint64_t hidden)
+{
+	const uint64_t header = 64ull * 1024ull;
+	return host - 2ull * header - hidden + 256ull * 1024ull;
+}
+
+static void test_quick_and_full_format (void)
+{
+	const uint64_t small = 2ull * 1024ull * 1024ull;
+	const uint64_t host = 8ull * 1024ull * 1024ull;
+	const uint64_t hidden = 2ull * 1024ull * 1024ull;
+	const char *hiddenPw = "vcport-hidden-format";
+	char quickPath[] = "/tmp/vcport-quick-XXXXXX";
+	char fullPath[] = "/tmp/vcport-full-XXXXXX";
+	char nestQuick[] = "/tmp/vcport-nestq-XXXXXX";
+	char nestFull[] = "/tmp/vcport-nestf-XXXXXX";
+	int qfd = mkstemp (quickPath);
+	int ffd = mkstemp (fullPath);
+	int nqfd = mkstemp (nestQuick);
+	int nffd = mkstemp (nestFull);
+	expect (qfd >= 0 && ffd >= 0 && nqfd >= 0 && nffd >= 0, "format temp files");
+	if (qfd >= 0)
+		close (qfd);
+	if (ffd >= 0)
+		close (ffd);
+	if (nqfd >= 0)
+		close (nqfd);
+	if (nffd >= 0)
+		close (nffd);
+
+	VcCreateOptions base = {};
+	base.password = kPassword;
+	base.password_len = strlen (kPassword);
+	base.pim = kPim;
+	base.cipher = "AES";
+	base.kdf = "HMAC-SHA-512";
+	base.filesystem = "FAT";
+
+	refill_entropy ();
+	base.path = quickPath;
+	base.size_bytes = small;
+	base.full_format = 0;
+	expect (vc_create_volume (&base) == VC_OK, "create quick volume");
+	expect (span_is_zero (quickPath, kQuickSample, 4096) == 1,
+		"quick format left the unused part of the volume empty");
+
+	refill_entropy ();
+	base.path = fullPath;
+	base.full_format = 1;
+	expect (vc_create_volume (&base) == VC_OK, "create full volume");
+	expect (span_is_zero (fullPath, kQuickSample, 4096) == 0,
+		"full format filled the volume");
+
+	base.size_bytes = host;
+	base.hidden_size_bytes = hidden;
+	base.hidden_password = hiddenPw;
+	base.hidden_password_len = strlen (hiddenPw);
+	base.hidden_pim = kPim;
+	const uint64_t nestAt = nested_free_sample (host, hidden);
+
+	refill_entropy ();
+	base.path = nestQuick;
+	base.full_format = 0;
+	expect (vc_create_volume (&base) == VC_OK, "create quick nested volume");
+	expect (span_is_zero (nestQuick, nestAt, 4096) == 1,
+		"quick nested volume left the nested free space empty");
+
+	refill_entropy ();
+	base.path = nestFull;
+	base.full_format = 1;
+	expect (vc_create_volume (&base) == VC_OK, "create full nested volume");
+	expect (span_is_zero (nestFull, nestAt, 4096) == 0,
+		"full format filled the nested free space");
+
+	VcOpenOptions opt = {};
+	opt.path = nestFull;
+	opt.password = hiddenPw;
+	opt.password_len = strlen (hiddenPw);
+	opt.pim = kPim;
+	int err = 0;
+	VcVolume *hiddenVol = vc_open (&opt, &err);
+	expect (hiddenVol != NULL, "open full-formatted nested volume");
+	if (hiddenVol)
+		vc_close (hiddenVol);
+
+	unlink (quickPath);
+	unlink (fullPath);
+	unlink (nestQuick);
+	unlink (nestFull);
+}
+
 static int write_compat_volume (const char *path)
 {
 	for (int i = 0; i < 320; ++i)
@@ -372,6 +498,7 @@ int main (int argc, char **argv)
 	for (int i = 0; i < 320; ++i)
 		vc_entropy_add ("0123456789abcdef0123456789abcdef", 32);
 	expect (vc_entropy_percent () == 100, "entropy bar fills");
+	test_quick_and_full_format ();
 
 	char created[] = "/tmp/vcport-create-XXXXXX";
 	int cfd = mkstemp (created);

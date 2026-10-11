@@ -28,6 +28,13 @@ class VolumeDocumentsProvider : DocumentsProvider() {
             DocumentsContract.Root.COLUMN_MIME_TYPES
         )
         val cursor = android.database.MatrixCursor(cols)
+        val ctx = context
+        if (ctx != null) {
+            cursor.setNotificationUri(
+                ctx.contentResolver,
+                DocumentsContract.buildRootsUri("${ctx.packageName}.documents")
+            )
+        }
         if (!OtgMountShare.shareWithFiles) return cursor
         for (root in OtgMountShare.roots()) {
             val row = cursor.newRow()
@@ -36,8 +43,9 @@ class VolumeDocumentsProvider : DocumentsProvider() {
                     DocumentsContract.Root.COLUMN_ROOT_ID -> row.add(root.id)
                     DocumentsContract.Root.COLUMN_DOCUMENT_ID -> row.add(docId(root.handle, ""))
                     DocumentsContract.Root.COLUMN_TITLE -> row.add("VC Port · ${root.label}")
+                    DocumentsContract.Root.COLUMN_ICON -> row.add(R.mipmap.ic_launcher)
                     DocumentsContract.Root.COLUMN_FLAGS -> row.add(
-                        DocumentsContract.Root.FLAG_SUPPORTS_CREATE or
+                        DocumentsContract.Root.FLAG_LOCAL_ONLY or
                             DocumentsContract.Root.FLAG_SUPPORTS_IS_CHILD
                     )
                     DocumentsContract.Root.COLUMN_MIME_TYPES -> row.add("*/*")
@@ -51,6 +59,7 @@ class VolumeDocumentsProvider : DocumentsProvider() {
     override fun queryDocument(documentId: String, projection: Array<out String>?): android.database.Cursor {
         val cols = docCols(projection)
         val cursor = android.database.MatrixCursor(cols)
+        if (!OtgMountShare.shareWithFiles) return cursor
         val (handle, path) = parse(documentId)
         if (path.isEmpty()) {
             addDoc(cursor, cols, documentId, "/", true, 0L)
@@ -71,6 +80,7 @@ class VolumeDocumentsProvider : DocumentsProvider() {
     ): android.database.Cursor {
         val cols = docCols(projection)
         val cursor = android.database.MatrixCursor(cols)
+        if (!OtgMountShare.shareWithFiles) return cursor
         val (handle, path) = parse(parentDocumentId)
         val listed = NativeBridge.listDir(handle, path.ifEmpty { "/" })
         for (line in listed) {
@@ -85,6 +95,7 @@ class VolumeDocumentsProvider : DocumentsProvider() {
         mode: String,
         signal: CancellationSignal?
     ): ParcelFileDescriptor {
+        if (!OtgMountShare.shareWithFiles) throw IllegalStateException("sharing off")
         val (handle, path) = parse(documentId)
         if (path.isEmpty()) throw IllegalArgumentException("folder")
         val ctx = context ?: throw IllegalStateException("provider")

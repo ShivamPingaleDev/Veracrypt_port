@@ -82,6 +82,10 @@ struct ContentView: View {
     @State var busy = false
     @State var workTitle = ""
     @State var workPercent = -1
+    @State var transferQueue = TransferQueue()
+    @State var transferJobs: [TransferJob] = []
+    @State var transferEta = ""
+    @State var lastTransferReport = ""
     @State var entropyMarks: [CGPoint] = []
     @State var holdLock = false
     @State var basketURLs: [URL] = []
@@ -116,7 +120,13 @@ struct ContentView: View {
             }
             .animation(.easeOut(duration: 0.15), value: busy)
             if busy {
-                WorkOverlay(title: workTitle.isEmpty ? status : workTitle, percent: workPercent)
+                WorkOverlay(
+                    title: workTitle.isEmpty ? status : workTitle,
+                    percent: workPercent,
+                    jobs: transferJobs,
+                    eta: transferEta,
+                    onCancel: { transferQueue.requestCancel() }
+                )
                     .transition(.opacity)
             }
         }
@@ -517,6 +527,39 @@ struct ContentView: View {
         entropyPercent = Int(VcMobileBridge.entropyPercent())
     }
 
+    /// Files.app only sees a volume through a File Provider extension. This app has none.
+    func mountedVolumeAppearsInFilesApp() -> Bool {
+        guard let plugIns = Bundle.main.builtInPlugInsURL else { return false }
+        let items = (try? FileManager.default.contentsOfDirectory(at: plugIns, includingPropertiesForKeys: nil)) ?? []
+        return items.contains { $0.lastPathComponent.localizedCaseInsensitiveContains("FileProvider") }
+    }
+
+    func publishTransferQueue() {
+        let gen = transferQueue.generation
+        let jobs = transferQueue.snapshot()
+        let eta = transferQueue.etaLabel()
+        let apply = {
+            if gen != self.transferQueue.generation { return }
+            self.transferJobs = jobs
+            self.transferEta = eta
+        }
+        if Thread.isMainThread {
+            apply()
+        } else {
+            DispatchQueue.main.async(execute: apply)
+        }
+    }
+
+    func clearTransferQueue() {
+        let jobs = transferQueue.snapshot()
+        if !jobs.isEmpty {
+            lastTransferReport = jobs.map { "\($0.name)=\($0.state.label)" }.joined(separator: "\n")
+        }
+        transferQueue.reset()
+        transferJobs = []
+        transferEta = ""
+    }
+
     func beginWork(_ title: String, updateStatus: Bool = true) {
         VcMobileBridge.resetProgress()
         workTitle = title
@@ -628,7 +671,7 @@ struct ContentView: View {
         let pim = Int32(createPim) ?? 0
         let cipher = createCipher
         let kdf = createKdf
-        var keys = keyfileURLs.map(\.path)
+        let keys = keyfileURLs.map(\.path)
         let hiddenPw = createHidden ? createHiddenPassword : ""
         let hiddenPimVal = Int32(createHiddenPim) ?? 0
         let nested = createHidden
@@ -682,9 +725,14 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 endWork()
                 if rc != 0 {
-                    status = "Create failed (code \(rc))."
+                    let discarded = FileManager.default.fileExists(atPath: dest.path)
+                    if discarded { wipeFile(dest) }
+                    status = createErrorMessage(rc) + (discarded ? " The incomplete file was discarded. (code -9)" : "")
                     return
                 }
+                entropyPercent = 0
+                entropyMarks = []
+                VcMobileBridge.resetEntropy()
                 pendingCreateURL = dest
                 var msg = "Created \(SizeUnit.formatBytes(sizeBytes)) \(cipher) / \(kdf) \(filesystem) volume as \(dest.lastPathComponent) (standard VeraCrypt file; the name is only a disguise). Open volume, or Share encrypted. Same password, PIM, and keyfiles open it on a PC, Mac, or another phone — the extension is ignored."
                 if packed > 0 {
@@ -748,7 +796,7 @@ struct ContentView: View {
     }
 
     func openVolume() {
-        guard let path = containerURL?.path else {
+        guard containerURL?.path != nil else {
             status = "Select a container first."
             return
         }
@@ -801,6 +849,7 @@ struct ContentView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let keyfilePaths = keys.map(\.path)
             var error: Int32 = 0
+            var opened: OpaquePointer?
             let handle = VcMobileBridge.open(
                 path: path,
                 password: text,
@@ -819,10 +868,19 @@ struct ContentView: View {
                     status = openErrorMessage(error)
                     return
                 }
+                opened = handle
+                var mounted = false
+                defer {
+                    if !mounted, let opened {
+                        VcMobileBridge.close(opened)
+                        if !status.contains("(code ") {
+                            status = "Open failed. The volume was not left mounted. (code -8)"
+                        }
+                    }
+                }
                 persistActiveMount()
                 switch VcMobileBridge.listDir(handle, path: "/") {
                 case .failure(let err):
-                    VcMobileBridge.close(handle)
                     status = listErrorMessage(err.rawValue)
                 case .success(let listed):
                     let truncated = listed.contains { $0.name == "!truncated!" }
@@ -848,6 +906,7 @@ struct ContentView: View {
                     headerKeyfileURLs = keys
                     rememberUnlock(text, pimText)
                     wipeUnlockForm()
+                    mounted = true
                     selectedTab = 2
                     bumpIdle()
                     var msg = "Mounted in this app. Size \(VcMobileBridge.size(handle)) bytes. Slots are on the Mounted tab. Tap Open on a folder, or select files. Copy to volume moves selected files into another mounted container."
@@ -1088,44 +1147,59 @@ struct ContentView: View {
                 ? (move ? "Moving \(toCopy[0].name) to \(label)…" : "Copying \(toCopy[0].name) to \(label)…")
                 : (move ? "Moving \(toCopy.count) files to \(label)…" : "Copying \(toCopy.count) files to \(label)…")
         )
+        transferQueue.begin(toCopy.map { ($0.name, Int64(clamping: $0.size)) })
+        publishTransferQueue()
         let srcDir = dirPath
         DispatchQueue.global(qos: .userInitiated).async {
             var copied = 0
             var moved = 0
             var lastError: String?
-            for entry in toCopy {
+            for (index, entry) in toCopy.enumerated() {
+                if !transferQueue.claim(index) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 let temp = FileManager.default.temporaryDirectory
                     .appendingPathComponent("xfer-\(Int(Date().timeIntervalSince1970 * 1000))-\(entry.name.replacingOccurrences(of: "/", with: "_"))")
                 try? FileManager.default.removeItem(at: temp)
                 let srcPath = joinDir(srcDir, entry.name)
+                var failed: String?
                 let rcExport = VcMobileBridge.exportFile(src, name: srcPath, dest: temp.path)
                 if rcExport != 0 {
-                    lastError = extractErrorMessage(entry.name, rcExport)
-                    wipeFile(temp)
-                    continue
-                }
-                let destDir = dest.dirPath.isEmpty ? "/" : dest.dirPath
-                let rcImport = VcMobileBridge.importFile(dest.handle, destDir: destDir, src: temp.path, destName: entry.name)
-                wipeFile(temp)
-                if rcImport != 0 {
-                    lastError = importErrorMessage(entry.name, rcImport, handle: dest.handle)
-                    continue
-                }
-                copied += 1
-                if move {
-                    if VcMobileBridge.deleteFile(src, path: srcPath) == 0 {
-                        moved += 1
+                    failed = extractErrorMessage(entry.name, rcExport)
+                    lastError = failed
+                } else {
+                    let destDir = dest.dirPath.isEmpty ? "/" : dest.dirPath
+                    let rcImport = VcMobileBridge.importFile(dest.handle, destDir: destDir, src: temp.path, destName: entry.name)
+                    if rcImport != 0 {
+                        failed = importErrorMessage(entry.name, rcImport, handle: dest.handle)
+                        lastError = failed
+                    } else {
+                        copied += 1
+                        if move, VcMobileBridge.deleteFile(src, path: srcPath) == 0 {
+                            moved += 1
+                        }
                     }
                 }
+                wipeFile(temp)
+                transferQueue.finish(index, failed: failed)
+                publishTransferQueue()
             }
             var saveHandles: Set<OpaquePointer> = []
             if copied > 0 { saveHandles.insert(dest.handle) }
             if move && moved > 0 { saveHandles.insert(src) }
             let saveWarning = saveHandles.isEmpty ? nil : autoSaveSaveWarning(handles: saveHandles)
+            let cancelled = transferQueue.cancelRequested && copied < toCopy.count && lastError == nil
             DispatchQueue.main.async {
+                clearTransferQueue()
                 endWork()
                 let base: String
-                if let lastError, copied == 0 {
+                if cancelled && copied == 0 {
+                    base = "Queue cancelled."
+                } else if cancelled {
+                    base = "Copied \(copied) of \(toCopy.count) file(s). Queue cancelled."
+                } else if let lastError, copied == 0 {
                     base = lastError
                 } else if move && moved < copied {
                     base = "Copied \(copied) file(s) into \(label). Could not delete \(copied - moved) from the source volume."
@@ -1165,9 +1239,10 @@ struct ContentView: View {
     /// keyfile) so Copy once can be pasted into Notes and creation can
     /// continue. Dismount / Panic still call lockSession().
     func dismountOnLeave() {
+        transferQueue.requestCancel()
         let wasOpen = volumeHandle != nil || !mountedVolumes.isEmpty
         if wasOpen {
-            mountedVolumes.forEach { saveAndCloseMounted($0) }
+            mountedVolumes.forEach { _ = saveAndCloseMounted($0) }
         }
         clearMountedVolumeState()
         password = ""
@@ -1423,6 +1498,7 @@ struct ContentView: View {
         pimEstimateResult = ""
         forgetUnlock()
         selectedTab = 0
+        clearTransferQueue()
         sessionResetPulse += 1
         sessionResetFlash = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
@@ -1449,7 +1525,7 @@ struct ContentView: View {
         let saving = !volumes.isEmpty
         if saving { beginWork("Saving and dismounting…") }
         DispatchQueue.global(qos: .userInitiated).async {
-            volumes.forEach { saveAndCloseMounted($0) }
+            volumes.forEach { _ = saveAndCloseMounted($0) }
             DispatchQueue.main.async {
                 clearMountedVolumeState()
                 if saving { endWork() }
@@ -1463,6 +1539,7 @@ struct ContentView: View {
     /// Home / Recents uses dismountOnLeave so Create can continue. Panic adds
     /// Hardening.panic after lock. Do not grow a fifth path.
     func closeOpenVolumes(_ reason: String) {
+        transferQueue.requestCancel()
         if volumeHandle != nil || !mountedVolumes.isEmpty {
             beginWork(reason)
             VcMobileBridge.setProgress(100, phase: reason)
@@ -1471,6 +1548,8 @@ struct ContentView: View {
     }
 
     func panicWipe() {
+        transferQueue.requestCancel()
+        clearTransferQueue()
         closeVolume()
         password = ""
         holdLock = false
@@ -1574,19 +1653,30 @@ struct ContentView: View {
         if urls.isEmpty { return }
         let verb = move ? "Moving" : "Copying"
         beginWork(urls.count == 1 ? "\(verb) from device…" : "\(verb) \(urls.count) files from device…")
+        transferQueue.begin(urls.map { url in
+            let bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
+            return (url.lastPathComponent, bytes)
+        })
+        publishTransferQueue()
         let destDir = dirPath.isEmpty ? "/" : dirPath
         var used = Set(entries.filter { !$0.isDir }.map(\.name))
         DispatchQueue.global(qos: .userInitiated).async {
             var copied = 0
             var moved = 0
             var lastError: String?
-            for url in urls {
+            for (index, url) in urls.enumerated() {
+                if !transferQueue.claim(index) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 let accessed = url.startAccessingSecurityScopedResource()
                 defer {
                     if accessed { url.stopAccessingSecurityScopedResource() }
                 }
                 let name = uniqueDestName(url.lastPathComponent, used: &used)
                 var temp: URL?
+                var failed: String?
                 let srcPath: String
                 if url.isFileURL, FileManager.default.isReadableFile(atPath: url.path) {
                     srcPath = url.path
@@ -1594,31 +1684,43 @@ struct ContentView: View {
                     temp = copiedUrl
                     srcPath = copiedUrl.path
                 } else {
-                    lastError = "Could not read \(url.lastPathComponent). Pick it again from Files."
-                    continue
+                    failed = "Could not read \(url.lastPathComponent). Pick it again from Files."
+                    lastError = failed
+                    srcPath = ""
                 }
-                let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
+                if failed == nil {
+                    let rc = VcMobileBridge.importFile(handle, destDir: destDir, src: srcPath, destName: name)
+                    if rc != 0 {
+                        failed = importErrorMessage(name, rc, handle: handle)
+                        lastError = failed
+                    } else {
+                        copied += 1
+                        if move {
+                            do {
+                                try FileManager.default.removeItem(at: url)
+                                moved += 1
+                            } catch {
+                            }
+                        }
+                    }
+                }
                 if let temp {
                     wipeFile(temp)
                 }
-                if rc != 0 {
-                    lastError = importErrorMessage(name, rc, handle: handle)
-                    continue
-                }
-                copied += 1
-                if move {
-                    do {
-                        try FileManager.default.removeItem(at: url)
-                        moved += 1
-                    } catch {
-                    }
-                }
+                transferQueue.finish(index, failed: failed)
+                publishTransferQueue()
             }
             let saveWarning = copied > 0 ? autoSaveSaveWarning(handles: [handle]) : nil
+            let cancelled = transferQueue.cancelRequested && copied < urls.count && lastError == nil
             DispatchQueue.main.async {
+                clearTransferQueue()
                 endWork()
                 let base: String
-                if lastError != nil && copied == 0 {
+                if cancelled && copied == 0 {
+                    base = "Queue cancelled."
+                } else if cancelled {
+                    base = "Copied \(copied) of \(urls.count) file(s). Queue cancelled."
+                } else if lastError != nil && copied == 0 {
                     base = lastError ?? "Could not copy that file into the volume."
                 } else if move && moved < copied {
                     base = "Copied \(copied) file(s) into the volume. Could not delete the original; remove it in Files if you meant a move."
@@ -1657,24 +1759,39 @@ struct ContentView: View {
         }
         let verb = move ? "Moving" : "Copying"
         beginWork(files.count == 1 ? "\(verb) \(files[0].name) to device…" : "\(verb) \(files.count) files to device…")
+        transferQueue.begin(files.map { ($0.name, Int64(clamping: $0.size)) })
+        publishTransferQueue()
         DispatchQueue.global(qos: .userInitiated).async {
             var dests: [(VaultEntry, URL)] = []
-            for entry in files {
+            var lastError: String?
+            for (index, entry) in files.enumerated() {
+                if !transferQueue.claim(index) {
+                    publishTransferQueue()
+                    break
+                }
+                publishTransferQueue()
                 let dest = FileManager.default.temporaryDirectory
                     .appendingPathComponent(entry.name.replacingOccurrences(of: "/", with: "_"))
                 try? FileManager.default.removeItem(at: dest)
                 let rc = VcMobileBridge.exportFile(handle, name: joinDir(dirPath, entry.name), dest: dest.path)
                 if rc != 0 {
-                    DispatchQueue.main.async {
-                        endWork()
-                        status = extractErrorMessage(entry.name, rc)
-                    }
-                    return
+                    lastError = extractErrorMessage(entry.name, rc)
+                    wipeFile(dest)
+                    transferQueue.finish(index, failed: lastError)
+                    publishTransferQueue()
+                    continue
                 }
                 dests.append((entry, dest))
+                transferQueue.finish(index, failed: nil)
+                publishTransferQueue()
             }
             DispatchQueue.main.async {
+                clearTransferQueue()
                 endWork()
+                if dests.isEmpty {
+                    status = lastError ?? "Queue cancelled."
+                    return
+                }
                 SystemFiles.exportCopy(urls: dests.map(\.1)) { saved in
                     if saved == nil {
                         status = files.count == 1
@@ -1736,61 +1853,83 @@ struct ContentView: View {
         return String(dir[..<slash])
     }
 
+    func coded(_ code: Int32, _ message: String) -> String {
+        "\(message) (code \(code))"
+    }
+
+    func createErrorMessage(_ code: Int32) -> String {
+        switch code {
+        case -7: return coded(code, "VeraCrypt self-test failed. This build will not create a volume.")
+        case -6: return coded(code, "That cipher or KDF is not available in this build.")
+        case -5: return coded(code, "Not enough memory to create the volume.")
+        case -4: return coded(code, "Missing path, password, or size.")
+        case -3: return coded(code, "The volume could not be formatted.")
+        case -2: return coded(code, "Password or PIM was rejected.")
+        case -1: return coded(code, "Could not write the container file.")
+        default: return "Create failed (code \(code))."
+        }
+    }
+
     func openErrorMessage(_ code: Int32) -> String {
         switch code {
-        case -2: return "Wrong password, PIM, or keyfile mix."
-        case -6: return "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported."
-        case -1: return "Could not read the container file."
-        case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
-        case -4: return "Missing path or password argument."
-        case -5: return "Not enough memory to open the volume."
+        case -2: return coded(code, "Wrong password, PIM, or keyfile mix.")
+        case -6: return coded(code, "This container uses NTFS, ext, or another filesystem VC Port does not open. FAT and exFAT are supported.")
+        case -7: return coded(code, "VeraCrypt self-test failed. This build will not open a volume.")
+        case -1: return coded(code, "Could not read the container file.")
+        case -3: return coded(code, "Not a VeraCrypt-compatible volume, or the header is damaged.")
+        case -4: return coded(code, "Missing path or password argument.")
+        case -5: return coded(code, "Not enough memory to open the volume.")
         default: return "Open failed (code \(code))."
         }
     }
 
     func listErrorMessage(_ code: Int32) -> String {
         switch code {
-        case -6: return "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here."
-        case -4: return "Could not list that folder path."
-        case -5: return "Not enough memory to list the folder."
-        case -1: return "Could not read the folder from the volume."
+        case -6: return coded(code, "Opened the volume, but the filesystem is NTFS or otherwise unsupported. FAT and exFAT work here.")
+        case -4: return coded(code, "Could not list that folder path.")
+        case -5: return coded(code, "Not enough memory to list the folder.")
+        case -1: return coded(code, "Could not read the folder from the volume.")
+        case -3: return coded(code, "Could not list files. The folder is not a readable FAT or exFAT directory.")
         default: return "Could not list files (code \(code))."
         }
     }
 
     func extractErrorMessage(_ name: String, _ rc: Int32) -> String {
         switch rc {
-        case -6: return "Could not extract \(name). NTFS/ext are unsupported; FAT and exFAT work."
-        case -4: return "Could not extract \(name). Bad path."
-        case -5: return "Could not extract \(name). Not enough memory."
-        case -1: return "Could not extract \(name). Read failed."
-        case -2: return "Could not extract \(name). Wrong password or header."
+        case -6: return coded(rc, "Could not extract \(name). NTFS/ext are unsupported; FAT and exFAT work.")
+        case -4: return coded(rc, "Could not extract \(name). Bad path.")
+        case -5: return coded(rc, "Could not extract \(name). Not enough memory.")
+        case -1: return coded(rc, "Could not extract \(name). Read failed.")
+        case -2: return coded(rc, "Could not extract \(name). Wrong password or header.")
+        case -3: return coded(rc, "Could not extract \(name). The file is not in this folder.")
         default: return "Could not extract \(name) (code \(rc))."
         }
     }
 
     func importErrorMessage(_ name: String, _ rc: Int32, handle: OpaquePointer? = nil) -> String {
         if let handle, VcMobileBridge.protectionTriggered(handle) {
-            return "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+            return coded(-10, "Hidden volume protection triggered. The outer volume is now write-protected until you dismount.")
         }
         switch rc {
-        case -6: return "Could not copy \(name). Folders are not created this way."
-        case -4: return "Could not copy \(name). Bad name or path."
-        case -5: return "Could not copy \(name). Volume is full, or the file is larger than 4 GiB (FAT limit)."
-        case -3: return "A file named \(name) already exists in this folder."
-        case -1: return "Could not copy \(name) into the volume."
+        case -6: return coded(rc, "Could not copy \(name). Folders are not created this way.")
+        case -4: return coded(rc, "Could not copy \(name). Bad name or path.")
+        case -5: return coded(rc, "Could not copy \(name). Volume is full, or the file is larger than 4 GiB (FAT limit).")
+        case -3: return coded(rc, "A file named \(name) already exists in this folder.")
+        case -1: return coded(rc, "Could not copy \(name) into the volume.")
+        case -2: return coded(rc, "Could not copy \(name). Wrong password or header.")
         default: return "Could not copy \(name) (code \(rc))."
         }
     }
 
     func headerErrorMessage(_ rc: Int32) -> String {
         switch rc {
-        case -4: return "Need a container path and at least a password or keyfile."
-        case -2: return "Wrong password, PIM, or keyfile mix."
-        case -1: return "Could not read or write the container. Close it first if it is open."
-        case -3: return "Not a VeraCrypt-compatible volume, or the header is damaged."
-        case -6: return "That KDF is not available in this build."
-        case -5: return "Not enough memory."
+        case -4: return coded(rc, "Need a container path and at least a password or keyfile.")
+        case -2: return coded(rc, "Wrong password, PIM, or keyfile mix.")
+        case -1: return coded(rc, "Could not read or write the container. Close it first if it is open.")
+        case -3: return coded(rc, "Not a VeraCrypt-compatible volume, or the header is damaged.")
+        case -6: return coded(rc, "That KDF is not available in this build.")
+        case -5: return coded(rc, "Not enough memory.")
+        case -7: return coded(rc, "VeraCrypt self-test failed. This build will not change a header.")
         default: return "Header operation failed (code \(rc))."
         }
     }
@@ -1841,8 +1980,8 @@ struct ContentView: View {
             status = "Enter the current password or keyfiles above."
             return nil
         }
-        var temps: [URL] = []
-        var paths = keyfileURLs.map(\.path)
+        let temps: [URL] = []
+        let paths = keyfileURLs.map(\.path)
         return (text, unlockPimText(), paths, temps)
     }
 
@@ -2148,7 +2287,7 @@ struct ContentView: View {
                 endWork()
                 if rc != 0 {
                     if VcMobileBridge.protectionTriggered(handle) {
-                        status = "Hidden volume protection triggered. The outer volume is now write-protected until you dismount."
+                        status = "Hidden volume protection triggered. The outer volume is now write-protected until you dismount. (code -10)"
                     } else {
                         status = "Could not wipe free space (code \(rc)). Read-only volumes refuse this."
                     }
@@ -2263,11 +2402,11 @@ struct ContentView: View {
     func runTestVectors() {
         beginWork("Running known-answer test vectors…")
         DispatchQueue.global(qos: .userInitiated).async {
-            let rc = VcMobileBridge.testVectors()
+            let rc = VcMobileBridge.autoTest()
             DispatchQueue.main.async {
                 endWork()
                 status = rc == 0
-                    ? "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests."
+                    ? "Test vectors passed. AES, Serpent, Twofish, Camellia, Kuznyechik, and XTS match the VeraCrypt known-answer tests. CRC-32 self-test passed. Argon2id self-test passed."
                     : "Test vectors failed."
             }
         }
@@ -2416,6 +2555,7 @@ struct ContentView: View {
         testing.setCreateKdf = { createKdf = $0 }
         testing.setCreatePim = { createPim = $0 }
         testing.setCreateFilename = { createFileName = $0 }
+        testing.setCreateFullFormat = { createFullFormat = $0 }
         testing.setCreateSize = { createSizeAmount = $0 }
         testing.setCreateHidden = { createHidden = $0 }
         testing.setCreateHiddenPim = { createHiddenPim = $0 }
@@ -2472,6 +2612,7 @@ struct ContentView: View {
         testing.openVolume = { openVolume() }
         testing.lockSession = { lockSession() }
         testing.showVolumeProperties = { showVolumeProperties() }
+        testing.runTestVectors = { runTestVectors() }
         testing.backupHeader = { backupVolumeHeader() }
         testing.changePassword = { changeVolumePassword() }
         testing.setKdf = { setHeaderKdf() }
@@ -2499,7 +2640,7 @@ struct ContentView: View {
             }
         }
         testing.finishCreateSave = { dest in
-            guard let src = containerURL else { return false }
+            guard let src = pendingCreateURL ?? containerURL else { return false }
             let fm = FileManager.default
             try? fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
             try? fm.removeItem(at: dest)
@@ -2590,6 +2731,8 @@ struct ContentView: View {
             transferBetweenVolumes(entries: files, dest: dest, move: move)
             return true
         }
+        testing.lastTransferReport = { lastTransferReport }
+        testing.filesAppSeesVolume = { mountedVolumeAppearsInFilesApp() }
         testing.restoreHeader = { bak in
             restoreVolumeHeader(bak)
         }
@@ -2632,6 +2775,9 @@ struct ContentView: View {
 private struct WorkOverlay: View {
     let title: String
     let percent: Int
+    var jobs: [TransferJob] = []
+    var eta: String = ""
+    var onCancel: () -> Void = {}
 
     var shown: String {
         title.isEmpty ? "On this phone" : title
@@ -2665,6 +2811,26 @@ private struct WorkOverlay: View {
                 Text("Nothing runs out of sight.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if !jobs.isEmpty {
+                    if !eta.isEmpty {
+                        Text(eta)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(jobs) { job in
+                            Text("\(job.name) — \(job.state.label)")
+                                .font(.caption)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .frame(maxHeight: 140)
+                    .portTag("transfer_queue")
+                    if jobs.contains(where: { $0.state == .waiting || $0.state == .running }) {
+                        Button("Cancel queue", action: onCancel)
+                            .portTag("transfer_queue_cancel")
+                    }
+                }
             }
             .padding(28)
             .frame(maxWidth: 340)

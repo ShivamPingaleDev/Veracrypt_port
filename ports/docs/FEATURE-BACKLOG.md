@@ -14,7 +14,7 @@ Started after **0.3.10**; freeze maintenance shipped in **0.3.11**. Session keyf
 
 **Still allowed:** bug fixes, host/UI-walk regressions, splitting the two giant screens, cache/space error copy.
 
-**Not in this freeze:** metadata scrub, batch queue, File Provider, favorites, in-app updates, biometrics.
+**Not in this freeze:** metadata scrub, File Provider, favorites, in-app updates, biometrics.
 
 Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer entropy (opt-in conflict with GrapheneOS skepticism).
 
@@ -53,14 +53,14 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 | Mega-screen split | **Built** — Open / Mounted / Create / Tools are their own files |
 | `verify-build.sh` | **Built** — reviewer rebuilds FOSS and compares SHA-256 |
 | Metadata scrub on export | **Later** — optional EXIF/timestamp; easy to get wrong |
-| Batch queue + ETA | **Later** — reuse progress hooks; see [INSPIRATION.md](INSPIRATION.md) §1 |
+| Batch queue + ETA | **Built** — one worker, visible job list, cancel at the next file, ETA when sizes are known |
 
 ## Priority
 
 1. Record the 10-phase UI walk on 0.3.12
 2. Production-signed FOSS APK (your keystore) and signed IPA from this Mac
-3. Later: transfer queue; metadata scrub only default-off on export copies
+3. Later: metadata scrub only default-off on export copies
 
 ## Merge note
 
-Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11**; session keyfile and Create-save wipe in **0.3.12**. Later: metadata scrub, batch queue.
+Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11**; session keyfile and Create-save wipe in **0.3.12**. The transfer queue is on `test_before`. Later: metadata scrub.
