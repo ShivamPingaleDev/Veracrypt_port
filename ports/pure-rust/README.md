@@ -42,6 +42,8 @@ cargo run -- hash ../../README.md
 3. Read `ports/shared/vc_mobile.h` — same concepts, production C API
 4. Never ship toy XOR as real crypto
 
+**Production-shaped C API:** the **55-step** checklist lives on `experimental-pure-c` in [ports/pure-c/veracrypt/PURE_C_MASTER_ROADMAP.md](../pure-c/veracrypt/PURE_C_MASTER_ROADMAP.md) (steps 1–16 done there). This Rust tree is educational; you do not need to duplicate all 55 steps in Rust unless you want a second implementation.
+
 ## License
 
 Apache-2.0 (same as VC Port phone tree). Toy code is yours to study.
