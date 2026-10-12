@@ -1,6 +1,6 @@
 {
-  "port_version": "0.3.12",
-  "android_version_code": 18,
+  "port_version": "0.3.13",
+  "android_version_code": 19,
   "upstream_name": "VeraCrypt",
   "upstream_git": "https://github.com/veracrypt/VeraCrypt.git",
   "upstream_releases": "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest",
@@ -9,7 +9,7 @@
   "upstream_commit": "b48e31f5b47da7d41025e3f0e02751675e15005a",
   "source_repo": "https://github.com/ShivamPingaleDev/Veracrypt_port",
   "update_manifest": "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json",
-  "notes": "VC Port 0.3.12 proof of concept (stable alpha): mount save-back, session reset, optional full format, auto-save after volume writes. GitHub APKs are debug-signed previews for demo/testing — not production. Not unbreakable.",
+  "notes": "VC Port 0.3.13 proof of concept (stable alpha): transfer queue, Files browse only when allowed, self-test before open, no leftover file after a failed create. GitHub APKs are debug-signed previews for demo/testing — not production. Not unbreakable.",
   "download_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
   "macos_url": "",
   "android_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",

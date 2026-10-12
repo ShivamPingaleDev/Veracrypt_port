@@ -22,7 +22,7 @@ More: [SUPPORT.md](SUPPORT.md)
 
 ## Download
 
-**0.3.12** — **proof of concept** (stable alpha: still testing, not a store app, not production-ready) (On Feature Freez).
+**0.3.13** — **proof of concept** (stable alpha: still testing, not a store app, not production-ready) (On Feature Freez).
 
 | Phone | What to get |
 | --- | --- |

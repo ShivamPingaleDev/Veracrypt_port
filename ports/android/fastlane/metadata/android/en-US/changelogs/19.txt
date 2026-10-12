@@ -1,0 +1,1 @@
+VC Port 0.3.13 proof of concept (stable alpha): one transfer queue, Files browse only when you allow it, open refused when the VeraCrypt self-test fails, failed create leaves no partial file. GitHub APKs stay debug-signed previews. Not unbreakable.

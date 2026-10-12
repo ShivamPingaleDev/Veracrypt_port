@@ -8,6 +8,16 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
+## 0.3.13
+
+Proof of concept (stable alpha). Same `applicationId` as 0.3.12; this install replaces the old one. Not 1.0, not a store build.
+
+- Copy and move run on one transfer queue, with the job list visible. Cancel waits for the current file.
+- Android shows an unlocked volume in the Files app only when you tick Allow Files to browse.
+- Open is refused when VeraCrypt's own self-test fails.
+- Full format fills nested free space. A failed open or create closes the handle and does not leave a partial container.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.13.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.13-unsigned-preview.ipa`).
+
 ## 0.3.12
 
 Stable alpha: session keyfile mix stays one copy; Create save wipes and does not leave the new file selected; mount save-back and session reset ship in the 0.3.12 rebuild. GitHub release is positioned as **proof of concept** (demo builds, not production).

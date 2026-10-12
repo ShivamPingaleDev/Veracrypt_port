@@ -21,6 +21,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "0.3.13",
+          "buildVersion": "19",
+          "date": "2026-10-13T00:00:00-00:00",
+          "localizedDescription": "Proof of concept (stable alpha). Transfer queue, Files browse only when allowed, self-test before open. Demo/debug-signed APK on GitHub; unsigned IPA — sign it yourself.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "0.3.12",
           "buildVersion": "18",
           "date": "2026-08-23T00:00:00-00:00",
