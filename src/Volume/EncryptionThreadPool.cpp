@@ -229,6 +229,13 @@ namespace VeraCrypt
 		if (cpuCount > MaxThreadCount)
 			cpuCount = MaxThreadCount;
 
+#if defined (TC_ANDROID) || defined (TC_IOS)
+		/* Two workers. AES-XTS on a phone is memory-bound here, so the
+		 * other cores stay asleep instead of each keeping a stack. */
+		if (cpuCount > 2)
+			cpuCount = 2;
+#endif
+
 		StopPending = false;
 		DequeuePosition = 0;
 		EnqueuePosition = 0;
@@ -237,6 +244,10 @@ namespace VeraCrypt
 		{
 			WorkItemQueue[i].State.Set (WorkItem::State::Free);
 		}
+
+		/* Stop() already joined these. Joining them again throws and
+		 * leaves the pool marked running with no workers. */
+		RunningThreads.clear();
 
 		try
 		{
@@ -277,12 +288,24 @@ namespace VeraCrypt
 		StopPending = true;
 		WorkItemReadyEvent.Signal();
 
-		foreach_ref (const Thread &thread, RunningThreads)
+		/* Join off to the side. One failed join must not skip the
+		 * others or clear StopPending while a worker is still in the loop. */
+		list < shared_ptr <Thread> > threads;
+		threads.swap (RunningThreads);
+
+		foreach_ref (const Thread &thread, threads)
 		{
-			thread.Join();
+			try
+			{
+				thread.Join();
+			}
+			catch (...)
+			{
+			}
 		}
 
 		ThreadCount = 0;
+		StopPending = false;
 		ThreadPoolRunning = false;
 	}
 

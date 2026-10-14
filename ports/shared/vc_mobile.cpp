@@ -57,8 +57,16 @@ struct VcVolume
 	int read_only;
 };
 
-void vc_runtime_start (void)
+static std::mutex gWorkerMu;
+static int gWorkerBusy = 0;
+static int gLiveVolumes = 0;
+
+static void cpu_features_once (void)
 {
+	static int done = 0;
+	if (done)
+		return;
+	done = 1;
 	/* Probe AES/SHA crypto extensions before any volume work. CipherAES
 	 * caches HasAESNI() on first use; without this, arm64 stays on table AES
 	 * even though Aes_hw_armv8.c is linked. HMAC-SHA-512 is unchanged. */
@@ -67,6 +75,11 @@ void vc_runtime_start (void)
 #elif defined (CRYPTOPP_CPUID_AVAILABLE)
 	DetectX86Features ();
 #endif
+}
+
+static void start_pool_unlocked (void)
+{
+	cpu_features_once ();
 	try
 	{
 		if (!EncryptionThreadPool::IsRunning ())
@@ -76,6 +89,61 @@ void vc_runtime_start (void)
 	{
 		/* 1 CPU or thread limit: stay on the caller thread for XTS. */
 	}
+}
+
+static void stop_pool_if_idle_unlocked (void)
+{
+	if (gLiveVolumes != 0 || gWorkerBusy != 0)
+		return;
+	try
+	{
+		EncryptionThreadPool::Stop ();
+	}
+	catch (...)
+	{
+	}
+}
+
+void vc_runtime_prepare (void)
+{
+	std::lock_guard <std::mutex> lock (gWorkerMu);
+	cpu_features_once ();
+}
+
+void vc_runtime_start (void)
+{
+	std::lock_guard <std::mutex> lock (gWorkerMu);
+	start_pool_unlocked ();
+}
+
+/* Holds the pool for one call. keep() means the returned volume is still open. */
+struct WorkerUse
+{
+	bool opened;
+	WorkerUse () : opened (false)
+	{
+		std::lock_guard <std::mutex> lock (gWorkerMu);
+		start_pool_unlocked ();
+		gWorkerBusy++;
+	}
+	void keep () { opened = true; }
+	~WorkerUse ()
+	{
+		std::lock_guard <std::mutex> lock (gWorkerMu);
+		if (opened)
+			gLiveVolumes++;
+		if (gWorkerBusy > 0)
+			gWorkerBusy--;
+		stop_pool_if_idle_unlocked ();
+	}
+};
+
+static void workers_note_closed (void)
+{
+	std::lock_guard <std::mutex> lock (gWorkerMu);
+	if (gLiveVolumes > 0)
+		gLiveVolumes--;
+	stop_pool_if_idle_unlocked ();
 }
 
 static shared_ptr <KeyfileList> MakeKeyfilesFrom (const char *const *keyfiles, size_t count)
@@ -118,6 +186,7 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 				*error = VC_ERR_SELFTEST;
 			return nullptr;
 		}
+		WorkerUse workers;
 		vc_progress_set (-1, "Unlocking");
 		const char *pw = options->password ? options->password : "";
 		size_t pwLen = options->password_len;
@@ -127,7 +196,6 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 			reinterpret_cast <const uint8 *> (pw), pwLen));
 
 		shared_ptr <Volume> volume (new Volume);
-		vc_runtime_start ();
 
 		shared_ptr <VolumePassword> protPassword;
 		int protPim = 0;
@@ -176,6 +244,7 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 		handle->volume = volume;
 		handle->path = options->path;
 		handle->read_only = options->read_only != 0;
+		workers.keep ();
 		return handle;
 	}
 	catch (PasswordException &)
@@ -203,6 +272,8 @@ void vc_close (VcVolume *volume)
 	if (volume)
 		fat_flush (volume);
 	delete volume;
+	if (volume)
+		workers_note_closed ();
 }
 
 int vc_flush_volume (VcVolume *volume)
@@ -2136,7 +2207,7 @@ int vc_create_volume (const VcCreateOptions *options)
 	{
 		if (ensure_official_self_test () != VC_OK)
 			return VC_ERR_SELFTEST;
-		vc_runtime_start ();
+		WorkerUse workers;
 		vc_progress_set (-1, "Deriving keys");
 		shared_ptr <VeraCrypt::EncryptionAlgorithm> ea = FindCipher (
 			options->cipher && options->cipher[0] ? options->cipher : "AES(Twofish(Serpent))");
@@ -2311,6 +2382,7 @@ int vc_change_header (const VcChangeHeaderOptions *options)
 		return VC_ERR_ARGUMENT;
 	try
 	{
+		WorkerUse workers;
 		shared_ptr <Volume> volume = OpenWritableVolume (options->path, pw, pwLen, options->pim,
 			options->keyfiles, options->keyfile_count, options->use_backup_header);
 		shared_ptr <Pkcs5Kdf> kdf = volume->GetPkcs5Kdf ();
@@ -2353,6 +2425,7 @@ int vc_backup_headers (const char *volume_path, const char *backup_path,
 		password_len = strlen (password);
 	try
 	{
+		WorkerUse workers;
 		shared_ptr <Volume> volume = OpenWritableVolume (volume_path, password ? password : "",
 			password_len, pim, keyfiles, keyfile_count, 0);
 		shared_ptr <Pkcs5Kdf> kdf = volume->GetPkcs5Kdf ();
@@ -2404,6 +2477,7 @@ int vc_restore_headers (const char *volume_path, const char *backup_path,
 		password_len = strlen (password);
 	try
 	{
+		WorkerUse workers;
 		SecureBuffer headerBuf (TC_VOLUME_HEADER_SIZE);
 		if (!backup_path || !backup_path[0])
 		{
@@ -2584,7 +2658,7 @@ int vc_benchmark (char *out, size_t out_size)
 		return VC_ERR_ARGUMENT;
 	try
 	{
-		vc_runtime_start ();
+		WorkerUse workers;
 		string result;
 		const size_t bytes = 1024 * 1024;
 		SecureBuffer buf (bytes);

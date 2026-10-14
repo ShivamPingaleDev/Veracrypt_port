@@ -366,6 +366,7 @@ class BlackBoxTests(unittest.TestCase):
         self.assertIn("-mbranch-protection=standard", arm)
         jni = read("ports/shared/android_jni.cpp")
         self.assertIn("jni_live_handle", jni)
+        self.assertIn("vc_runtime_prepare", jni)
         self.assertIn("vc_runtime_start", jni)
         self.assertIn("DetectArmFeatures", read("ports/shared/vc_mobile.cpp"))
         self.assertIn("startRuntime", jni)

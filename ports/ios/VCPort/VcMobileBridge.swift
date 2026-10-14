@@ -15,7 +15,7 @@ struct VcStatusCode: Error {
 
 enum VcMobileBridge {
     static func startCpu() {
-        vc_runtime_start()
+        vc_runtime_prepare()
     }
 
     static func open(path: String, password: String, pim: Int32, keyfiles: [String], useBackupHeader: Bool = false, readOnly: Bool = false, protectHidden: Bool = false, hiddenPassword: String = "", hiddenPim: Int32 = 0, error: UnsafeMutablePointer<Int32>) -> OpaquePointer? {

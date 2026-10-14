@@ -34,7 +34,7 @@ android {
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         externalNativeBuild {
             cmake {
-                arguments '-DANDROID_STL=c++_shared', '-DANDROID_PLATFORM=android-28', '-DVC_PORT_OTG=ON'
+                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-28', '-DVC_PORT_OTG=ON'
             }
         }
     }
@@ -61,6 +61,10 @@ android {
         release {
             minifyEnabled false
             shrinkResources false
+            // Phone ABIs only. The emulator CPUs stay on the debug build.
+            ndk {
+                abiFilters 'armeabi-v7a', 'arm64-v8a'
+            }
             // CI / GitHub preview: debug-signed until a release keystore is set.
             // Sign production yourself with VC_PORT_RELEASE_STORE_FILE.
             signingConfig signingConfigs.debug

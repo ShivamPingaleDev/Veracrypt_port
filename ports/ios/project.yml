@@ -50,6 +50,14 @@ targets:
           - PDFKit
           - -framework
           - AVKit
+      configs:
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: "-Osize"
+          GCC_OPTIMIZATION_LEVEL: s
+          DEAD_CODE_STRIPPING: YES
+          SWIFT_COMPILATION_MODE: wholemodule
+          DEPLOYMENT_POSTPROCESSING: YES
+          STRIP_INSTALLED_PRODUCT: YES
     preBuildScripts:
       - name: Build libvc_mobile
         basedOnDependencyAnalysis: false
