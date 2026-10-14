@@ -92,8 +92,12 @@ typedef struct VcCreateOptions
 	int full_format;
 } VcCreateOptions;
 
+/* Probe AES/SHA once. Does not start worker threads. */
+void vc_runtime_prepare (void);
 /* Start VeraCrypt EncryptionThreadPool (XTS + auto-detect KDF). Safe to call
- * more than once. HMAC-SHA-512 itself stays sequential per password. */
+ * more than once. HMAC-SHA-512 itself stays sequential per password.
+ * Phone builds use two workers. The pool stops when no volume is open
+ * and no call is in progress. */
 void vc_runtime_start (void);
 
 VcVolume *vc_open (const VcOpenOptions *options, int *error);

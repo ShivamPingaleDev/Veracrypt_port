@@ -135,7 +135,14 @@ under `archive/looks/` and are not built. Tests must not tap Panic wipe.
 ARM64 slices compile Aes_hw_armv8 / sha256_armv8 with `-O3 -march=armv8-a+crypto`.
 `vc_runtime_start()` calls `DetectArmFeatures()` (getauxval HWCAP_AES on Android, always-on on Apple arm64) before any volume work so XTS uses the AES crypto extension instead of table AES. Debug NDK builds still use `-O2` on that slice so AES/SHA detection and
 Twofish/Serpent/SHA-512 are not stuck at `-O0`. armeabi-v7a has no AES crypto-extension; table AES is built `-O3 -mfpu=neon`.
-`vc_runtime_start()` also warms VeraCrypt's EncryptionThreadPool at JNI load (and
-on iOS before open/create) so XTS uses every core. HMAC-SHA-512 PBKDF2 stays
-sequential per password.
+`vc_runtime_prepare()` probes AES/SHA when the process starts and does not
+start worker threads. `vc_runtime_start()` starts the pool on open, create,
+and header tools. Phone builds keep two workers (`cpuCount > 2` is capped);
+the other cores stay asleep. The pool stops when no volume is open and no
+call is in progress, and the next open starts it again. Stop joins the
+workers once and clears the running flag even if a join fails, so a later
+open does not wait on a dead pool. HMAC-SHA-512 PBKDF2 stays sequential per password.
+The release APK ships `armeabi-v7a` and `arm64-v8a` only, and links
+`c++_static` so there is no extra `libc++_shared.so`. Debug still builds
+the emulator ABIs. R8 stays off.
 

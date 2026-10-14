@@ -701,7 +701,8 @@ Java_dev_shivampingale_vcport_NativeBridge_progressPhase(JNIEnv *env, jobject)
 extern "C" JNIEXPORT void JNICALL
 Java_dev_shivampingale_vcport_NativeBridge_startRuntime(JNIEnv *, jobject)
 {
-	vc_runtime_start();
+	/* Feature probe only. vc_runtime_start runs on open, create, and tools. */
+	vc_runtime_prepare();
 }
 
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *)
