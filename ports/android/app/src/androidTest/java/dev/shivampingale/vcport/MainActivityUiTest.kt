@@ -47,7 +47,7 @@ class MainActivityUiTest {
         )
 
         rule.onNodeWithText("VC Port", substring = true).assertIsDisplayed()
-        rule.onNodeWithText("0.3.13", substring = true).assertIsDisplayed()
+        rule.onNodeWithText("0.3.14", substring = true).assertIsDisplayed()
         rule.onNodeWithText("Stay offline. This build has no network.").assertIsDisplayed()
         rule.onNodeWithTag("panic_wipe").assertIsDisplayed()
         rule.onNodeWithText("Share encrypted").assertIsDisplayed()

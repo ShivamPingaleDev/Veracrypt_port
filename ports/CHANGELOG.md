@@ -8,6 +8,14 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
+## 0.3.14
+
+Beta. Same `applicationId` as 0.3.13; this install replaces the old one. Not 1.0, not a store build.
+
+- Crypto workers stay asleep until open, create, or header tools, then stop when nothing is open. Phones keep two workers.
+- The release APK is `armeabi-v7a` and `arm64-v8a`, with the C++ runtime linked in. The debug build still includes the emulator ABIs.
+- GitHub Release ships **one** debug-signed FOSS APK (`VCPort-0.3.14.apk`) and an unsigned iOS preview IPA (`VCPort-0.3.14-unsigned-preview.ipa`).
+
 ## 0.3.13
 
 Proof of concept (stable alpha). Same `applicationId` as 0.3.12; this install replaces the old one. Not 1.0, not a store build.

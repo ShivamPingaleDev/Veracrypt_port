@@ -21,6 +21,15 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "0.3.14",
+          "buildVersion": "20",
+          "date": "2026-10-14T00:00:00-00:00",
+          "localizedDescription": "Beta. Crypto workers stay idle until a volume is open. Demo/debug-signed APK on GitHub; unsigned IPA — sign it yourself.",
+          "downloadURL": "",
+          "size": 0,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "0.3.13",
           "buildVersion": "19",
           "date": "2026-10-13T00:00:00-00:00",

@@ -1,0 +1,1 @@
+VC Port 0.3.14 beta: crypto workers start when a volume opens and stop when it closes, and the release APK keeps the phone ABIs. GitHub APKs stay debug-signed previews. Not unbreakable.

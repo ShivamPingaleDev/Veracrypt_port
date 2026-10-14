@@ -327,31 +327,31 @@ class Phase8CiTests(unittest.TestCase):
 
 
 class Phase9LegalVersionTests(unittest.TestCase):
-    def test_current_version_is_0_3_13(self) -> None:
+    def test_current_version_is_0_3_14(self) -> None:
         v = load_version()
-        self.assertEqual(v["port_version"], "0.3.13")
+        self.assertEqual(v["port_version"], "0.3.14")
         self.assertEqual(v["upstream_version"], "1.26.29")
         self.assertEqual(v["upstream_commit"], "b48e31f5b47da7d41025e3f0e02751675e15005a")
         self.assertEqual(v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
         self.assertEqual(v["upstream_tag"], "VeraCrypt_1.26.29")
         plist = read("ports/ios/VCPort/Info.plist")
-        self.assertIn("0.3.13", plist)
+        self.assertIn("0.3.14", plist)
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
-        self.assertEqual(v["android_version_code"], 19)
-        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/19.txt")
-        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 19")
+        self.assertEqual(v["android_version_code"], 20)
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/20.txt")
+        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 20")
         notes_text = notes.read_text(encoding="utf-8").lower()
-        self.assertIn("transfer queue", notes_text)
+        self.assertIn("workers", notes_text)
         self.assertIn("not unbreakable", notes_text)
-        self.assertIn("self-test", notes_text)
+        self.assertIn("phone", notes_text)
         self.assertIn("stable alpha", read("ports/CHANGELOG.md").lower())
         self.assertIn("HISTORY.md", read("ports/CHANGELOG.md"))
         hist = read("ports/HISTORY.md")
         self.assertIn("github.com/ShivamPingaleDev/Veracrypt_port/commit/", hist)
         self.assertIn("Ship VC Port 0.3.7", hist)
-        self.assertIn("stable alpha", v["notes"].lower())
+        self.assertIn("beta", v["notes"].lower())
 
     def test_about_and_contact_on_every_surface(self) -> None:
         android = read("ports/android/app/src/main/res/values/strings.xml")
