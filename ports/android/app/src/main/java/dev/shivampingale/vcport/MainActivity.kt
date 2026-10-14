@@ -1853,7 +1853,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private data class MountSaveOutcome(val saved: Boolean, val hadSource: Boolean)
+    private data class MountSaveOutcome(
+        val saved: Boolean,
+        val hadSource: Boolean,
+        val label: String
+    )
 
     private fun mountSourceUri(vol: MountedVolume): Uri? {
         val key = vol.uriKey
@@ -1864,7 +1868,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun shouldWriteBack(vol: MountedVolume): Boolean {
-        if (vol.readOnly || OtgBlockStore.isPath(vol.path)) return false
+        if (vol.readOnly) return false
+        if (OtgBlockStore.isPath(vol.path)) return false
         if (!nativePathIsInternal(vol.path)) return false
         val uri = mountSourceUri(vol) ?: return false
         if (uri.scheme == "file") {
@@ -1888,14 +1893,14 @@ class MainActivity : AppCompatActivity() {
         if (NativeBridge.isOpen(vol.handle)) NativeBridge.closeVolume(vol.handle)
         if (!shouldWriteBack(vol)) {
             releaseMountedResources(vol)
-            return MountSaveOutcome(saved = true, hadSource = false)
+            return MountSaveOutcome(saved = true, hadSource = false, label = vol.label)
         }
         val ok = writeBackMountedCache(vol, flush = false)
         if (ok && nativePathIsInternal(vol.path)) {
             Hardening.wipeFile(File(vol.path))
         }
         releaseMountedResources(vol)
-        return MountSaveOutcome(saved = ok, hadSource = true)
+        return MountSaveOutcome(saved = ok, hadSource = true, label = vol.label)
     }
 
     private fun writeBackMountedCache(vol: MountedVolume, flush: Boolean): Boolean {
@@ -1914,12 +1919,7 @@ class MainActivity : AppCompatActivity() {
             if (writeBackMountedCache(vol, flush = true)) return@mapNotNull null
             vol.label
         }
-        if (failedLabels.isEmpty()) return null
-        return if (failedLabels.size == 1) {
-            "Could not save ${failedLabels[0]} back to the original file."
-        } else {
-            "Could not save ${failedLabels.size} volume(s) back to the original file."
-        }
+        return MountReport.saveFailure(failedLabels)
     }
 
     private fun saveAllMountedSync(): List<MountSaveOutcome> {
@@ -1927,21 +1927,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun dismountStatusMessage(label: String, remaining: Int, outcome: MountSaveOutcome?): String {
-        if (outcome != null && outcome.hadSource && !outcome.saved) {
-            return "Dismounted $label. Could not save changes back to the original file."
-        }
-        if (outcome != null && outcome.hadSource && outcome.saved) {
-            return if (remaining == 0) {
-                "Saved and dismounted $label."
-            } else {
-                "Saved and dismounted $label. $remaining still mounted."
-            }
-        }
-        return if (remaining == 0) {
-            "Dismounted $label."
-        } else {
-            "Dismounted $label. $remaining still mounted."
-        }
+        return MountReport.dismount(
+            label,
+            remaining,
+            outcome?.hadSource == true,
+            outcome?.saved == true
+        )
     }
 
     private fun clearMountedVolumeState() {
@@ -1977,7 +1968,7 @@ class MainActivity : AppCompatActivity() {
             listTruncatedState.value = false
             completeSessionReset(
                 dismountStatusMessage(victim.label, 0, outcome) +
-                    " Session cleared — passwords and basket wiped."
+                    " Session cleared."
             )
             refreshDocumentRoots()
             return
@@ -2044,8 +2035,10 @@ class MainActivity : AppCompatActivity() {
     private fun dismountOnLeave() {
         transferQueue.requestCancel()
         val wasOpen = NativeBridge.isOpen(handleState.value) || mountedVolumesState.value.isNotEmpty()
-        if (wasOpen) {
-            saveAllMountedSync()
+        val failedLabels = if (wasOpen) {
+            saveAllMountedSync().filter { it.hadSource && !it.saved }.map { it.label }
+        } else {
+            emptyList()
         }
         clearMountedVolumeState()
         lastPlainFilesState.value.forEach { Hardening.wipeFile(it) }
@@ -2057,10 +2050,12 @@ class MainActivity : AppCompatActivity() {
         hiddenProtectPimState.value = "0"
         newPimState.value = "0"
         forgetUnlock()
-        if (wasOpen && !statusState.value.startsWith("Panic")) {
-            statusState.value =
-                "Dismounted. Create form kept. Dismount or Panic wipe also clears the generated password."
-        }
+        val next = MountLeave.status(
+            wasOpen,
+            failedLabels,
+            statusState.value.startsWith("Panic")
+        )
+        if (next != null) statusState.value = next
     }
 
     /**
@@ -2170,19 +2165,23 @@ class MainActivity : AppCompatActivity() {
 
     private fun lockSession(
         finishStatus: String =
-            "Dismounted. Session cleared — passwords, basket, and container selection wiped. Ciphertext on disk is unchanged."
+            "Dismounted. Session cleared."
     ) {
         val volumes = mountedVolumesState.value
         val saving = volumes.isNotEmpty()
         if (saving && !busyState.value) beginWork("Saving and dismounting…")
         Thread {
-            volumes.forEach { saveMountedContainer(it) }
+            val failedLabels = volumes.mapNotNull { vol ->
+                val outcome = saveMountedContainer(vol)
+                if (outcome.hadSource && !outcome.saved) outcome.label else null
+            }
+            val reported = MountReport.lockStatus(finishStatus, failedLabels)
             runOnUiThread {
                 clearMountedVolumeState()
                 releasePendingPfd()
                 if (saving) endWork()
                 Hardening.wipeSessionFiles(this)
-                completeSessionReset(finishStatus)
+                completeSessionReset(reported)
             }
         }.start()
     }
@@ -4180,21 +4179,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun copyFileToUri(src: File, uri: Uri): Boolean {
-        try {
-            contentResolver.openFileDescriptor(uri, "w")?.use { pfd ->
-                FileOutputStream(pfd.fileDescriptor).use { out ->
-                    src.inputStream().use { input -> input.copyTo(out) }
-                    out.flush()
-                    pfd.fileDescriptor.sync()
-                }
-            } ?: return false
+        if (!src.isFile) return false
+        val expected = src.length()
+        fun write(out: java.io.OutputStream): Boolean {
+            val copied = src.inputStream().use { input -> input.copyTo(out) }
+            out.flush()
+            if (expected <= 0L || copied != expected) return false
             return true
+        }
+        return try {
+            val pfd = contentResolver.openFileDescriptor(uri, "w") ?: return false
+            pfd.use {
+                val ok = FileOutputStream(it.fileDescriptor).use { out -> write(out) }
+                if (!ok) return false
+                it.fileDescriptor.sync()
+                true
+            }
         } catch (_: Exception) {
-            return try {
-                contentResolver.openOutputStream(uri)?.use { out ->
-                    src.inputStream().use { input -> input.copyTo(out) }
-                    out.flush()
-                } != null
+            try {
+                contentResolver.openOutputStream(uri)?.use { out -> write(out) } == true
             } catch (_: Exception) {
                 false
             }
@@ -4228,7 +4231,7 @@ class MainActivity : AppCompatActivity() {
             lastContainerCopyError = SizeUnits.APP_STORAGE_UNREADABLE
             return ""
         }
-        if (len > 0 && outFile.length() < len) {
+        if (len > 0 && outFile.length() != len) {
             outFile.delete()
             lastContainerCopyError = SizeUnits.APP_STORAGE_UNREADABLE
             return ""

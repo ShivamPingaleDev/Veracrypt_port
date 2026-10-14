@@ -58,6 +58,8 @@ def read_android_ui() -> str:
             "ports/android/app/src/main/java/dev/shivampingale/vcport/CreateVolumeForm.kt",
             "ports/android/app/src/main/java/dev/shivampingale/vcport/ToolsPane.kt",
             "ports/android/app/src/main/java/dev/shivampingale/vcport/SizeUnits.kt",
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/MountLeave.kt",
+            "ports/android/app/src/main/java/dev/shivampingale/vcport/MountReport.kt",
         ]
     )
 
@@ -69,4 +71,6 @@ def read_ios_ui() -> str:
     files.extend(sorted(view_dir.glob("ContentView+*.swift")))
     files.append(view_dir / "AppStorageSpace.swift")
     files.append(view_dir / "PasswordEntropy.swift")
+    files.append(view_dir / "MountLeave.swift")
+    files.append(view_dir / "MountReport.swift")
     return "\n".join(p.read_text(encoding="utf-8") for p in files if p.is_file())

@@ -14,7 +14,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.VCPort"
         android:usesCleartextTraffic="false"
-        android:hasFragileUserData="false">
+        android:hasFragileUserData="false"
+        android:gwpAsanMode="always"
+        android:memtagMode="sync"
+        android:allowNativeHeapPointerTagging="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -33,6 +33,20 @@ What still wins against those groups, every time:
 
 Use GrapheneOS, a strong passphrase, a keyfile not stored on the phone, and a self-built FOSS APK. That raises the cost of a *casual* seizure. It does not make you invisible to a determined service.
 
+## GrapheneOS profile
+
+GrapheneOS is the phone operating system. This app does not replace it, and it does not detect whether it is running on GrapheneOS. A stock Android phone ignores the memory-tagging request below.
+
+| Layer | Who does it | This tree |
+| --- | --- | --- |
+| App sandbox, hardened malloc, per-app Network and Sensors switches | GrapheneOS | The FOSS build does not request `INTERNET`, so the Network switch has nothing to grant. No sensor permission. |
+| Memory tagging and sample heap checks | The OS, when the hardware has them | The manifest asks for synchronous memory tagging (`memtagMode="sync"`) and GWP-ASan on every launch (`gwpAsanMode="always"`). A tag fault crashes the app. It does not open the volume. |
+| Leftover stack bytes | The compiler | Native code is built with `-ftrivial-auto-var-init=zero` so an uninitialized local is not a leftover secret. Explicit wipes still run. |
+| WebView, Play services, root checks | Easy to get wrong | Not in this app. Play Integrity stays out because it breaks GrapheneOS and a self-built APK. |
+| Password and keyfile | The person | Still in your head, and on a token that is not the phone. Biometrics stay off. |
+
+What this profile does not do: stop a compelled password, a seized keyfile, RAM while a volume is open, or an implant in the OS or the compiler. Synchronous tagging is a crash on a bad memory access. It is not a proof the VeraCrypt core is free of those bugs.
+
 ## FOSS-compatible high-threat profile (do this)
 
 1. Build and install the **FOSS flavor** (`assembleFossRelease`) — no `INTERNET`.

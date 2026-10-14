@@ -36,12 +36,12 @@ echo "root  $ROOT"
 echo "host  $(uname -s) $(uname -m)"
 python3 --version
 
-run "phase 1 honesty freeze" sh -c "cd \"$PORTS/tests\" && python3 -m unittest test_phases.Phase1HonestyFreezeTests -v"
+run "phase 1 honesty freeze" sh -c "cd \"$PORTS/tests\" && python3 run_verbose.py test_phases.Phase1HonestyFreezeTests -v"
 run "phase 2 wrap/crypto" "$PORTS/shared/run_wrap_test.sh"
 run "phase 2 crypto safety ASan" "$PORTS/shared/run_crypto_safety_test.sh"
 run "phase 2 volume FAT fixture" "$PORTS/shared/run_volume_test.sh"
 run "phase 2 volume lifecycle" "$PORTS/shared/run_lifecycle_test.sh"
-run "phases 3-8 python" sh -c "cd \"$PORTS/tests\" && python3 -m unittest \
+run "phases 3-8 python" sh -c "cd \"$PORTS/tests\" && python3 run_verbose.py \
 	test_phases.Phase3FatFolderTests \
 	test_phases.Phase4AndroidTests \
 	test_phases.Phase5IosTests \
@@ -61,14 +61,14 @@ if [ -x "$ROOT/scripts/check-upstream-layout.sh" ]; then
 	run "phase 8 upstream Crypto/Volume layout" "$ROOT/scripts/check-upstream-layout.sh"
 fi
 
-run "phase 9 python" sh -c "cd \"$PORTS/tests\" && python3 -m unittest \
+run "phase 9 python" sh -c "cd \"$PORTS/tests\" && python3 run_verbose.py \
 	test_phases.Phase9LegalVersionTests \
-	test_contracts test_factors test_wipe test_quality test_agile test_contrib -v"
+	test_contracts test_factors test_wipe test_quality test_agile test_contrib test_features -v"
 run "phase 9 official VeraCrypt pin" python3 "$PORTS/scripts/check_veracrypt_release.py" --pin-only
 run "phase 9 emulator NativeBridge+UI" "$PORTS/android/run_device_sim.sh"
 run "phase 9 iPad Simulator" "$PORTS/ios/run_ipad_sim.sh"
 run "phase 9 iOS app-interface session" "$PORTS/ios/run_ios_session_test.sh"
-run "phase 10 relaunch contracts" sh -c "cd \"$PORTS/tests\" && python3 -m unittest test_phases.Phase10RelaunchTests -v"
+run "phase 10 relaunch contracts" sh -c "cd \"$PORTS/tests\" && python3 run_verbose.py test_phases.Phase10RelaunchTests -v"
 
 phase10_github() {
 	if ! command -v gh >/dev/null 2>&1; then

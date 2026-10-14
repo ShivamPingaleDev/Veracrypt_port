@@ -123,6 +123,9 @@ if [ "$need_link" -eq 1 ]; then
 		"$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o" \
 		"$OBJ/argon2self.o" "$OBJ/Crc.o"
 fi
-echo "Running $OUT (ASan/UBSan)"
-"$OUT"
 echo "JNI host syntax object: $OBJ/android_jni.o"
+if [ -n "$SAN" ]; then
+	VC_ASAN=1 "$SHARED/leak_report.sh" "$OUT"
+else
+	VC_ASAN=0 "$SHARED/leak_report.sh" "$OUT"
+fi

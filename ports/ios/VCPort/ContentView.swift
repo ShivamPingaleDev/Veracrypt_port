@@ -990,7 +990,7 @@ struct ContentView: View {
 
     private func shouldWriteBackMounted(_ vol: MountedVolume) -> Bool {
         if vol.readOnly { return false }
-        guard mountedCachePath(vol.url.path) else { return false }
+        if !mountedCachePath(vol.url.path) { return false }
         return vol.sourceURL != vol.url
     }
 
@@ -1005,14 +1005,28 @@ struct ContentView: View {
         defer {
             if accessed { source.stopAccessingSecurityScopedResource() }
         }
+        let staging = source.deletingLastPathComponent()
+            .appendingPathComponent(source.lastPathComponent + ".vcport-new")
         do {
-            if FileManager.default.fileExists(atPath: source.path) {
-                try FileManager.default.removeItem(at: source)
+            if FileManager.default.fileExists(atPath: staging.path) {
+                try FileManager.default.removeItem(at: staging)
             }
-            try FileManager.default.copyItem(at: cache, to: source)
+            try FileManager.default.copyItem(at: cache, to: staging)
+            let staged = fileSize(staging)
+            let expected = fileSize(cache)
+            if expected <= 0 || staged != expected {
+                try? FileManager.default.removeItem(at: staging)
+                return false
+            }
+            if FileManager.default.fileExists(atPath: source.path) {
+                _ = try FileManager.default.replaceItemAt(source, withItemAt: staging)
+            } else {
+                try FileManager.default.moveItem(at: staging, to: source)
+            }
             if wipeCache { wipeFile(cache) }
             return true
         } catch {
+            try? FileManager.default.removeItem(at: staging)
             return false
         }
     }
@@ -1024,11 +1038,7 @@ struct ContentView: View {
             if writeBackMountedCache(vol, flush: true, wipeCache: false) { return nil }
             return vol.label
         }
-        if failedLabels.isEmpty { return nil }
-        if failedLabels.count == 1 {
-            return "Could not save \(failedLabels[0]) back to the original file."
-        }
-        return "Could not save \(failedLabels.count) volume(s) back to the original file."
+        return MountReport.saveFailure(failedLabels)
     }
 
     private func saveAndCloseMounted(_ vol: MountedVolume) -> (saved: Bool, hadSource: Bool) {
@@ -1040,19 +1050,12 @@ struct ContentView: View {
     }
 
     private func dismountStatusMessage(_ label: String, remaining: Int, outcome: (saved: Bool, hadSource: Bool)) -> String {
-        if outcome.hadSource && !outcome.saved {
-            return "Dismounted \(label). Could not save changes back to the original file."
-        }
-        if outcome.hadSource && outcome.saved {
-            if remaining == 0 {
-                return "Saved and dismounted \(label)."
-            }
-            return "Saved and dismounted \(label). \(remaining) still mounted."
-        }
-        if remaining == 0 {
-            return "Dismounted \(label)."
-        }
-        return "Dismounted \(label). \(remaining) still mounted."
+        MountReport.dismount(
+            label: label,
+            remaining: remaining,
+            hadSource: outcome.hadSource,
+            saved: outcome.saved
+        )
     }
 
     private func finishDismountAt(_ index: Int, victim: MountedVolume, outcome: (saved: Bool, hadSource: Bool)) {
@@ -1068,7 +1071,7 @@ struct ContentView: View {
             selectedNames = []
             completeSessionReset(
                 dismountStatusMessage(victim.label, remaining: 0, outcome: outcome) +
-                    " Session cleared — passwords and basket wiped."
+                    " Session cleared."
             )
             return
         }
@@ -1241,8 +1244,14 @@ struct ContentView: View {
     func dismountOnLeave() {
         transferQueue.requestCancel()
         let wasOpen = volumeHandle != nil || !mountedVolumes.isEmpty
+        var failedLabels: [String] = []
         if wasOpen {
-            mountedVolumes.forEach { _ = saveAndCloseMounted($0) }
+            for vol in mountedVolumes {
+                let outcome = saveAndCloseMounted(vol)
+                if outcome.hadSource && !outcome.saved {
+                    failedLabels.append(vol.label)
+                }
+            }
         }
         clearMountedVolumeState()
         password = ""
@@ -1253,8 +1262,12 @@ struct ContentView: View {
         newPim = "0"
         lastPlain = []
         forgetUnlock()
-        if wasOpen && !status.hasPrefix("Panic") {
-            status = "Dismounted. Create form kept. Dismount or Panic wipe also clears the generated password."
+        if let next = MountLeave.status(
+            wasOpen: wasOpen,
+            failedLabels: failedLabels,
+            statusAlreadyPanic: status.hasPrefix("Panic")
+        ) {
+            status = next
         }
     }
 
@@ -1519,18 +1532,25 @@ struct ContentView: View {
 
     func lockSession(
         finishStatus: String =
-            "Dismounted. Session cleared — passwords, basket, and container selection wiped. Ciphertext on disk is unchanged."
+            "Dismounted. Session cleared."
     ) {
         let volumes = mountedVolumes
         let saving = !volumes.isEmpty
         if saving { beginWork("Saving and dismounting…") }
         DispatchQueue.global(qos: .userInitiated).async {
-            volumes.forEach { _ = saveAndCloseMounted($0) }
+            var failedLabels: [String] = []
+            for vol in volumes {
+                let outcome = saveAndCloseMounted(vol)
+                if outcome.hadSource && !outcome.saved {
+                    failedLabels.append(vol.label)
+                }
+            }
+            let reported = MountReport.lockStatus(finishStatus, failedLabels: failedLabels)
             DispatchQueue.main.async {
                 clearMountedVolumeState()
                 if saving { endWork() }
                 wipeSessionFiles()
-                completeSessionReset(finishStatus)
+                completeSessionReset(reported)
             }
         }
     }

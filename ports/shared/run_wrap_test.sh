@@ -111,5 +111,4 @@ if [ "$need_link" -eq 1 ]; then
 	$CXX -o "$OUT" "$OBJ/test_wrap.o" "$OBJ/vc_wrap.o" "$OBJ/vc_progress.o" "$OBJ/Aescrypt.o" "$OBJ/Aeskey.o" "$OBJ/Aestab.o" \
 		"$OBJ/Sha2.o" $AES_HW $EXTRA_OBJS "$OBJ/blake2b.o" "$OBJ/argon2.o" "$OBJ/argon2core.o" "$OBJ/argon2ref.o"
 fi
-echo "Running $OUT"
-"$OUT"
+"$SHARED/leak_report.sh" "$OUT"
