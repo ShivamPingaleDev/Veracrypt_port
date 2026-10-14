@@ -52,7 +52,7 @@ jobs:
       - name: Python host contracts (no wrap, no emulator)
         run: |
           cd ports/tests
-          python3 -m unittest test_phases test_contracts test_factors test_wipe test_quality test_agile -v
+          python3 run_verbose.py test_phases test_contracts test_factors test_wipe test_quality test_agile test_features -v
 
   android:
     runs-on: ubuntu-22.04
@@ -81,7 +81,7 @@ jobs:
       - name: Host contracts again on the Android runner
         run: |
           cd ports/tests
-          python3 -m unittest test_phases.Phase8CiTests test_quality.PimAndSessionContractTests -v
+          python3 run_verbose.py test_phases.Phase8CiTests test_quality.PimAndSessionContractTests -v
       - name: Build production APKs
         working-directory: ports/android
         run: ./gradlew :app:assembleFossRelease :app:assembleGithubRelease --no-daemon
@@ -104,7 +104,7 @@ jobs:
       - name: Host contracts on the iOS runner
         run: |
           cd ports/tests
-          python3 -m unittest test_phases.Phase5IosTests test_quality.PimAndSessionContractTests -v
+          python3 run_verbose.py test_phases.Phase5IosTests test_quality.PimAndSessionContractTests -v
       - name: Build unsigned iPhone IPA
         run: ports/ios/build-unsigned-ipa.sh
       - uses: actions/upload-artifact@v4

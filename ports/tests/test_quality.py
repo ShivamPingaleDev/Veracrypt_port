@@ -742,6 +742,29 @@ class BoundedFuzzTests(unittest.TestCase):
         self.assertIn("LLVMFuzzerTestOneInput", fuzz)
         self.assertIn("-fsanitize=address,undefined", mk)
         self.assertIn("valgrind", mk)
+        report = read("ports/shared/leak_report.sh")
+        self.assertIn("Darwin", report)
+        self.assertIn("detect_leaks=0", report)
+        self.assertIn("detect_leaks=1", report)
+        self.assertIn("--leak-check=full", report)
+        self.assertIn("--show-leak-kinds=all", report)
+        self.assertIn("--track-origins=yes", report)
+        self.assertIn("leaks", report)
+        self.assertIn("--fullStacks", report)
+        self.assertIn("--hex", report)
+        self.assertIn("get-task-allow", report)
+        self.assertIn("not uploaded", report)
+        self.assertNotIn("curl", report)
+        self.assertNotIn("https://", report)
+        for name in (
+            "run_volume_test.sh",
+            "run_lifecycle_test.sh",
+            "run_wrap_test.sh",
+            "run_crypto_safety_test.sh",
+            "run_otg_usb_test.sh",
+        ):
+            self.assertIn("leak_report.sh", read(f"ports/shared/{name}"))
+        self.assertIn("tracemalloc", read("ports/tests/run_verbose.py"))
 
 
 class StaticContractTests(unittest.TestCase):

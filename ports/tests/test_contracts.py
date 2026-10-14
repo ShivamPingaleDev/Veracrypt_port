@@ -385,6 +385,15 @@ class AndroidHighThreatTests(unittest.TestCase):
         self.assertIn("network_security_config", manifest)
         self.assertIn("backup_rules", manifest)
         self.assertIn("data_extraction_rules", manifest)
+        self.assertIn('android:gwpAsanMode="always"', manifest)
+        self.assertIn('android:memtagMode="sync"', manifest)
+        self.assertIn('android:allowNativeHeapPointerTagging="true"', manifest)
+        self.assertNotIn("WebView", manifest)
+        self.assertNotIn("QUERY_ALL_PACKAGES", manifest)
+        cmake = read("ports/shared/CMakeLists.txt")
+        self.assertIn("-ftrivial-auto-var-init=zero", cmake)
+        self.assertIn("-Wl,-z,relro", cmake)
+        self.assertIn("-Wl,-z,noexecstack", cmake)
 
     def test_foss_removes_internet(self) -> None:
         foss = read("ports/android/app/src/foss/AndroidManifest.xml")
@@ -512,7 +521,8 @@ class AndroidHighThreatTests(unittest.TestCase):
         ios_leave = view.split("func dismountOnLeave()")[1].split("func isTemporaryContainer")[0]
         self.assertIn("forgetUnlock()", ios_leave)
         ios_lock = view.split("func lockSession")[1].split("func panicWipe")[0]
-        self.assertIn("completeSessionReset(finishStatus)", ios_lock)
+        self.assertIn("MountReport.lockStatus", ios_lock)
+        self.assertIn("completeSessionReset(reported)", ios_lock)
         ios_complete = view.split("func completeSessionReset")[1].split("func clearMountOptions()")[0]
         self.assertIn("forgetUnlock()", ios_complete)
         form = main.split("private fun wipeUnlockForm()")[1].split("/**")[0]
@@ -575,17 +585,27 @@ class AndroidHighThreatTests(unittest.TestCase):
         theme = read("ports/android/app/src/main/java/dev/shivampingale/vcport/VcPortTheme.kt")
         self.assertIn('testTag("session_reset_banner")', theme)
         self.assertIn("resetPulse", theme)
-        self.assertIn("Create form kept", main)
-        self.assertIn("Create form kept", view)
+        self.assertIn("MountLeave.status", main)
+        self.assertIn("MountLeave.status", view)
+        self.assertIn(
+            "Create form kept",
+            read("ports/android/app/src/main/java/dev/shivampingale/vcport/MountLeave.kt"),
+        )
+        self.assertIn(
+            "Create form kept",
+            read("ports/ios/VCPort/MountLeave.swift"),
+        )
 
     def test_session_reset_after_dismount(self) -> None:
         main = read("ports/android/app/src/main/java/dev/shivampingale/vcport/MainActivity.kt")
         view = read("ports/ios/VCPort/ContentView.swift")
         lock = main.split("private fun lockSession")[1].split("private fun panicWipe")[0]
-        self.assertIn("completeSessionReset(finishStatus)", lock)
+        self.assertIn("MountReport.lockStatus", lock)
+        self.assertIn("completeSessionReset(reported)", lock)
         self.assertIn("Session cleared", lock)
         ios_lock = view.split("func lockSession")[1].split("func panicWipe")[0]
-        self.assertIn("completeSessionReset(finishStatus)", ios_lock)
+        self.assertIn("MountReport.lockStatus", ios_lock)
+        self.assertIn("completeSessionReset(reported)", ios_lock)
         self.assertIn("selectedTab = 0", view.split("func completeSessionReset")[1].split("func clearMountOptions()")[0])
         finish = main.split("private fun finishDismountAt")[1].split("private fun dismountMountedAt")[0]
         self.assertIn("completeSessionReset(", finish)

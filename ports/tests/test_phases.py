@@ -295,7 +295,7 @@ class Phase8CiTests(unittest.TestCase):
         self.assertIn('git fetch origin "+refs/tags/*:refs/tags/*"', wf)
         self.assertNotIn("wrap-test:", wf)
         self.assertNotIn("host-macos:", wf)
-        self.assertIn("python3 -m unittest", wf)
+        self.assertIn("python3 run_verbose.py", wf)
         self.assertIn("macos-latest", wf)
         self.assertNotIn("ports/tests/run-all.sh", wf)
         self.assertIn("assembleFossRelease", wf)

@@ -126,7 +126,9 @@ object ShareHelper {
     }
 
     fun sanitizeDisguiseName(raw: String): String {
-        var name = safeName(raw.trim()).substringAfterLast('/').substringAfterLast('\\')
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty() || trimmed == "." || trimmed == "..") return "volume.hc"
+        var name = safeName(trimmed).substringAfterLast('/').substringAfterLast('\\')
         if (name.isEmpty() || name == "." || name == "..") return "volume.hc"
         if (name.lowercase().endsWith(".vcpw")) name = name.dropLast(5)
         if (name.isEmpty()) return "volume.hc"

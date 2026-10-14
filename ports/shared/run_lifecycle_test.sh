@@ -18,4 +18,4 @@ fi
 BUILD="${VC_VOL_BUILD:-${TMPDIR:-/tmp}/vcport-vol-build}"
 cmake -S "$SHARED" -B "$BUILD" -DVC_SRC="$SRC" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$BUILD" --target vc_lifecycle_test
-"$BUILD/vc_lifecycle_test"
+"$SHARED/leak_report.sh" "$BUILD/vc_lifecycle_test"

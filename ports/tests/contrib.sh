@@ -45,7 +45,7 @@ stage() {
 # 11 catalog. 12 crypto-safety. 13 volume fixture. 14 UI walk.
 
 cd "$PORTS/tests"
-if ! stage "catalog" python3 -m unittest test_agile test_contrib -v; then
+if ! stage "catalog" python3 run_verbose.py test_agile test_contrib -v; then
 	echo ""
 	echo "FAIL  contribution suite"
 	echo "suite code 11"

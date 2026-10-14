@@ -12,6 +12,24 @@
 #include <stdio.h>
 #include <string.h>
 
+static void vc_unity_hex(const char *tag, const void *p, size_t n)
+{
+	const unsigned char *bytes = (const unsigned char *)p;
+	size_t show = n < 64 ? n : 64;
+	size_t i;
+	fprintf(stderr, "  %s (%zu bytes, first %zu hex):\n  ", tag, n, show);
+	if (!bytes)
+	{
+		fprintf(stderr, "(null)\n");
+		return;
+	}
+	for (i = 0; i < show; ++i)
+		fprintf(stderr, "%02x", bytes[i]);
+	if (n > show)
+		fprintf(stderr, "...");
+	fprintf(stderr, "\n");
+}
+
 static int g_unity_failures = 0;
 static int g_unity_tests = 0;
 
@@ -75,7 +93,11 @@ static int g_unity_tests = 0;
 	do                                                                     \
 	{                                                                      \
 		if ((n) > 0 && memcmp((exp), (act), (n)) != 0)                     \
+		{                                                                  \
+			vc_unity_hex("expected", (exp), (n));                          \
+			vc_unity_hex("actual", (act), (n));                            \
 			TEST_FAIL_MESSAGE("memory mismatch");                          \
+		}                                                                  \
 	} while (0)
 
 #define TEST_ASSERT_EQUAL_STRING(exp, act)                                 \
