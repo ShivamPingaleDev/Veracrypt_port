@@ -143,6 +143,7 @@ call is in progress, and the next open starts it again. Stop joins the
 workers once and clears the running flag even if a join fails, so a later
 open does not wait on a dead pool. HMAC-SHA-512 PBKDF2 stays sequential per password.
 The release APK ships `armeabi-v7a` and `arm64-v8a` only, and links
-`c++_static` so there is no extra `libc++_shared.so`. Debug still builds
-the emulator ABIs. R8 stays off.
+`c++_static` so there is no extra `libc++_shared.so`. Emulator `x86` and
+`x86_64` are on the debug build type only, so they are not merged into
+the release APK. R8 stays off.
 

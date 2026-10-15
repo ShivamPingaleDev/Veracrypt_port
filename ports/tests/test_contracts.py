@@ -117,6 +117,11 @@ class VersionMatrixTests(unittest.TestCase):
         release = gradle.split("buildTypes {", 1)[1].split("debug {", 1)[0]
         self.assertIn("abiFilters 'armeabi-v7a', 'arm64-v8a'", release)
         self.assertNotIn("x86_64", release)
+        default = gradle.split("defaultConfig {", 1)[1].split("flavorDimensions", 1)[0]
+        self.assertNotIn("x86", default)
+        debug = gradle.split("debug {", 1)[1].split("buildFeatures", 1)[0]
+        self.assertIn("'x86'", debug)
+        self.assertIn("x86_64", debug)
         self.assertIn("-Wl,--gc-sections", read("ports/shared/CMakeLists.txt"))
         pool = read("src/Volume/EncryptionThreadPool.cpp")
         self.assertIn("TC_ANDROID", pool)
