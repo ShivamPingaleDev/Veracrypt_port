@@ -99,7 +99,7 @@ Emulator UI, empty tabs. Click a picture for full size. [How we capture these](p
 
 The volume engine is **VeraCrypt** source. That **inherits** **TrueCrypt License 3.0** plus Apache-2.0. TrueCrypt 3.0 is **not OSI / FSF / Debian-free**; public source is required when binaries ship. GitHub APKs are **debug-signed** previews — not production-signed store builds.
 
-Details: [License.txt](License.txt), [ports/FOSS.md](ports/FOSS.md)
+Details: [LICENSE](LICENSE), [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt), [LICENSES/LicenseRef-TrueCrypt-3.0.txt](LICENSES/LicenseRef-TrueCrypt-3.0.txt), [License.txt](License.txt), [ports/FOSS.md](ports/FOSS.md)
 
 ## More
 

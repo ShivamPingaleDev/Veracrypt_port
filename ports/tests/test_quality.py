@@ -530,6 +530,11 @@ class RegressionTests(unittest.TestCase):
         license_txt = read("LICENSE")
         self.assertIn("TrueCrypt License version 3.0", license_txt)
         self.assertIn("Apache License 2.0", license_txt)
+        self.assertIn("SPDX-License-Identifier: Apache-2.0 AND LicenseRef-TrueCrypt-3.0", license_txt)
+        self.assertIn("TrueCrypt License Version 3.0", read("LICENSES/LicenseRef-TrueCrypt-3.0.txt"))
+        apache = read("LICENSES/Apache-2.0.txt")
+        self.assertTrue(apache.startswith("Apache License"))
+        self.assertNotIn("TrueCrypt", apache)
 
     def test_mainactivity_has_one_broadcastreceiver_import(self) -> None:
         main = read(
