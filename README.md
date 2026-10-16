@@ -22,7 +22,7 @@ More: [SUPPORT.md](SUPPORT.md)
 
 ## Download
 
-**0.3.15** — **stable beta** (not 1.0, not a store app). The production APK is the release build. The debug APK is a separate file.
+**0.3.15** — **stable alpha** (not 1.0, not a store app). The production APK is the release build. The debug APK is a separate file.
 
 | Phone | What to get |
 | --- | --- |

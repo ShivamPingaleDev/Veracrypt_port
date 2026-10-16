@@ -74,4 +74,4 @@ Free space shown to the person must be free space in the filesystem, not the con
 
 ## Merge note
 
-Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11**; session keyfile and Create-save wipe in **0.3.12**. The transfer queue shipped in **0.3.13**. Phone idle workers shipped in **0.3.14**. Stable beta **0.3.15** ships the production APK and the debug APK as separate files. Later: metadata scrub.
+Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11**; session keyfile and Create-save wipe in **0.3.12**. The transfer queue shipped in **0.3.13**. Phone idle workers shipped in **0.3.14**. Stable alpha **0.3.15** ships the production APK and the debug APK as separate files. Later: metadata scrub.

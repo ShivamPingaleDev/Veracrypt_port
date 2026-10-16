@@ -20,7 +20,7 @@ The app is **VC Port**. It is a derived work. It is **not named VeraCrypt**. It 
 Say:
 
 - “VC Port opens VeraCrypt-compatible file containers on Android and iPhone.”
-- “VC Port 0.3.15 is a **stable beta**. The production APK is the release build. The debug APK is separate. GitHub APKs are debug-signed previews; you sign production.”
+- “VC Port 0.3.15 is a **stable alpha**. The production APK is the release build. The debug APK is separate. GitHub APKs are debug-signed previews; you sign production.”
 - “Offline by default. This build has no INTERNET. iPhone users sign the unsigned IPA themselves.”
 - “The volume core is VeraCrypt, so TrueCrypt License 3.0 is inherited. That is not a choice of abandoned TrueCrypt.”
 - “Proof of concept means the workflow is demonstrated, not that every phone/OEM path is hardened yet.”
@@ -38,8 +38,8 @@ Do not say:
 | What | Where |
 | --- | --- |
 | Source | Both public repos above |
-| Android (stable beta) | GitHub Release `v0.3.15` — production APK `VCPort-0.3.15.apk` and debug APK `VCPort-0.3.15-debug.apk`. Both are debug-signed previews. |
-| iPhone (stable beta) | GitHub Release `v0.3.15` unsigned IPA (`VCPort-0.3.15-unsigned-preview.ipa`). Sign it yourself (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)). |
+| Android (stable alpha) | GitHub Release `v0.3.15` — production APK `VCPort-0.3.15.apk` and debug APK `VCPort-0.3.15-debug.apk`. Both are debug-signed previews. |
+| iPhone (stable alpha) | GitHub Release `v0.3.15` unsigned IPA (`VCPort-0.3.15-unsigned-preview.ipa`). Sign it yourself (see [FOSS.md](FOSS.md) / [ios/README.md](ios/README.md)). |
 | AltStore JSON | `ios/altstore/source.json` — `downloadURL` stays **empty** until a signed IPA exists |
 | UI shots | [docs/screenshots/](docs/screenshots/) (real emulator UI; FLAG_SECURE still blocks `adb screencap`) |
 

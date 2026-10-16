@@ -24,7 +24,7 @@
           "version": "0.3.15",
           "buildVersion": "21",
           "date": "2026-10-16T00:00:00-00:00",
-          "localizedDescription": "Stable beta. Production APK is the release build. Debug APK is separate. Unsigned IPA — sign it yourself.",
+          "localizedDescription": "Stable alpha. Production APK is the release build. Debug APK is separate. Unsigned IPA — sign it yourself.",
           "downloadURL": "",
           "size": 0,
           "minOSVersion": "16.0"

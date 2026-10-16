@@ -10,7 +10,7 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 ## 0.3.15
 
-Stable beta. Same `applicationId` as 0.3.14; this install replaces the old one. Not 1.0, not a store build.
+Stable alpha. Same `applicationId` as 0.3.14; this install replaces the old one. Not 1.0, not a store build.
 
 - The production APK is the FOSS release build: phone ABIs only, not debuggable, no native debug symbols, and no Compose test manifest.
 - The debug APK is a separate file. It keeps the emulator ABIs and the test manifest.
