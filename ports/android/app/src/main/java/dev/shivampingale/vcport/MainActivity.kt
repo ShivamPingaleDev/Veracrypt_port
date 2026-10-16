@@ -118,6 +118,13 @@ data class MountedVolume(
 /** Session slot list. This session only; not a system drive letter. */
 internal const val MOUNT_SLOTS = 8
 
+/**
+ * Android session. Open, Mounted, Create, and Tools share this activity.
+ * The picked container is copied into app cache before native open. Writes
+ * stay in that cache until flush, then the cache file is copied back to the
+ * picked URI. Home, idle, and screen lock save and then close. Panic closes
+ * and does not copy back. Native import receives a cache file.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : AppCompatActivity() {
     internal val pathState = mutableStateOf("")

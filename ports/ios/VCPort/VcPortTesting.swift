@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
 
+/// Hooks the UI walk and in-process tests use to skip Files and share sheets.
+/// Production still presents those sheets.
 extension Notification.Name {
     static let vcPortTestingColdStart = Notification.Name("dev.shivampingale.vcport.testingColdStart")
 }

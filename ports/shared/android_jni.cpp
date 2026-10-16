@@ -1,5 +1,9 @@
 /*
  Copyright (c) 2026 Shivam Mangesh Pingale. All rights reserved.
+
+ JNI for NativeBridge. Java strings are copied before the native call
+ returns. Paths that reach vc_open and vc_import_file are cache files.
+ startRuntime calls vc_runtime_prepare and does not start workers.
 */
 
 #ifdef VC_HOST_JNI

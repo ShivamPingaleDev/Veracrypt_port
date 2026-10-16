@@ -147,32 +147,36 @@ Arcanum is strong in product security; several features are **wrong for VC Port 
 
 ## 9. Suggested implementation order (post-freeze)
 
-When the **0.3.x freeze** lifts for user-facing volume features:
+Transfer queue, cancel, and ETA shipped in **0.3.13**. Do not build them again.
 
-1. **Transfer queue** + multi-select → queue (Android + iOS parity)
-2. **Storage usage** + clearer OTG / SAF space errors (extend existing copy)
-3. **Metadata scrub** on export (opt-in)
-4. **Thumbnails / tiled list** (session cache, wiped on close)
-5. **Share extension** → basket / import queue
-6. Long horizon: **ext4 read** inside container **or** document exFAT-only for Linux volumes
+When the freeze lifts for user-facing volume features:
+
+1. **Filesystem free space** on the mounted volume. Not the container file’s length. Not Expand Volume.
+2. **FAT 4 GiB sentence** when import refuses a larger file. exFAT stays the large-file filesystem.
+3. **Metadata scrub** on export copies only, default off.
+4. **Thumbnails** in session cache, wiped on close.
+5. **Share extension** into the basket, copied to a real cache path first.
+6. Long horizon: **ext4 read** only for Linux-origin volumes. New volumes stay FAT or exFAT so a PC can open them.
 
 ---
 
 ## 10. Quick comparison (our use case only)
 
-| Capability | VC Port 0.3.12 | Arcanum | Disk Decipher |
+| Capability | VC Port 0.3.15 | Arcanum | Disk Decipher |
 | --- | --- | --- | --- |
 | VeraCrypt open/create | Yes | Yes | Yes |
 | FAT/exFAT in container | Yes | Yes | Yes (+ paid ext/NTFS/APFS) |
-| ext4 in container | No | Yes (read/write) | Yes (read) |
+| ext4 in container | No. Leave it. Windows and macOS need a driver. | Yes (read/write) | Yes (read) |
+| Expand the container | No. Do not add it. The filesystem inside would stay the old size. | Removed, for that reason | N/A |
+| One file over 4 GiB | FAT refuses. exFAT is the path. | Same split | Yes, where the filesystem allows |
 | LUKS / DMG | No | No | Yes |
 | Cloud remote images | No | No | Yes |
 | Batch transfer queue | Yes (one worker, cancel, ETA) | No | No |
-| File Provider | No | Partial | Yes |
-| Biometrics | No (master) | Yes | Yes |
+| File Provider | No | Partial | Yes, with their own plaintext warning |
+| Biometrics | No | Yes | Yes |
 | Panic wipe | Yes | Yes (panic PIN) | Passcode app lock |
 | Offline FOSS build | Yes | Yes (F-Droid) | No (App Store) |
-| Android OTG | Experimental | Next release | N/A (iOS limits) |
+| Android OTG | Yes, no auto-mount | Yes | N/A (iOS limits) |
 
 ---
 

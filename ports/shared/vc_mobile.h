@@ -122,6 +122,12 @@ typedef struct VcDirEntry
 	uint16_t dos_time;
 } VcDirEntry;
 
+/* Paths here are inside the volume ("/" or "docs/a.txt"), not the container
+ * file. FAT import refuses one file over 4 GiB with VC_ERR_MEMORY. exFAT
+ * does not. These calls update the open volume. They do not copy the
+ * container back to the URI the person picked, and they do not close it.
+ * The UI flushes, copies the cache file back, then closes. Panic closes
+ * with no copy back. */
 int vc_list_root (VcVolume *volume, VcDirEntry *entries, int max_entries);
 int vc_list_dir (VcVolume *volume, const char *path, VcDirEntry *entries, int max_entries);
 int vc_list_dir_from (VcVolume *volume, const char *path, VcDirEntry *entries, int max_entries, int skip);

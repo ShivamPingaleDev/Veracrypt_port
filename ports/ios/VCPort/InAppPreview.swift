@@ -3,6 +3,7 @@ import PDFKit
 import SwiftUI
 import UIKit
 
+/// In-app preview kinds. The decrypted temp is wiped on close, dismount, and panic.
 enum InAppPreviewKind {
     case image, text, pdf, audio, video, unsupported
 }

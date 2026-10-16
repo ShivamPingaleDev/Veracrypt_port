@@ -2,6 +2,8 @@ import Foundation
 import LocalAuthentication
 import Security
 
+/// Keychain copy of one volume's factors, released by Face ID, Touch ID, or the
+/// device passcode. The face is not the VeraCrypt password. FOSS leaves this off.
 enum BiometricStore {
     static let service = "dev.shivampingale.vcport.volume-password"
 

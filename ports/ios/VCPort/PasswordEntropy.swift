@@ -1,5 +1,6 @@
 import Foundation
 
+/// Rough password size for the Create screen. Not a crack-time estimate.
 enum PasswordEntropy {
     static let generatorAlphabet =
         "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*-_=+"

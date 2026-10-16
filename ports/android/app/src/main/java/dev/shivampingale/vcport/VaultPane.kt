@@ -46,6 +46,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
+/**
+ * Mounted file list for one slot. Slots are this session only. Copy and move
+ * go through the transfer queue. A change must flush and write the cache
+ * container back. This pane does not close the volume.
+ */
 @Composable
 fun VaultPane(
     modifier: Modifier = Modifier,

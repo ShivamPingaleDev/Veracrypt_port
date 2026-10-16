@@ -70,7 +70,7 @@ See [FOSS.md](FOSS.md).
 
 On **iPhone**, you **sign** the app yourself with **your Apple ID**. We do not sign it for you.
 
-**0.3.14 is a beta**: not 1.0, not a store build, not production-ready. Copies: [GitHub Release v0.3.14](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.14). The APK there is a **debug-signed preview**. The IPA is **unsigned**. Production is a FOSS APK you build and sign with your own keystore, plus an IPA you sign with your Team ID. Installing one Android copy replaces the others.
+**0.3.15 is a stable beta**: not 1.0, not a store build. Copies: [GitHub Release v0.3.15](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.15). `VCPort-0.3.15.apk` is the production release build. `VCPort-0.3.15-debug.apk` is the debug build. Both APKs are **debug-signed previews**. The IPA is **unsigned**. Sign production yourself with your keystore and Team ID. Installing one Android copy replaces the others.
 
 Install and current source are on [Veracrypt_port](https://github.com/ShivamPingaleDev/Veracrypt_port). This repo is only the phone folders.
 
@@ -79,7 +79,7 @@ Install and current source are on [Veracrypt_port](https://github.com/ShivamPing
 Apple will not let us send you a finished app. You put it on the iPhone with **your Apple ID**. We never see that ID.
 
 1. On a computer, install [AltStore](https://altstore.io/) or [SideStore](https://sidestore.io/).
-2. Download `VCPort-0.3.14-unsigned-preview.ipa` from the [v0.3.14 release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.14).
+2. Download `VCPort-0.3.15-unsigned-preview.ipa` from the [v0.3.15 release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/tag/v0.3.15).
 3. Open that file in AltStore or SideStore. When it asks, sign in with **your Apple ID**.
 4. On the iPhone: **Settings → General → VPN & Device Management** → tap your Apple ID → **Trust**.
 5. Open **VC Port**.
@@ -111,7 +111,7 @@ Click for full size. Capture: `ports/scripts/capture-screenshots.sh`
 
 If this work is useful to you and you have room to **teach**, offer an **internship**, or **hire**: I am looking for that. Same email as Contact. No pressure.
 
-How to talk about this in public: [PUBLIC.md](PUBLIC.md). How to build: [FOSS.md](FOSS.md). iPhone signing: [ios/README.md](ios/README.md).
+How to talk about this in public: [PUBLIC.md](PUBLIC.md). How to build: [FOSS.md](FOSS.md). iPhone signing: [ios/README.md](ios/README.md). Where the phone code lives: [docs/CODE-MAP.md](docs/CODE-MAP.md).
 
 You may not call this app VeraCrypt. Portions of this product are based in part on TrueCrypt, freely available at http://www.truecrypt.org/
 

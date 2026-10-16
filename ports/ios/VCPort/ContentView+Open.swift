@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Open form. Same options as Android. Whole-disk USB is not on iPhone.
 extension ContentView {
     @ViewBuilder
     func openVolumeForm(mountedSlot: Bool) -> some View {

@@ -111,6 +111,10 @@ private val Panic = Color(0xFFC62828)
 
 val LocalVcSkin = compositionLocalOf { VcSkin.Desktop }
 
+/**
+ * Original and Dark skins, plus the shared controls. WorkOverlay is the only
+ * progress surface. SecretField does not write IME or Autofill history.
+ */
 enum class VcSkin(val picker: String, val tag: String) {
     Desktop("Original", "skin_desktop"),
     Signal("Dark mode", "skin_signal")
@@ -475,6 +479,7 @@ fun SkinProgress(
     }
 }
 
+/** Blocks the screen while native work runs. Percent comes from vc_progress. */
 @Composable
 fun WorkOverlay(
     visible: Boolean,

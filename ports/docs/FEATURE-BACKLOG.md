@@ -55,12 +55,23 @@ Avoid: persistable SAF bookmarks (conflicts with threat model), accelerometer en
 | Metadata scrub on export | **Later** — optional EXIF/timestamp; easy to get wrong |
 | Batch queue + ETA | **Built** — one worker, visible job list, cancel at the next file, ETA when sizes are known |
 
+## Domain plan (October 2026)
+
+Phone vault apps in this domain open the same VeraCrypt file a desktop opens. FAT and exFAT are the filesystems that do that without a driver. ext4 does not open on Windows or macOS. Cloud disks, LUKS, and biometric password storage are a different product.
+
+Do not add Expand Volume. Growing the container file does not grow the FAT or exFAT inside it. Desktop VeraCrypt warns about that. Arcanum removed the action after it reported free space no write could use.
+
+A FAT volume cannot hold one file over 4 GiB. Import already refuses that size on the FAT path. The person should see “too large for FAT, use exFAT”, not a memory error. That copy change waits for the walk. exFAT is the large-file choice, not ext4.
+
+Free space shown to the person must be free space in the filesystem, not the container’s byte length.
+
 ## Priority
 
-1. Record the 10-phase UI walk on 0.3.12
-2. Production-signed FOSS APK (your keystore) and signed IPA from this Mac
-3. Later: metadata scrub only default-off on export copies
+1. Keep the freeze. No new volume screen until the walk covers it.
+2. Production-signed FOSS APK (your keystore) and a signed IPA from this Mac. GitHub files stay previews.
+3. When the freeze lifts: filesystem free space, then the FAT size sentence, then metadata scrub default-off on export copies only.
+4. Later, and not a screen: SHA-512 instructions on phones that have them, with the software hash left in place. Do not change PIM or Argon2 memory.
 
 ## Merge note
 
-Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11**; session keyfile and Create-save wipe in **0.3.12**. The transfer queue shipped in **0.3.13**. Phone idle workers shipped in **0.3.14**. Later: metadata scrub.
+Shipped in **0.3.9** on `master` after a local 10-phase Android UI walk. Freeze work shipped in **0.3.11**; session keyfile and Create-save wipe in **0.3.12**. The transfer queue shipped in **0.3.13**. Phone idle workers shipped in **0.3.14**. Stable beta **0.3.15** ships the production APK and the debug APK as separate files. Later: metadata scrub.

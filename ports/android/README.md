@@ -1,6 +1,6 @@
 # VC Port for Android
 
-Kotlin / Jetpack Compose client with:
+Kotlin / Jetpack Compose client. File roles: [docs/CODE-MAP.md](../docs/CODE-MAP.md).
 
 - VeraCrypt volume core via NDK (`shared/`)
 - Password, PIM, keyfiles, and mount options (backup header, read-only, TrueCrypt Mode, hidden-volume protection). No fingerprint extra on this branch. `experimental-biometrics` is **stale**.
@@ -17,7 +17,10 @@ FOSS production flavor (no `INTERNET` permission, no Play libraries):
 ```bash
 cd android
 ./gradlew :app:assembleFossRelease
+./gradlew :app:assembleFossDebug
 ```
+
+`assembleFossRelease` is the production build: phone ABIs, not debuggable, no native debug symbols, no Compose test manifest. `assembleFossDebug` is the separate debug build and includes the emulator ABIs.
 
 GitHub preview flavor (same app id, also offline on master):
 

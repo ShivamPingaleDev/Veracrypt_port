@@ -299,7 +299,10 @@ class Phase8CiTests(unittest.TestCase):
         self.assertIn("macos-latest", wf)
         self.assertNotIn("ports/tests/run-all.sh", wf)
         self.assertIn("assembleFossRelease", wf)
+        self.assertIn("assembleFossDebug", wf)
         self.assertIn("assembleGithubRelease", wf)
+        self.assertIn("vcport-production-apk", wf)
+        self.assertIn("vcport-debug-apk", wf)
         self.assertNotIn("assembleStyledRelease", wf)
         self.assertNotIn("assembleLooksgithubRelease", wf)
         self.assertNotIn("vcport-looks-apk", wf)
@@ -327,21 +330,21 @@ class Phase8CiTests(unittest.TestCase):
 
 
 class Phase9LegalVersionTests(unittest.TestCase):
-    def test_current_version_is_0_3_14(self) -> None:
+    def test_current_version_is_0_3_15(self) -> None:
         v = load_version()
-        self.assertEqual(v["port_version"], "0.3.14")
+        self.assertEqual(v["port_version"], "0.3.15")
         self.assertEqual(v["upstream_version"], "1.26.29")
         self.assertEqual(v["upstream_commit"], "b48e31f5b47da7d41025e3f0e02751675e15005a")
         self.assertEqual(v["upstream_git"], "https://github.com/veracrypt/VeraCrypt.git")
         self.assertEqual(v["upstream_tag"], "VeraCrypt_1.26.29")
         plist = read("ports/ios/VCPort/Info.plist")
-        self.assertIn("0.3.14", plist)
+        self.assertIn("0.3.15", plist)
         gradle = read("ports/android/app/build.gradle")
         self.assertIn("versionJson.port_version", gradle)
         self.assertIn("android_version_code", gradle)
-        self.assertEqual(v["android_version_code"], 20)
-        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/20.txt")
-        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 20")
+        self.assertEqual(v["android_version_code"], 21)
+        notes = resolve("ports/android/fastlane/metadata/android/en-US/changelogs/21.txt")
+        self.assertTrue(notes.is_file(), "missing Fastlane changelog for versionCode 21")
         notes_text = notes.read_text(encoding="utf-8").lower()
         self.assertIn("workers", notes_text)
         self.assertIn("not unbreakable", notes_text)
@@ -351,7 +354,7 @@ class Phase9LegalVersionTests(unittest.TestCase):
         hist = read("ports/HISTORY.md")
         self.assertIn("github.com/ShivamPingaleDev/Veracrypt_port/commit/", hist)
         self.assertIn("Ship VC Port 0.3.7", hist)
-        self.assertIn("beta", v["notes"].lower())
+        self.assertIn("stable beta", v["notes"].lower())
 
     def test_about_and_contact_on_every_surface(self) -> None:
         android = read("ports/android/app/src/main/res/values/strings.xml")

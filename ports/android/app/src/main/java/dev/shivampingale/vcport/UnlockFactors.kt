@@ -9,6 +9,11 @@ import java.io.FileInputStream
 import java.io.InputStream
 import java.security.SecureRandom
 
+/**
+ * One unlock attempt: password, PIM, optional biometric bytes, and keyfile
+ * URIs. Keyfile bytes are read into a cache file for native import and then
+ * wiped. FOSS does not persist this bundle.
+ */
 data class FactorBundle(
     val pim: Int = 0,
     val password: String = "",

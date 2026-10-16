@@ -1,5 +1,6 @@
 package dev.shivampingale.vcport
 
+/** KiB, MiB, and GiB for Create size fields. 1024-based. */
 enum class SizeUnit(val label: String, val factor: Long) {
     KiB("KiB", 1024L),
     MiB("MiB", 1024L * 1024L),

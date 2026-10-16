@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 
+/// System share sheet. A locked container is shared as-is, with no password.
 enum SystemShare {
     static func present(items: [Any]) {
         if VcPortTesting.shared.skipSystemPickers { return }

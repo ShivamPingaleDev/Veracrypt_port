@@ -10,6 +10,10 @@ import android.os.PersistableBundle
 import android.view.Window
 import android.view.WindowManager
 
+/**
+ * Clipboard for a generated password. Cleared after 30 seconds. Marked
+ * sensitive so the lock screen does not show it.
+ */
 object SensitiveClipboard {
     private const val CLEAR_MS = 30_000L
     private val handler = Handler(Looper.getMainLooper())

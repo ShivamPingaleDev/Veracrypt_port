@@ -1,0 +1,1 @@
+VC Port 0.3.15 stable beta: the production APK is a release build for phone ABIs only, and the debug APK is a separate download. Crypto workers still start when a volume opens. GitHub APKs stay debug-signed previews. Not unbreakable.

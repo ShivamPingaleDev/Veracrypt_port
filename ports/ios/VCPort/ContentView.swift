@@ -3,8 +3,10 @@ import UniformTypeIdentifiers
 import CryptoKit
 import UIKit
 
+/// Eight slots, this process only. Not a system drive.
 let mountSlots = 8
 
+/// One open container in this process. The handle points at the cache copy.
 struct MountedVolume: Identifiable {
     let id = UUID()
     let handle: OpaquePointer
@@ -17,6 +19,9 @@ struct MountedVolume: Identifiable {
     var readOnly: Bool = false
 }
 
+/// iOS session. The picked file is copied into app cache before native open.
+/// Home and the lock screen save mounted containers, then close them. Panic
+/// closes and does not write the cache file back.
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass

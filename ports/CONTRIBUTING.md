@@ -7,7 +7,7 @@
 3. New native code must build with the NDK from CMake. Do not commit prebuilt `.so` / `.a` blobs.
 4. Do not name the app VeraCrypt or anything confusingly similar.
 5. Report security issues as described in [SECURITY.md](../SECURITY.md). Do not add Play Integrity, obfuscation, or an open-time hidden-volume checkbox.
-6. Put Android/iOS/wrap work in `ports/`. Do not copy the VeraCrypt tree into `ports/`.
+6. Put Android/iOS/wrap work in `ports/`. Do not copy the VeraCrypt tree into `ports/`. The file map is [docs/CODE-MAP.md](docs/CODE-MAP.md). A comment states a rule the next edit can break. Do not restate the next line.
 7. Do not edit official `src/` for phones. Put replacements in `ports/overlay/src/` and run `scripts/refresh-overlay.sh`. After a VeraCrypt merge, run `scripts/check-upstream-layout.sh`. See [UPSTREAM.md](UPSTREAM.md).
 8. Run `ports/tests/run-all.sh` before a release. See [tests/TESTING.md](tests/TESTING.md). That suite does not replace a real-device volume mount.
 9. Do not open drive-by pull requests on official VeraCrypt (`veracrypt/VeraCrypt`) to burn model quota. If an overlay fix belongs upstream, send one small human-reviewed patch (the macOS `File.cpp` `sys/disk.h` include is the current candidate).

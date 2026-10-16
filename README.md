@@ -22,11 +22,11 @@ More: [SUPPORT.md](SUPPORT.md)
 
 ## Download
 
-**0.3.14** — **beta** (still testing, not a store app, not production-ready).
+**0.3.15** — **stable beta** (not 1.0, not a store app). The production APK is the release build. The debug APK is a separate file.
 
 | Phone | What to get |
 | --- | --- |
-| **Android** | [Latest release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest) — one APK (debug-signed preview) |
+| **Android** | [Latest release](https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest) — `VCPort-0.3.15.apk` is the production build. `VCPort-0.3.15-debug.apk` is the debug build. Both are debug-signed previews. |
 | **iPhone** | Same page — unsigned IPA; you install with **your Apple ID** via AltStore or SideStore |
 
 On iPhone: download IPA → open in AltStore/SideStore → sign in with your Apple ID → Trust in Settings → open VC Port.  

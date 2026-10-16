@@ -27,6 +27,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.io.File
 
+/**
+ * Create pane. Nested size is at least 2 MiB and less than half the outer
+ * volume. The new file is a normal VeraCrypt container. Saving it does not
+ * mount it; the person types the password again on Open.
+ */
 @Composable
 internal fun MainActivity.CreateVolumePane(
     busy: Boolean,

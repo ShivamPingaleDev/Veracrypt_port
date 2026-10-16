@@ -4,6 +4,12 @@
  Governed by the Apache License 2.0 the full text of which is
  contained in the file License.txt included in VeraCrypt binary and source
  code distribution packages.
+
+ Phone glue over the VeraCrypt volume core. Both apps call vc_mobile.h.
+ Containers are opened from a real cache path. This file flushes filesystem
+ metadata and drops handles. Copying the cache file back to the picked URI
+ is the UI's job, and Panic skips that copy. Workers start on open, create,
+ header tools, and benchmark, and stop when nothing is open.
 */
 
 #include "vc_mobile.h"
@@ -267,6 +273,8 @@ VcVolume *vc_open (const VcOpenOptions *options, int *error)
 
 static int fat_flush (VcVolume *volume);
 
+/* Flush metadata, drop the handle, then note the volume closed so idle
+ * workers can stop. Copy the cache file back before this. Panic does not. */
 void vc_close (VcVolume *volume)
 {
 	if (volume)
@@ -276,6 +284,8 @@ void vc_close (VcVolume *volume)
 		workers_note_closed ();
 }
 
+/* Filesystem metadata only, while the handle is still open. Does not copy
+ * the container back to the picked URI and does not close. */
 int vc_flush_volume (VcVolume *volume)
 {
 	if (!volume)
@@ -1474,6 +1484,8 @@ static int fat_remove_dirent (VcVolume *volume, FatGeom *g, uint32_t dirCluster,
 	return VC_ERR_IO;
 }
 
+/* src_path is a normal file in cache. FAT files over 4 GiB return
+ * VC_ERR_MEMORY. The caller flushes and writes the cache container back. */
 int vc_import_file (VcVolume *volume, const char *dest_dir, const char *src_path, const char *dest_name)
 {
 	int wr = fat_writable (volume);
@@ -2177,6 +2189,8 @@ static int FormatOpened (const char *path, const char *password, size_t password
 	return fatRc;
 }
 
+/* New VeraCrypt file. Empty filesystem means FAT under 4 GiB and exFAT at
+ * 4 GiB and above. hidden_size_bytes 0 means no nested volume. */
 int vc_create_volume (const VcCreateOptions *options)
 {
 	if (!options || !options->path || options->size_bytes < 2ull * 1024ull * 1024ull)

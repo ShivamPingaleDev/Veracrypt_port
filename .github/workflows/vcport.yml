@@ -82,15 +82,23 @@ jobs:
         run: |
           cd ports/tests
           python3 run_verbose.py test_phases.Phase8CiTests test_quality.PimAndSessionContractTests -v
-      - name: Build production APKs
+      - name: Build production and debug APKs
         working-directory: ports/android
-        run: ./gradlew :app:assembleFossRelease :app:assembleGithubRelease --no-daemon
+        run: ./gradlew :app:assembleFossRelease :app:assembleFossDebug :app:assembleGithubRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: vcport-apks
-          path: |
-            ports/android/app/build/outputs/apk/foss/release/*.apk
-            ports/android/app/build/outputs/apk/github/release/*.apk
+          name: vcport-production-apk
+          path: ports/android/app/build/outputs/apk/foss/release/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vcport-debug-apk
+          path: ports/android/app/build/outputs/apk/foss/debug/*.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vcport-github-apk
+          path: ports/android/app/build/outputs/apk/github/release/*.apk
           if-no-files-found: error
 
   # Parallel with android (no needs:). Unsigned IPA only — GitHub has no Apple cert.
@@ -113,5 +121,6 @@ jobs:
           path: ports/ios/build/VCPort-*-unsigned-preview.ipa
           if-no-files-found: error
 
-  # No GitHub Release APK attach. CI APKs are debug-signed previews.
+  # No GitHub Release attach from this workflow. Production and debug APKs
+  # are separate artifacts. Both are debug-signed until a release keystore is set.
   # TrueCrypt 3.0 still requires public source if a binary is ever shipped.

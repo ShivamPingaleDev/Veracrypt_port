@@ -9,6 +9,10 @@ import androidx.core.app.ShareCompat
 import androidx.core.content.FileProvider
 import java.io.File
 
+/**
+ * System share. A decrypted file is a temp the caller wipes. Share encrypted
+ * file sends the locked container as-is, with no password attached.
+ */
 object ShareHelper {
     fun authority(context: Context): String = "${context.packageName}.share"
 

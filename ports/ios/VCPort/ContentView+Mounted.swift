@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Mounted list, selection, and copy or move. One transfer queue.
 extension ContentView {
     @ViewBuilder
     var mountedVolumeForm: some View {

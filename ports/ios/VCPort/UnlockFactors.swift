@@ -1,6 +1,7 @@
 import Foundation
 import Security
 
+/// One unlock attempt. Not written to disk on the FOSS build.
 struct FactorBundle {
     var pim: Int = 0
     var password: String = ""

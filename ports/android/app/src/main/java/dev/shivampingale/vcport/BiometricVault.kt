@@ -15,6 +15,13 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+/**
+ * Optional stored unlock factors for one container path. The fingerprint
+ * releases that copy. It is not the VeraCrypt password. FOSS and the GitHub
+ * flavor set ENABLE_BIOMETRIC false, so Open does not call this. Panic must
+ * clear a saved copy if a later build turns it on. The phone PIN also
+ * satisfies the current key, because device credential is allowed.
+ */
 class BiometricVault(private val context: Context) {
     private val prefs = context.getSharedPreferences("vc_port_bio", Context.MODE_PRIVATE)
 

@@ -61,9 +61,13 @@ android {
         release {
             minifyEnabled false
             shrinkResources false
-            // Phone ABIs only. The emulator CPUs stay on the debug build.
+            debuggable false
+            jniDebuggable false
+            // Phone ABIs only. No native debug symbols. The emulator CPUs
+            // and the Compose test manifest stay on the debug build.
             ndk {
                 abiFilters 'armeabi-v7a', 'arm64-v8a'
+                debugSymbolLevel 'NONE'
             }
             // CI / GitHub preview: debug-signed until a release keystore is set.
             // Sign production yourself with VC_PORT_RELEASE_STORE_FILE.

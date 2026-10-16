@@ -1,5 +1,6 @@
 import Foundation
 
+/// One directory row from vc_list_dir. Names are inside the volume.
 struct VaultEntry: Identifiable {
     let name: String
     let isDir: Bool
@@ -9,10 +10,13 @@ struct VaultEntry: Identifiable {
     var id: String { name }
 }
 
+/// vc_mobile.h error as a Swift Error. Zero is success and is not thrown.
 struct VcStatusCode: Error {
     let rawValue: Int32
 }
 
+/// Swift to vc_mobile.h. startCpu probes AES and SHA and does not start workers.
+/// Open expects a real cache path. flush writes filesystem metadata only.
 enum VcMobileBridge {
     static func startCpu() {
         vc_runtime_prepare()

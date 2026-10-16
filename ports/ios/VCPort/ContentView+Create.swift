@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Create pane and the file basket. Originals stay outside the new volume.
 extension ContentView {
     @ViewBuilder
     var createTab: some View {

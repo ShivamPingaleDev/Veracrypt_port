@@ -116,6 +116,8 @@ class VersionMatrixTests(unittest.TestCase):
         self.assertIn("c++_static", gradle)
         release = gradle.split("buildTypes {", 1)[1].split("debug {", 1)[0]
         self.assertIn("abiFilters 'armeabi-v7a', 'arm64-v8a'", release)
+        self.assertIn("debuggable false", release)
+        self.assertIn("debugSymbolLevel 'NONE'", release)
         self.assertNotIn("x86_64", release)
         default = gradle.split("defaultConfig {", 1)[1].split("flavorDimensions", 1)[0]
         self.assertNotIn("x86", default)

@@ -1,5 +1,6 @@
 import Foundation
 
+/// Typed idle units. Zero minutes means the idle timer is off.
 enum IdleUnit: String, CaseIterable, Identifiable {
     case minutes = "min"
     case hours = "h"

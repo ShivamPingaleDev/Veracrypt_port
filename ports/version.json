@@ -1,6 +1,6 @@
 {
-  "port_version": "0.3.14",
-  "android_version_code": 20,
+  "port_version": "0.3.15",
+  "android_version_code": 21,
   "upstream_name": "VeraCrypt",
   "upstream_git": "https://github.com/veracrypt/VeraCrypt.git",
   "upstream_releases": "https://api.github.com/repos/veracrypt/VeraCrypt/releases/latest",
@@ -9,7 +9,7 @@
   "upstream_commit": "b48e31f5b47da7d41025e3f0e02751675e15005a",
   "source_repo": "https://github.com/ShivamPingaleDev/Veracrypt_port",
   "update_manifest": "https://raw.githubusercontent.com/ShivamPingaleDev/Veracrypt_port/master/ports/version.json",
-  "notes": "VC Port 0.3.14 beta: crypto workers stay idle until a volume is open, and the release build keeps only the phone ABIs. GitHub APKs are debug-signed previews for demo/testing — not production. Not unbreakable.",
+  "notes": "VC Port 0.3.15 stable beta: the production APK is a release build with phone ABIs only, and the debug APK is a separate download. GitHub APKs are debug-signed previews — not a release keystore. Not unbreakable.",
   "download_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",
   "macos_url": "",
   "android_url": "https://github.com/ShivamPingaleDev/Veracrypt_port/releases/latest",

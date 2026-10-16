@@ -38,6 +38,11 @@ enum class InAppPreviewKind {
     IMAGE, TEXT, PDF, AUDIO, VIDEO, UNSUPPORTED
 }
 
+/**
+ * View a decrypted file inside VC Port. Image, text, PDF, audio, and video.
+ * The temp is wiped when the dialog closes, on dismount, and on panic.
+ * This does not hand the file to another app.
+ */
 object InAppPreview {
     const val DIR = "preview"
     const val MAX_BYTES = 64L * 1024L * 1024L

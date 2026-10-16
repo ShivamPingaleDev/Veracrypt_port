@@ -8,6 +8,14 @@ Release notes by version. The git commit list from Veracrypt_port is in [HISTORY
 
 - [HISTORY.md](HISTORY.md) copies the Veracrypt_port git commit list so the VCPort phone tree has the same history as the full repo.
 
+## 0.3.15
+
+Stable beta. Same `applicationId` as 0.3.14; this install replaces the old one. Not 1.0, not a store build.
+
+- The production APK is the FOSS release build: phone ABIs only, not debuggable, no native debug symbols, and no Compose test manifest.
+- The debug APK is a separate file. It keeps the emulator ABIs and the test manifest.
+- GitHub Release ships `VCPort-0.3.15.apk` (production build), `VCPort-0.3.15-debug.apk`, and an unsigned iOS preview IPA (`VCPort-0.3.15-unsigned-preview.ipa`). GitHub APKs stay debug-signed previews until you set a release keystore.
+
 ## 0.3.14
 
 Beta. Same `applicationId` as 0.3.13; this install replaces the old one. Not 1.0, not a store build.

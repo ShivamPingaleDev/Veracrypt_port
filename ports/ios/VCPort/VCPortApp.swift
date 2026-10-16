@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// App entry. No network client. ContentView owns the session.
 @main
 struct VCPortApp: App {
     var body: some Scene {

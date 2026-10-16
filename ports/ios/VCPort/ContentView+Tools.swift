@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Header tools. Wipe cached passwords uses the same closer as idle and panic.
 extension ContentView {
     @ViewBuilder
     var toolsTab: some View {

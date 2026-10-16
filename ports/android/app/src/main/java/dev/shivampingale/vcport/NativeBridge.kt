@@ -1,5 +1,11 @@
 package dev.shivampingale.vcport
 
+/**
+ * JNI to libvcport. Loading the library runs startRuntime, which only probes
+ * AES and SHA. Workers start later, on open, create, header tools, and
+ * benchmark. importFile takes a cache path. flushVolume runs while the
+ * handle is still open and does not write the container back by itself.
+ */
 object NativeBridge {
     const val LIST_UI_MAX = 1024
     init {

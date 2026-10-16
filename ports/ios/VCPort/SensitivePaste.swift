@@ -1,6 +1,7 @@
 import UIKit
 import UniformTypeIdentifiers
 
+/// One-shot pasteboard write for a generated password. Local only, expiring.
 enum SensitivePaste {
     static func copyOnce(_ secret: String) {
         UIPasteboard.general.setItems(

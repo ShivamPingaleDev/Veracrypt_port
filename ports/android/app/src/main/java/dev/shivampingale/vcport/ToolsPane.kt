@@ -24,6 +24,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.io.File
 
+/**
+ * Header password change, backup, restore, keyfile, benchmark, and the PIM
+ * helper. The PIM helper is not Benchmark and not a crack-time claim.
+ * Wipe cached passwords uses the same closer as idle and panic. Panic itself
+ * does not write the cache container back.
+ */
 @Composable
 internal fun MainActivity.ToolsPane(
     busy: Boolean,
